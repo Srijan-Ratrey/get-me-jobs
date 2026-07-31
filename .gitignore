@@ -1,0 +1,21 @@
+*.db
+*.db-journal
+.cache/
+.env
+
+# Your own search config. These describe what you are looking for and which
+# employers you are targeting, so they stay local; the *.example.yaml files are
+# what ships, and `jobhunter init` copies them into place.
+companies.yaml
+profile.yaml
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+
+# Exports are generated artefacts, not source.
+*.xlsx
+*.csv
+!tests/fixtures/*.csv

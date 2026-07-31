@@ -1,0 +1,105 @@
+# Companies to watch.
+#
+# Every ats_token below was verified against the live board on 2026-07-31 — each
+# one returned 200 with at least one open posting. Tokens are not guesses; if a
+# board later 404s, `scan` reports it as a per-target failure and keeps going.
+#
+# `domain` is only used by contact discovery (Tier 1 scrapes the company's own
+# careers/about/contact pages). If one is wrong, `jobhunter contacts` will find
+# nothing for that company — correct it here rather than working around it.
+#
+# The `india_jobs` comments are the counts at verification time, as a rough guide
+# to which targets are worth keeping. Prune freely.
+
+companies:
+  # --- highest India volume ---
+  - name: Sarvam AI
+    domain: sarvam.ai
+    ats: ashby
+    ats_token: sarvam          # 63 jobs / 56 in India
+
+  - name: Meesho
+    domain: meesho.com
+    ats: lever
+    ats_token: meesho          # 49 jobs / 43 in India
+
+  - name: PhonePe
+    domain: phonepe.com
+    ats: greenhouse
+    ats_token: phonepe         # 69 jobs / 41 in India
+
+  - name: Sigmoid
+    domain: sigmoid.com
+    ats: greenhouse
+    ats_token: sigmoid         # 44 jobs / 39 in India
+
+  - name: HackerRank
+    domain: hackerrank.com
+    ats: greenhouse
+    ats_token: hackerrank      # 33 jobs / 21 in India
+
+  - name: DevRev
+    domain: devrev.ai
+    ats: greenhouse
+    ats_token: devrev          # 42 jobs / 18 in India
+
+  - name: Postman
+    domain: postman.com
+    ats: greenhouse
+    ats_token: postman         # 108 jobs / 12 in India
+
+  - name: Zeta
+    domain: zeta.tech
+    ats: lever
+    ats_token: zeta            # 24 jobs / 11 in India
+
+  - name: Groww
+    domain: groww.in
+    ats: greenhouse
+    ats_token: groww           # 11 jobs / 11 in India
+
+  - name: Turing
+    domain: turing.com
+    ats: greenhouse
+    ats_token: turing          # 27 jobs / 9 in India
+
+  - name: epiFi
+    domain: fi.money
+    ats: lever
+    ats_token: epifi           # 8 jobs / 8 in India
+
+  - name: Observe.AI
+    domain: observe.ai
+    ats: greenhouse
+    ats_token: observeai       # 18 jobs / 7 in India
+
+  - name: Mindtickle
+    domain: mindtickle.com
+    ats: lever
+    ats_token: mindtickle      # 21 jobs / 5 in India
+
+  - name: Atlan
+    domain: atlan.com
+    ats: ashby
+    ats_token: atlan           # 5 jobs / 5 in India
+
+  - name: CRED
+    domain: cred.club
+    ats: lever
+    ats_token: cred            # 4 jobs / 4 in India
+
+  - name: Slice
+    domain: sliceit.com
+    ats: greenhouse
+    ats_token: slice           # 47 jobs / 0 in India at verification time
+
+# Not reachable by this pipeline — apply through their own portals instead:
+#
+#   Google     — google.com/robots.txt disallows the careers results paths for
+#                every user-agent, so enumerating their openings is off the table.
+#   Microsoft  — apply.careers.microsoft.com does allow /careerhub/explore/jobs,
+#                but it is not on a supported ATS and needs a custom adapter.
+#
+# Both were checked on 2026-07-31. Large MNCs also hire 0-1yr candidates through
+# structured early-career programs, where a cold email does far less than it does
+# at a startup — which is where this tool's contact discovery actually helps.

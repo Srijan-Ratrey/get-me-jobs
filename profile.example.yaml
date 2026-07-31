@@ -1,0 +1,125 @@
+# What you are looking for. Drives `jobhunter score`.
+#
+# Copy this to profile.yaml and edit it — `jobhunter init` does that for you.
+# Your real profile.yaml is gitignored, so it stays on your machine.
+#
+# The values below are a worked example (a junior data/ML search in Bengaluru)
+# rather than a template of empty lists, because the shape of a filled-in file
+# is what makes the scoring rules legible. Replace them with your own.
+#
+# Every score is explainable from this file alone: the `why` column in the export
+# names which rule fired and what it was worth.
+
+profile:
+  # Matched against the job title. Partial matches count, so "Data Scientist"
+  # also hits "Data Scientist II" and "Associate Data Scientist".
+  titles:
+    - Data Scientist
+    - Machine Learning Engineer
+    - ML Engineer
+    - AI Engineer
+    - AI/ML Engineer
+    - Applied Scientist
+    - Applied ML Engineer
+    - Research Engineer
+    - Data Analyst
+    - Analytics Engineer
+    - MLOps Engineer
+    - Deep Learning Engineer
+    - NLP Engineer
+    - Computer Vision Engineer
+
+  # Deliberately short. These are treated as ALL-required, so every extra entry
+  # lowers the ceiling on every job. Put skills you merely have in nice_to_have.
+  must_have_keywords:
+    - python
+
+  # Skills and tools you actually have. Each one present adds to the score.
+  nice_to_have_keywords:
+    - machine learning
+    - deep learning
+    - pytorch
+    - tensorflow
+    - keras
+    - xgboost
+    - scikit-learn
+    - llm
+    - large language model
+    - transformers
+    - langchain
+    - fine-tuning
+    - lora
+    - prompt engineering
+    - rag
+    - nlp
+    - computer vision
+    - opencv
+    - yolo
+    - cnn
+    - gan
+    - embeddings
+    - faiss
+    - vector database
+    - recommendation
+    - collaborative filtering
+    - classifier
+    - evaluation
+    - a/b testing
+    - experimentation
+    - sql
+    - bigquery
+    - gcp
+    - vertex ai
+    - mongodb
+    - docker
+    - flask
+    - mlops
+    - data pipeline
+    - statistics
+
+  # Any of these in the JOB TITLE is a hard zero — the role is out of reach at
+  # 0-1 years, and a spreadsheet full of them is worse than a short one.
+  # Matched on whole words against the title only, never the description: plenty
+  # of good junior postings say "you'll work alongside senior engineers".
+  exclude_keywords:
+    - senior
+    - sr
+    - staff
+    - principal
+    - lead
+    - leader
+    - manager
+    - management
+    - director
+    - head
+    - vp
+    - vice president
+    - chief
+    - architect
+    - distinguished
+    - fellow
+    - ii
+    - iii
+    - iv
+
+  # A posting demanding more than this many years is a senior role wearing a
+  # neutral title, so it is also a hard zero. The scorer reads the *smallest*
+  # requirement mentioned anywhere in the description, so a posting that says
+  # "2+ years" in one place and "8+ years" in another is judged on the 2.
+  max_years_experience: 2
+
+  # "Bengaluru" and "Bangalore" are aliased by the scorer — ATS boards use both
+  # spellings, sometimes within a single response, so listing one is enough.
+  locations:
+    - Bengaluru
+    - India
+    - Remote
+  remote_only: false
+
+  # Preferred levels. An unmarked title ("Data Scientist") gets partial credit
+  # rather than zero, because most junior-appropriate roles carry no level word.
+  seniority:
+    - junior
+    - intern
+
+  min_score: 40
