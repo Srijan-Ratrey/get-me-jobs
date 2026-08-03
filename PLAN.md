@@ -11,7 +11,7 @@ These constraints shape the design; ignoring them turns the project into a liabi
 
 | Concern | Rule the system enforces |
 |---|---|
-| **Site ToS** | Only official/public ATS JSON endpoints and pages that `robots.txt` allows. No LinkedIn/Indeed scraping. |
+| **Site ToS** | Only official/public ATS JSON endpoints and pages that `robots.txt` allows. No LinkedIn/Indeed scraping. SmartRecruiters turned out to fail this test — its API is LinkedInBot-only — so it is not implemented. |
 | **Rate limits** | Per-host token bucket (default 1 req/sec), exponential backoff on 429/5xx, on-disk response cache. Identifiable User-Agent with a contact URL. |
 | **GDPR / personal data** | Prefer **role** addresses (`careers@`, `jobs@`, `talent@`). Named-person emails are stored with `source_url` provenance, a `confidence` score, and a `suppressed` flag. A `purge` command deletes any contact on request. |
 | **CAN-SPAM / PECR** | Outreach is *drafted*, never auto-sent. Every draft is 1:1, job-specific, identifies you, and includes an opt-out line. No bulk blasts. |
@@ -46,7 +46,7 @@ not a lead-gen scraper. That distinction is what keeps it legal and what makes t
                        ┌────────────────────────────┐
   companies.yaml  ───► │  Source adapters           │
   (ATS tokens,         │  greenhouse lever ashby    │
-   careers URLs)       │  workable smartrecruiters  │
+   careers URLs)       │  workable                  │
                        │  careers_page (generic)    │
                        └──────────────┬─────────────┘
                                       │ RawJob
@@ -135,7 +135,7 @@ between a tool you can act on and a spreadsheet of bounces.
 
 ## 6. Roadmap
 
-**Phase 1 — Core pipeline (this session's scaffold)**
+**Phase 1 — Core pipeline — DONE**
 ATS adapters, careers-page crawler, normalizer/deduper, SQLite store, contact finder with
 verification, profile scorer, CSV/XLSX export, CLI.
 

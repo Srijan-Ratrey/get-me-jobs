@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      # The suite blocks sockets, DNS and SMTP in conftest.py, so this run also
+      # serves as an independent check that no test has started depending on the
+      # network: CI has no fixtures cached and no .env to fall back on.
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Check the CLI loads
+        run: uv run jobhunter --help
+
+      # `init` on a clean checkout is the one thing whose failure is silent, and
+      # it broke once already by copying companies.yaml onto itself.
+      - name: Check a clean checkout bootstraps
+        run: |
+          uv run jobhunter init
+          test -f companies.yaml || { echo "init did not write companies.yaml"; exit 1; }
+          test -f profile.yaml   || { echo "init did not write profile.yaml"; exit 1; }

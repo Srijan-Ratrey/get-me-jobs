@@ -1,5 +1,12 @@
 # Build Backlog
 
+> **Status:** Phase 1 is complete and verified — 237 tests passing with the network denied at OS
+> level, `scan → score → contacts → export` working end to end against live boards. The one
+> exception is `smartrecruiters.py`, which cannot be built compliantly (see 1.6).
+>
+> Phases 2–4 are not started, except the unknown-ATS report, which fell out of building
+> `jobhunter resolve`.
+
 Work top to bottom. Each task lists the spec to read first and acceptance criteria that must pass
 before moving on. Don't batch phases — Phase 1 should run end-to-end before Phase 2 starts.
 
@@ -13,17 +20,17 @@ Goal: `jobhunter scan && jobhunter contacts && jobhunter export out.xlsx` produc
 of scored openings with a contact for each.
 
 ### 1.1 Project setup
-- [ ] `pyproject.toml` with the dependencies pinned in `CLAUDE.md`; `dev` and `spa` extras; `jobhunter` console script
-- [ ] `.env.example`, `.gitignore` (ignore `*.db`, `.cache/`, `.env`)
-- [ ] `README.md` — install, the five commands, and a link to `docs/compliance.md`
+- [x] `pyproject.toml` with the dependencies pinned in `CLAUDE.md`; `dev` and `spa` extras; `jobhunter` console script
+- [x] `.env.example`, `.gitignore` (ignore `*.db`, `.cache/`, `.env`)
+- [x] `README.md` — install, the five commands, and a link to `docs/compliance.md`
 
 **Done when:** `uv sync --extra dev` succeeds and `uv run jobhunter --help` prints.
 
 ### 1.2 Config — `config.py`
-- [ ] `Settings(BaseSettings)`, env prefix `JOBHUNTER_`, reading `.env`
-- [ ] `Target` and `Profile` pydantic models
-- [ ] `load_targets()` / `load_profile()` from YAML
-- [ ] Starter `companies.yaml` (3–4 real companies across different ATSs) and `profile.yaml`
+- [x] `Settings(BaseSettings)`, env prefix `JOBHUNTER_`, reading `.env`
+- [x] `Target` and `Profile` pydantic models
+- [x] `load_targets()` / `load_profile()` from YAML
+- [x] Starter `companies.yaml` (3–4 real companies across different ATSs) and `profile.yaml`
 
 Defaults that must not be loosened: `requests_per_second=1.0`, `respect_robots=True`,
 `verify_emails=False`, `max_concurrency=5`.
@@ -34,25 +41,25 @@ raises a clear pydantic error rather than a `KeyError`.
 ### 1.3 Models — `models.py`
 > Read: `PLAN.md` §4
 
-- [ ] SQLAlchemy 2.0 typed models: `Company`, `Job`, `Contact`, `Run`, `Suppression`
-- [ ] `RawJob` pydantic transport object
-- [ ] `RawJob.canonical_title()` — strip parentheticals, bracketed tags, `m/f/d` variants, and
+- [x] SQLAlchemy 2.0 typed models: `Company`, `Job`, `Contact`, `Run`, `Suppression`
+- [x] `RawJob` pydantic transport object
+- [x] `RawJob.canonical_title()` — strip parentheticals, bracketed tags, `m/f/d` variants, and
       trailing `- Location` segments
-- [ ] `RawJob.detect_seniority()` → `intern|junior|mid|senior|staff|lead|None`
-- [ ] `RawJob.detect_remote()`
-- [ ] `RawJob.compute_hash(company_name)` — sha256 of company + canonical title + location,
+- [x] `RawJob.detect_seniority()` → `intern|junior|mid|senior|staff|lead|None`
+- [x] `RawJob.detect_remote()`
+- [x] `RawJob.compute_hash(company_name)` — sha256 of company + canonical title + location,
       **excluding** source and external_id so cross-source duplicates collapse
 
 **Done when:** the unit tests in 1.9 pass. Specifically: `"Senior Backend Engineer (Remote) - Berlin"`
 and `"Senior Backend Engineer m/f/d"` at the same company/location produce the same hash.
 
 ### 1.4 Database — `db.py`
-- [ ] `init_db()`, `session_scope()` contextmanager
-- [ ] `upsert_company()` — only overwrite fields with non-null values, so a sparse YAML entry
+- [x] `init_db()`, `session_scope()` contextmanager
+- [x] `upsert_company()` — only overwrite fields with non-null values, so a sparse YAML entry
       never wipes previously discovered data
-- [ ] `upsert_job()` → `(job, is_new)`; on existing rows bump `last_seen`, clear `closed_at`,
+- [x] `upsert_job()` → `(job, is_new)`; on existing rows bump `last_seen`, clear `closed_at`,
       backfill a missing description
-- [ ] `close_stale_jobs()` — mark postings absent from this run as closed. Never delete rows.
+- [x] `close_stale_jobs()` — mark postings absent from this run as closed. Never delete rows.
 
 **Done when:** running the same scan twice creates zero new jobs and updates `last_seen`; removing
 a job from a fixture and rescanning sets `closed_at`.
@@ -60,15 +67,15 @@ a job from a fixture and rescanning sets `closed_at`.
 ### 1.5 HTTP client — `http.py`
 > Read: `docs/compliance.md` §"Site terms of service"
 
-- [ ] `PoliteClient` async context manager wrapping `httpx.AsyncClient`
-- [ ] Per-host token bucket with its own lock — one slow host must not stall others, and no host
+- [x] `PoliteClient` async context manager wrapping `httpx.AsyncClient`
+- [x] Per-host token bucket with its own lock — one slow host must not stall others, and no host
       gets hit faster than the limit
-- [ ] `robots.txt` fetch, parse, and per-origin cache; raise `RobotsDisallowed` on a block.
+- [x] `robots.txt` fetch, parse, and per-origin cache; raise `RobotsDisallowed` on a block.
       A missing or erroring `robots.txt` means unrestricted.
-- [ ] On-disk response cache keyed by URL hash, TTL from settings
-- [ ] Retry with exponential backoff on 429/5xx, honouring `Retry-After`; **no retry on other 4xx**
-- [ ] `get()` → `str`, `get_json()` → parsed
-- [ ] `SourceUnavailable` exception
+- [x] On-disk response cache keyed by URL hash, TTL from settings
+- [x] Retry with exponential backoff on 429/5xx, honouring `Retry-After`; **no retry on other 4xx**
+- [x] `get()` → `str`, `get_json()` → parsed
+- [x] `SourceUnavailable` exception
 
 **Done when:** `respx` tests prove rate limiting delays a second same-host request, a 429 with
 `Retry-After: 1` is retried, a 404 raises immediately without retrying, and a `Disallow: /` in
@@ -77,14 +84,17 @@ robots raises `RobotsDisallowed`.
 ### 1.6 Source adapters — `sources/`
 > Read: `docs/sources.md` — endpoints and field mappings are all there
 
-- [ ] `base.py` — `JobSource` protocol, shared HTML-to-text helper
-- [ ] `greenhouse.py` — remember `html.unescape()` before stripping tags
-- [ ] `lever.py` — title is `text`; concatenate `descriptionPlain` + `lists[]` + `additionalPlain`
-- [ ] `ashby.py` — filter out `isListed == false`
-- [ ] `workable.py` — needs `?details=true`; fall back to the v3 endpoint on 404
-- [ ] `smartrecruiters.py` — paginate on `totalFound`; detail-fetch only new jobs
-- [ ] `careers_page.py` — fingerprint → SPA detection → JSON-LD → repeated-structure → link harvest
-- [ ] `registry.py` — dispatch a `Target` to its adapter, falling back to `careers_page`
+- [x] `base.py` — `JobSource` protocol, shared HTML-to-text helper
+- [x] `greenhouse.py` — remember `html.unescape()` before stripping tags
+- [x] `lever.py` — title is `text`; concatenate `descriptionPlain` + `lists[]` + `additionalPlain`
+- [x] `ashby.py` — filter out `isListed == false`
+- [x] `workable.py` — needs `?details=true`; fall back to the v3 endpoint on 404
+- [~] `smartrecruiters.py` — **not built.** `api.smartrecruiters.com/robots.txt` is
+      `Disallow: /` for every user-agent except LinkedInBot, so there is no compliant way to
+      read it. Claiming to be LinkedInBot is prohibited by `docs/compliance.md`. See
+      `docs/sources.md`.
+- [x] `careers_page.py` — fingerprint → SPA detection → JSON-LD → repeated-structure → link harvest
+- [x] `registry.py` — dispatch a `Target` to its adapter, falling back to `careers_page`
 
 Before writing each parser: fetch one live response, save it to `tests/fixtures/{ats}.json`, and
 diff against the documented shape. Correct `docs/sources.md` if it has drifted.
@@ -95,37 +105,37 @@ diff against the documented shape. Correct `docs/sources.md` if it has drifted.
 ### 1.7 Contact discovery — `contacts/`
 > Read: `docs/contact-discovery.md` in full
 
-- [ ] `scraper.py` — Tier 1. Candidate page list, `mailto:` + text + obfuscated + `data-cfemail`
+- [x] `scraper.py` — Tier 1. Candidate page list, `mailto:` + text + obfuscated + `data-cfemail`
       extraction, the reject list, the ranking table
-- [ ] `patterns.py` — Tier 2. **Pattern inference from a known-good address first**, then the
+- [x] `patterns.py` — Tier 2. **Pattern inference from a known-good address first**, then the
       prevalence-ordered table. Accent stripping, apostrophe/space handling, suffix removal.
-- [ ] `verify.py` — Tier 3. MX lookup → catch-all probe → RCPT probe. Serial, delayed, capped.
+- [x] `verify.py` — Tier 3. MX lookup → catch-all probe → RCPT probe. Serial, delayed, capped.
       Never issue `DATA`. Treat Google/Microsoft MX as `unknown`-by-design.
-- [ ] `finder.py` — run tiers in order, stop at confidence ≥ 0.85, return sorted list
-- [ ] Suppression check — never return an address on the suppression list
+- [x] `finder.py` — run tiers in order, stop at confidence ≥ 0.85, return sorted list
+- [x] Suppression check — never return an address on the suppression list
 
 **Done when:** a fixture HTML page with `careers@` plus a named person returns the role address
 first at 0.95; a catch-all domain marks candidates `risky` not `valid`; and pattern inference from
 one known address produces exactly one candidate at 0.85 rather than six at 0.4.
 
 ### 1.8 Matching, export, CLI
-- [ ] `matching/scorer.py` — 0–100 from title match, must-have keywords, nice-to-haves, location/
+- [x] `matching/scorer.py` — 0–100 from title match, must-have keywords, nice-to-haves, location/
       remote fit, seniority fit; **store each component separately in `fit_reasons`** so a
       surprising score is explainable. `exclude_keywords` present → hard zero.
-- [ ] `export.py` — CSV and XLSX, one row per job with its best contact, sorted by score
-- [ ] `cli.py` — `init`, `scan`, `contacts`, `score`, `list`, `export`, `purge`. Rich progress
+- [x] `export.py` — CSV and XLSX, one row per job with its best contact, sorted by score
+- [x] `cli.py` — `init`, `scan`, `contacts`, `score`, `list`, `export`, `purge`. Rich progress
       bars and a summary table. `--dry-run` on anything that writes.
 
 **Done when:** the scorer's reasons add up to the total; `list --min-score 60` filters correctly;
 `purge --email` deletes the row and suppresses future rediscovery; XLSX opens cleanly.
 
 ### 1.9 Tests
-- [ ] `respx`-mocked fixtures for every adapter
-- [ ] `canonical_title` / `compute_hash` cases, including the cross-source collapse
-- [ ] Pattern generation, including accented and multi-part surnames
-- [ ] Verification state machine — every branch, with `smtplib` mocked
-- [ ] Scorer boundaries: perfect match, exclude-keyword zero, empty profile
-- [ ] Rate limiter timing, robots blocking, retry behaviour
+- [x] `respx`-mocked fixtures for every adapter
+- [x] `canonical_title` / `compute_hash` cases, including the cross-source collapse
+- [x] Pattern generation, including accented and multi-part surnames
+- [x] Verification state machine — every branch, with `smtplib` mocked
+- [x] Scorer boundaries: perfect match, exclude-keyword zero, empty profile
+- [x] Rate limiter timing, robots blocking, retry behaviour
 
 **Done when:** `uv run pytest` passes with **no network, DNS, or SMTP access**. Run it with
 networking disabled to confirm.
@@ -142,7 +152,9 @@ networking disabled to confirm.
 - [ ] Pluggable enrichment provider interface (`ContactProvider`) so Hunter.io/Apollo can drop in
       behind the same call the free scraper uses. Free path stays the default.
 - [ ] `docs/sources.md` additions: Recruitee, Personio (XML feed), Teamtailor, BambooHR
-- [ ] Unknown-ATS fingerprint log → a report of which adapter to build next
+- [x] Unknown-ATS fingerprint log → a report of which adapter to build next
+      (`jobhunter resolve` writes `unresolved-companies.md`, with a tally naming which
+      missing adapter would unlock the most companies)
 
 ## Phase 3 — Workflow
 

@@ -103,15 +103,20 @@ user's IP blocklisted. See `docs/compliance.md`.
 
 ```bash
 uv sync --extra dev              # install
-uv run jobhunter init            # create DB + starter companies.yaml/profile.yaml
+uv run jobhunter init            # create DB + companies.yaml/profile.yaml from the examples
+uv run jobhunter resolve --from list.csv   # discover each company's ATS from its careers page
 uv run jobhunter scan            # fetch jobs from all targets
-uv run jobhunter contacts        # resolve contacts for companies with open jobs
 uv run jobhunter score           # rescore jobs against profile.yaml
-uv run jobhunter list --min-score 60
-uv run jobhunter export out.xlsx
+uv run jobhunter contacts        # resolve contacts for companies with open jobs
+uv run jobhunter list --min-score 55 --since last-scan --why
+uv run jobhunter export out.xlsx --posted-within 30d
+uv run jobhunter stats           # what is in the database
 uv run jobhunter purge --email x@y.com   # GDPR erasure
 uv run pytest                    # tests must pass offline
 ```
+
+`--dry-run` on anything that writes. `list`/`export` take `--since` (first seen) and
+`--posted-within` (published), each accepting `7d` / `24h` / `2w` / a date / `last-scan`.
 
 ## Testing
 
