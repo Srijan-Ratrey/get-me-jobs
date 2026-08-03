@@ -483,3 +483,23 @@ async def test_target_with_neither_ats_nor_careers_url(polite_client):
     async with polite_client() as client:
         with pytest.raises(SourceUnavailable, match="careers_url"):
             await fetch_target(client, Target(name="Bare"))
+
+
+@pytest.mark.parametrize(
+    "html,expected_token",
+    [
+        # Vendor boilerplate must not be mistaken for a board token.
+        ('<a href="https://www.workable.com/">Powered by Workable</a>', None),
+        ('<footer>www.workable.com</footer><a href="https://apply.workable.com/acme/">Jobs</a>', "acme"),
+        ('<a href="https://acme.workable.com/j/1">Apply</a>', "acme"),
+        # Greenhouse regional hosts are still Greenhouse.
+        ('<a href="https://eu.greenhouse.io/acme">Roles</a>', "acme"),
+        ('<a href="https://boards.greenhouse.io/acme">Roles</a>', "acme"),
+        ('<a href="https://boards.greenhouse.io/embed/job_board?for=acme">Roles</a>', "acme"),
+    ],
+)
+def test_fingerprint_token_extraction_rejects_boilerplate(html, expected_token):
+    """A "www" token would be written to companies.yaml and 404 on every scan."""
+    detected = careers_page.fingerprint(html)
+    assert detected is not None
+    assert detected.token == expected_token

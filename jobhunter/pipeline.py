@@ -6,11 +6,15 @@ never a reason to abandon the other targets.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable
+
+import httpx
 
 from . import db
 from .config import Profile, Target, settings
@@ -60,6 +64,132 @@ def resolve_since(value: str | None) -> datetime | None:
             f"cannot parse {value!r}; use a duration (7d, 24h, 2w), 'last-scan', or a date"
         ) from exc
     return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+@dataclass
+class ResolveOutcome:
+    """What fingerprinting one company's careers page turned up."""
+
+    target: Target
+    bucket: str  # resolved | unsupported | no_fingerprint | unreachable
+    ats: str | None = None
+    token: str | None = None
+    detail: str = ""
+
+
+@dataclass
+class ResolveResult:
+    resolved: list[ResolveOutcome] = field(default_factory=list)
+    unsupported: list[ResolveOutcome] = field(default_factory=list)
+    no_fingerprint: list[ResolveOutcome] = field(default_factory=list)
+    unreachable: list[ResolveOutcome] = field(default_factory=list)
+    added: int = 0
+
+    @property
+    def misses(self) -> list[ResolveOutcome]:
+        return self.unsupported + self.no_fingerprint + self.unreachable
+
+    def by_ats(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for outcome in self.resolved:
+            counts[outcome.ats or "?"] = counts.get(outcome.ats or "?", 0) + 1
+        return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+
+    def unsupported_by_ats(self) -> dict[str, int]:
+        """Which missing adapter would unlock the most companies."""
+        counts: dict[str, int] = {}
+        for outcome in self.unsupported:
+            counts[outcome.ats or "?"] = counts.get(outcome.ats or "?", 0) + 1
+        return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+
+
+async def run_resolve(
+    targets: list[Target],
+    *,
+    companies_path: str | Path = "companies.yaml",
+    dry_run: bool = False,
+    on_progress: Progress = _noop,
+) -> ResolveResult:
+    """Fingerprint each company's careers page and record its ATS + board token.
+
+    Done once and written into companies.yaml, rather than left for `scan` to
+    rediscover: re-fetching every careers page on every run would be slow and
+    would hammer a hundred unrelated sites to learn something that rarely changes.
+    """
+    from .sources.careers_page import fingerprint
+
+    result = ResolveResult()
+
+    async def resolve_one(client: PoliteClient, target: Target) -> ResolveOutcome:
+        if not target.careers_url:
+            return ResolveOutcome(target, "unreachable", detail="no careers_url")
+        try:
+            html = await client.get(target.careers_url)
+        except RobotsDisallowed:
+            return ResolveOutcome(target, "unreachable", detail="robots.txt disallows the page")
+        except httpx.HTTPStatusError as exc:
+            return ResolveOutcome(
+                target, "unreachable", detail=f"HTTP {exc.response.status_code}"
+            )
+        except httpx.HTTPError as exc:
+            return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
+        except Exception as exc:  # noqa: BLE001 - one bad page must not end the run
+            log.exception("%s: unexpected failure fetching careers page", target.name)
+            return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
+
+        detected = fingerprint(html)
+        if detected is None:
+            return ResolveOutcome(
+                target, "no_fingerprint", detail="no ATS marker in the HTML (likely JS-rendered)"
+            )
+        if not detected.supported:
+            return ResolveOutcome(
+                target,
+                "unsupported",
+                ats=detected.ats,
+                detail=f"uses {detected.ats}, no adapter (matched {detected.marker!r})",
+            )
+        if not detected.token:
+            # Recognised the ATS but could not extract a board token, so there is
+            # nothing to write. Reported rather than guessed at.
+            return ResolveOutcome(
+                target,
+                "no_fingerprint",
+                ats=detected.ats,
+                detail=f"{detected.ats} detected but no board token in the HTML",
+            )
+        return ResolveOutcome(
+            target, "resolved", ats=detected.ats, token=detected.token, detail=detected.marker
+        )
+
+    async with PoliteClient() as client:
+
+        async def tracked(target: Target) -> ResolveOutcome:
+            outcome = await resolve_one(client, target)
+            on_progress(target.name)
+            return outcome
+
+        # All ~100 hosts differ, so the per-host buckets do not serialise these;
+        # PoliteClient's semaphore is what caps concurrency.
+        outcomes = await asyncio.gather(*(tracked(t) for t in targets))
+
+    for outcome in outcomes:
+        getattr(result, outcome.bucket).append(outcome)
+
+    if result.resolved and not dry_run:
+        from .config import append_targets
+
+        enriched = [
+            o.target.model_copy(update={"ats": o.ats, "ats_token": o.token})
+            for o in result.resolved
+        ]
+        result.added = append_targets(
+            companies_path,
+            enriched,
+            note=f"resolved by `jobhunter resolve` ({len(enriched)} fingerprinted)",
+        )
+
+    return result
 
 
 @dataclass

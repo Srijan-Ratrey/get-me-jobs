@@ -50,6 +50,8 @@ _MARKERS: list[tuple[str, str, bool]] = [
     ("job-boards.greenhouse.io", "greenhouse", True),
     ("boards.greenhouse.io", "greenhouse", True),
     ("grnhse", "greenhouse", True),
+    # Regional and bare hosts, tested last so the specific ones report first.
+    ("greenhouse.io", "greenhouse", True),
     ("jobs.lever.co", "lever", True),
     ("jobs.ashbyhq.com", "ashby", True),
     ("apply.workable.com", "workable", True),
@@ -70,12 +72,45 @@ _MARKERS: list[tuple[str, str, bool]] = [
     ("freshteam.com", "freshteam", False),
 ]
 
-_TOKEN_PATTERNS = {
-    "greenhouse": re.compile(r"(?:job-)?boards\.greenhouse\.io/(?:embed/job_board\?for=)?([\w-]+)"),
-    "lever": re.compile(r"jobs\.lever\.co/([\w-]+)"),
-    "ashby": re.compile(r"jobs\.ashbyhq\.com/([\w-]+)"),
-    "workable": re.compile(r"apply\.workable\.com/([\w-]+)|([\w-]+)\.workable\.com"),
+# Ordered per ATS: the specific board hosts are tried before the looser
+# fallbacks, so a real board link always wins over a vendor mention elsewhere
+# on the page.
+_TOKEN_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "greenhouse": (
+        re.compile(r"(?:job-)?boards\.greenhouse\.io/(?:embed/job_board\?for=)?([\w-]+)"),
+        # Regional hosts such as eu.greenhouse.io are still Greenhouse boards.
+        re.compile(r"(?:[\w-]+\.)?greenhouse\.io/(?:embed/job_board\?for=)?([\w-]+)"),
+    ),
+    "lever": (re.compile(r"jobs\.lever\.co/([\w-]+)"),),
+    "ashby": (re.compile(r"jobs\.ashbyhq\.com/([\w-]+)"),),
+    "workable": (
+        re.compile(r"apply\.workable\.com/([\w-]+)"),
+        re.compile(r"([\w-]+)\.workable\.com"),
+    ),
 }
+
+# Never a board token: either an ATS vendor's own subdomain or a page on their
+# marketing site. Without this, `www.workable.com` in a footer yields the token
+# "www", which gets written to companies.yaml and 404s on every future scan.
+_NOT_TOKENS = frozenset(
+    """www apply jobs job careers career boards board job-boards help support docs blog
+    status about pricing customers product products demo resources login signup partners
+    company legal privacy terms security en eu us uk in api app cdn assets static""".split()
+)
+
+
+def _extract_token(ats: str, html: str) -> str | None:
+    """Pull the board token out of an ATS link, ignoring vendor boilerplate.
+
+    Every occurrence is considered, not just the first: pages routinely mention
+    the ATS vendor ("Powered by Workable") before linking to the actual board.
+    """
+    for pattern in _TOKEN_PATTERNS.get(ats, ()):
+        for match in pattern.finditer(html):
+            candidate = next((group for group in match.groups() if group), None)
+            if candidate and candidate.lower() not in _NOT_TOKENS:
+                return candidate
+    return None
 
 
 def fingerprint(html: str) -> Fingerprint | None:
@@ -84,10 +119,7 @@ def fingerprint(html: str) -> Fingerprint | None:
     for marker, ats, supported in _MARKERS:
         if marker not in lowered:
             continue
-        token = None
-        if pattern := _TOKEN_PATTERNS.get(ats):
-            if match := pattern.search(html):
-                token = next((g for g in match.groups() if g), None)
+        token = _extract_token(ats, html)
         return Fingerprint(ats=ats, token=token, supported=supported, marker=marker)
     return None
 
