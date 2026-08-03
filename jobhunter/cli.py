@@ -84,6 +84,11 @@ def resolve(
     ),
     companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML to append to."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report only, write nothing."),
+    probe_slugs: bool = typer.Option(
+        True,
+        "--probe-slugs/--no-probe-slugs",
+        help="When a careers URL fails, ask the ATSs directly whether they host that company.",
+    ),
 ) -> None:
     """Fingerprint companies' careers pages to discover their ATS and board token."""
     if not from_csv.exists():
@@ -125,7 +130,11 @@ def resolve(
 
         result = asyncio.run(
             pipeline.run_resolve(
-                todo, companies_path=companies, dry_run=dry_run, on_progress=tick
+                todo,
+                companies_path=companies,
+                dry_run=dry_run,
+                probe_slugs=probe_slugs,
+                on_progress=tick,
             )
         )
 

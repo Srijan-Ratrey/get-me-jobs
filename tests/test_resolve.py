@@ -344,3 +344,161 @@ def test_append_refuses_an_inline_list_rather_than_corrupting_it(tmp_path):
         append_targets(path, [Target(name="New", ats="lever", ats_token="new")])
     # Left exactly as it was.
     assert path.read_text() == original
+
+
+# --------------------------------------------------------------------------- #
+# Slug probing: the fallback for a careers URL that does not load
+# --------------------------------------------------------------------------- #
+
+
+def test_candidate_slugs_prefers_the_domain_label():
+    """"inmobi.com" -> "inmobi" is the real token; the squashed name rarely is."""
+    from jobhunter.config import Target
+    from jobhunter.pipeline import candidate_slugs
+
+    assert candidate_slugs(Target(name="InMobi", domain="inmobi.com"))[0] == "inmobi"
+    slugs = candidate_slugs(
+        Target(name="Bosch Global Software Technologies", domain="bosch-softwaretechnologies.com")
+    )
+    assert slugs[0] == "bosch-softwaretechnologies"
+    # No domain: fall back to the name, squashed and hyphenated.
+    assert candidate_slugs(Target(name="Wint Wealth"), limit=3) == ["wintwealth", "wint-wealth"]
+    assert candidate_slugs(Target(name="Acme", domain="www")) == ["acme"]
+
+
+@respx.mock
+async def test_unreachable_is_recovered_by_probing_the_ats(tmp_path, allow_robots, fixture_text):
+    """A dead careers link says nothing about whether the board exists."""
+    from jobhunter.config import Target
+
+    allow_robots("https://inmobi.com", "https://boards-api.greenhouse.io")
+    respx.get("https://inmobi.com/company/openings").respond(404)
+    respx.get(
+        "https://boards-api.greenhouse.io/v1/boards/inmobi/jobs?content=true"
+    ).respond(200, text=fixture_text("greenhouse.json"))
+    # Every other ATS is asked and says no.
+    respx.get(url__startswith="https://api.lever.co").respond(404)
+    respx.get(url__startswith="https://api.ashbyhq.com").respond(404)
+    respx.get(url__startswith="https://apply.workable.com").respond(404)
+    allow_robots("https://api.lever.co", "https://api.ashbyhq.com", "https://apply.workable.com")
+
+    companies = tmp_path / "companies.yaml"
+    companies.write_text("companies:\n")
+    result = await run_resolve(
+        [Target(name="InMobi", domain="inmobi.com", careers_url="https://inmobi.com/company/openings")],
+        companies_path=companies,
+        dry_run=False,
+    )
+
+    assert result.unreachable == []
+    assert [o.target.name for o in result.resolved] == ["InMobi"]
+    assert (result.resolved[0].ats, result.resolved[0].token) == ("greenhouse", "inmobi")
+    assert "found greenhouse/inmobi by probe" in result.resolved[0].detail
+    assert [(t.name, t.ats_token) for t in load_targets(companies)] == [("InMobi", "inmobi")]
+
+
+@respx.mock
+async def test_probing_can_be_turned_off(tmp_path, allow_robots):
+    from jobhunter.config import Target
+
+    allow_robots("https://acme.com")
+    respx.get("https://acme.com/careers").respond(404)
+    board = respx.get(url__startswith="https://boards-api.greenhouse.io")
+
+    result = await run_resolve(
+        [Target(name="Acme", domain="acme.com", careers_url="https://acme.com/careers")],
+        companies_path=tmp_path / "companies.yaml",
+        dry_run=True,
+        probe_slugs=False,
+    )
+    assert [o.target.name for o in result.unreachable] == ["Acme"]
+    assert board.call_count == 0
+
+
+@respx.mock
+async def test_probe_that_finds_nothing_leaves_it_unreachable(tmp_path, allow_robots):
+    from jobhunter.config import Target
+
+    for origin in ("https://acme.com", "https://boards-api.greenhouse.io", "https://api.lever.co",
+                   "https://api.ashbyhq.com", "https://apply.workable.com"):
+        allow_robots(origin)
+    respx.get("https://acme.com/careers").respond(404)
+    respx.route(
+        host__in=("boards-api.greenhouse.io", "api.lever.co", "api.ashbyhq.com", "apply.workable.com")
+    ).respond(404)
+
+    result = await run_resolve(
+        [Target(name="Acme", domain="acme.com", careers_url="https://acme.com/careers")],
+        companies_path=tmp_path / "companies.yaml",
+        dry_run=True,
+    )
+    assert [o.target.name for o in result.unreachable] == ["Acme"]
+    assert result.resolved == []
+
+
+@respx.mock
+async def test_probe_ignores_a_board_that_exists_but_is_empty(tmp_path, allow_robots):
+    """An account with zero postings is not a useful target."""
+    from jobhunter.config import Target
+
+    for origin in ("https://acme.com", "https://boards-api.greenhouse.io", "https://api.lever.co",
+                   "https://api.ashbyhq.com", "https://apply.workable.com"):
+        allow_robots(origin)
+    respx.get("https://acme.com/careers").respond(404)
+    respx.get(url__startswith="https://boards-api.greenhouse.io").respond(200, json={"jobs": []})
+    respx.route(host__in=("api.lever.co", "api.ashbyhq.com", "apply.workable.com")).respond(404)
+
+    result = await run_resolve(
+        [Target(name="Acme", domain="acme.com", careers_url="https://acme.com/careers")],
+        companies_path=tmp_path / "companies.yaml",
+        dry_run=True,
+    )
+    assert [o.target.name for o in result.unreachable] == ["Acme"]
+
+
+def test_load_targets_tolerates_an_empty_companies_key(tmp_path):
+    """`companies:` with nothing under it parses to None, not []."""
+    path = tmp_path / "companies.yaml"
+    for text in ("companies:\n", "companies:\n\n", "", "# only a comment\n"):
+        path.write_text(text)
+        assert load_targets(path) == []
+
+
+def test_candidate_slugs_never_emits_a_functional_subdomain():
+    """`careers.ansys.com` must give "ansys", never "careers".
+
+    Regression test for a live false positive: probing the slug "careers" hit a
+    real, unrelated Workable account of that name, and three companies were
+    assigned a stranger's job board.
+    """
+    from jobhunter.config import Target
+    from jobhunter.pipeline import candidate_slugs
+
+    for domain, expected in [
+        ("careers.ansys.com", "ansys"),
+        ("careers.atherenergy.com", "atherenergy"),
+        ("careers.persistent.com", "persistent"),
+        ("jobs.acme.com", "acme"),
+        ("apply.acme.io", "acme"),
+        ("www.acme.com", "acme"),
+    ]:
+        slugs = candidate_slugs(Target(name="Ignored Name", domain=domain))
+        assert slugs[0] == expected, f"{domain} -> {slugs}"
+        assert "careers" not in slugs and "jobs" not in slugs and "www" not in slugs
+
+
+def test_candidate_slugs_drops_generic_and_tiny_guesses():
+    from jobhunter.config import Target
+    from jobhunter.pipeline import candidate_slugs
+
+    # A company literally named "Careers" yields nothing rather than a slug that
+    # would collide with an unrelated board.
+    assert candidate_slugs(Target(name="Careers", domain="careers.example.com")) == ["example"]
+    # Two-character guesses are too collision-prone to probe.
+    assert candidate_slugs(Target(name="Hi", domain="hi.com")) == []
+
+
+def test_aggregator_hosts_are_not_company_domains():
+    """A Wellfound profile is not the employer's site."""
+    assert domain_from_url("https://wellfound.com/company/clarisights/jobs") is None
+    assert domain_from_url("https://cashfree.hire.trakstar.com/") is None

@@ -82,7 +82,9 @@ class Profile(BaseModel):
 
 def load_targets(path: str | Path) -> list[Target]:
     data = yaml.safe_load(Path(path).read_text()) or {}
-    return [Target(**t) for t in data.get("companies", [])]
+    # `companies:` with nothing under it parses to None rather than [], and a
+    # bare key is an easy state to leave the file in by hand.
+    return [Target(**t) for t in (data.get("companies") or [])]
 
 
 def load_profile(path: str | Path) -> Profile:
@@ -124,6 +126,9 @@ ATS_HOSTS = (
     "myworkdayjobs.com", "workday.com", "keka.com", "darwinbox.in", "darwinbox.com",
     "zohorecruit.com", "freshteam.com", "icims.com", "successfactors.com", "jobvite.com",
     "recruiterbox.com", "turbohire.co", "instahyre.com", "hirist.com",
+    # Aggregators and marketplaces: also not the employer, and scraping them for
+    # a company's hiring address finds the aggregator's own contact details.
+    "wellfound.com", "angel.co", "ycombinator.com", "trakstar.com", "lever.co",
 )
 
 

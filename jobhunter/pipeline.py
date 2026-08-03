@@ -103,11 +103,74 @@ class ResolveResult:
         return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
 
 
+# Subdomain labels that name a function, not a company. `careers.ansys.com` must
+# yield "ansys", never "careers" — and "careers" must never be probed as a slug,
+# because ATSs have real accounts by that name and a hit would attach a stranger's
+# jobs to this company.
+_GENERIC_LABELS = frozenset(
+    """careers career jobs job apply applications hire hiring work workwithus join joinus
+    talent recruiting recruitment people hr www web site portal my go get""".split()
+)
+
+
+def candidate_slugs(target: Target, *, limit: int = 2) -> list[str]:
+    """Plausible board tokens for a company, best guess first.
+
+    The domain's registrable label beats a squashed company name: "inmobi.com"
+    gives "inmobi", the actual Greenhouse token, whereas "Bosch Global Software
+    Technologies" squashes into something no ATS would use.
+    """
+    guesses: list[str] = []
+    if target.domain:
+        # Skip functional prefixes so careers.ansys.com resolves to "ansys".
+        for label in target.domain.lower().split("."):
+            if label and label not in _GENERIC_LABELS:
+                guesses.append(label)
+                break
+    squashed = re.sub(r"[^a-z0-9]", "", target.name.lower())
+    if squashed:
+        guesses.append(squashed)
+    hyphenated = re.sub(r"[^a-z0-9]+", "-", target.name.lower()).strip("-")
+    if hyphenated:
+        guesses.append(hyphenated)
+
+    ordered: list[str] = []
+    for guess in guesses:
+        if guess not in ordered and guess not in _GENERIC_LABELS and len(guess) > 2:
+            ordered.append(guess)
+    return ordered[:limit]
+
+
+async def probe_ats_slugs(client: PoliteClient, target: Target) -> tuple[str, str, int] | None:
+    """Ask each ATS directly whether it hosts a board for this company.
+
+    The fallback for a careers URL that does not load. Recovering InMobi's
+    70-job Greenhouse board this way is what justifies the extra requests: a dead
+    link on a company's own site says nothing about whether their board exists.
+    """
+    from .sources.registry import BY_NAME
+
+    for slug in candidate_slugs(target):
+        for ats, adapter in BY_NAME.items():
+            probe = target.model_copy(update={"ats": ats, "ats_token": slug})
+            try:
+                jobs = await adapter.fetch(client, probe)
+            except (SourceUnavailable, RobotsDisallowed):
+                continue
+            except Exception as exc:  # noqa: BLE001
+                log.debug("%s: %s/%s probe failed: %s", target.name, ats, slug, exc)
+                continue
+            if jobs:
+                return ats, slug, len(jobs)
+    return None
+
+
 async def run_resolve(
     targets: list[Target],
     *,
     companies_path: str | Path = "companies.yaml",
     dry_run: bool = False,
+    probe_slugs: bool = True,
     on_progress: Progress = _noop,
 ) -> ResolveResult:
     """Fingerprint each company's careers page and record its ATS + board token.
@@ -175,6 +238,22 @@ async def run_resolve(
 
     for outcome in outcomes:
         getattr(result, outcome.bucket).append(outcome)
+
+    # A careers URL that 404s says nothing about whether the company has a board.
+    if probe_slugs and result.unreachable:
+        async with PoliteClient() as client:
+            recovered: list[ResolveOutcome] = []
+            for outcome in result.unreachable:
+                on_progress(f"probing {outcome.target.name}")
+                if hit := await probe_ats_slugs(client, outcome.target):
+                    ats, slug, count = hit
+                    outcome.bucket = "resolved"
+                    outcome.ats, outcome.token = ats, slug
+                    outcome.detail = f"careers URL failed; found {ats}/{slug} by probe ({count} jobs)"
+                    recovered.append(outcome)
+            for outcome in recovered:
+                result.unreachable.remove(outcome)
+                result.resolved.append(outcome)
 
     if result.resolved and not dry_run:
         from .config import append_targets
