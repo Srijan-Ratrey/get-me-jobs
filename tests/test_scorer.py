@@ -234,3 +234,45 @@ def test_partial_title_overlap_earns_partial_credit():
 def test_unrelated_title_earns_nothing():
     score = score_job(make_job(title="Account Executive"), JUNIOR)
     assert score.components["title"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Location filtering (separate from location scoring)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "location,remote,expected",
+    [
+        # Wanted place, named.
+        ("Bengaluru", False, True),
+        ("Bangalore, Karnataka", False, True),
+        ("Hybrid in Bangalore, India", False, True),
+        ("Remote - India", True, True),
+        # Genuinely open to anyone.
+        ("Remote (Anywhere)", True, True),
+        ("Worldwide", True, True),
+        (None, True, True),
+        ("Remote", True, True),
+        # Remote, but tied to somewhere else: not reachable from Bengaluru.
+        ("USA | Remote", True, False),
+        ("Remote - EU", True, False),
+        ("United Kingdom", True, False),
+        ("Remote, United States", True, False),
+        # Plainly elsewhere.
+        ("San Francisco, California", False, False),
+        ("Buenos Aires, Argentina", False, False),
+        ("Berkeley, California, United States", False, False),
+    ],
+)
+def test_matches_location(location, remote, expected):
+    """A remote job is not automatically reachable: "USA | Remote" is US-remote."""
+    from jobhunter.matching.scorer import matches_location
+
+    assert matches_location(location, remote, ["Bengaluru", "India"]) is expected
+
+
+def test_matches_location_with_no_preference_accepts_everything():
+    from jobhunter.matching.scorer import matches_location
+
+    assert matches_location("San Francisco", False, []) is True

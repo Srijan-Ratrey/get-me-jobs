@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 
 from . import db, export as export_module, pipeline
 from .config import load_company_csv, load_profile, load_targets, settings
+from .matching.scorer import matches_location
 from .models import Company, Job
 
 app = typer.Typer(
@@ -377,6 +378,9 @@ def list_jobs(
     posted_within: str | None = typer.Option(
         None, "--posted-within", help="Only jobs the company posted within: 7d, 30d, a date."
     ),
+    location: list[str] = typer.Option(
+        None, "--location", help="Only jobs here, or remote. Repeatable. Aliases Bengaluru/Bangalore."
+    ),
 ) -> None:
     """Show scored openings, best first."""
     db.init_db()
@@ -402,7 +406,11 @@ def list_jobs(
             query = query.where(Job.first_seen >= since_at)
         if posted_at is not None:
             query = query.where(Job.posted_at >= posted_at)
-        rows = session.execute(query.limit(limit)).all()
+        rows = session.execute(query).all()
+
+    if location:
+        rows = [(j, c) for j, c in rows if matches_location(j.location, j.remote, list(location))]
+    rows = rows[:limit]
 
     if not rows:
         console.print("[yellow]No jobs match.[/] Try a lower --min-score, or run scan/score first.")
@@ -443,6 +451,9 @@ def export(
     posted_within: str | None = typer.Option(
         None, "--posted-within", help="Only jobs the company posted within: 7d, 30d, a date."
     ),
+    location: list[str] = typer.Option(
+        None, "--location", help="Only jobs here, or remote. Repeatable."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report the row count, write nothing."),
 ) -> None:
     """Export one row per job with its best contact."""
@@ -451,6 +462,7 @@ def export(
         filters = {
             "since": pipeline.resolve_since(since),
             "posted_within": pipeline.resolve_since(posted_within),
+            "location": list(location) if location else None,
         }
     except ValueError as exc:
         console.print(f"[red]{exc}[/]")

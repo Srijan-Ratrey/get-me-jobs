@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import db
+from .matching.scorer import matches_location
 from .models import Company, Contact, Job
 
 log = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def collect_rows(
     limit: int | None = None,
     since=None,
     posted_within=None,
+    location: list[str] | None = None,
 ) -> list[dict]:
     """Build export rows. Kept separate from writing so it is testable.
 
@@ -85,6 +87,10 @@ def collect_rows(
 
         contacts: dict[int, Contact | None] = {}
         for job, company in session.execute(query).all():
+            # Applied in Python, not SQL: matching "bengaluru" against "Bangalore"
+            # needs the alias table, which a LIKE cannot express.
+            if location and not matches_location(job.location, job.remote, location):
+                continue
             if company.id not in contacts:
                 contacts[company.id] = _best_contact(session, company.id)
             contact = contacts[company.id]
@@ -123,6 +129,7 @@ def export(
     include_closed: bool = False,
     since=None,
     posted_within=None,
+    location: list[str] | None = None,
 ) -> int:
     """Write CSV or XLSX depending on the suffix. Returns the row count."""
     import pandas as pd
@@ -133,6 +140,7 @@ def export(
         include_closed=include_closed,
         since=since,
         posted_within=posted_within,
+        location=location,
     )
     frame = pd.DataFrame(rows, columns=COLUMNS)
 

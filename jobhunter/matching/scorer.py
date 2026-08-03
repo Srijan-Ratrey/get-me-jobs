@@ -106,6 +106,56 @@ def _expand_aliases(values: list[str]) -> set[str]:
     return out
 
 
+# Remote postings that really are open to anyone, as opposed to remote-within-a-country.
+_GLOBALLY_OPEN = ("anywhere", "worldwide", "global", "any location", "any country")
+
+# Words a location string can contain that do not name a place. Anything left over
+# after these and the remote words are removed is taken to be a real region — which
+# is what distinguishes "Remote" from "Remote - EU".
+_LOCATION_FILLER = frozenset(
+    """in at or and the of a an office offices based flexible friendly travel optional
+    required preferred first team full part time hq headquarters area region multiple
+    locations location various any some all across within near from to""".split()
+)
+
+
+def matches_location(location: str | None, remote: bool, wanted: list[str]) -> bool:
+    """Can someone in one of the wanted places actually take this job?
+
+    Shares LOCATION_ALIASES with scoring so a filter for "bengaluru" also catches
+    "Bangalore". Exposed because location is only 10 of 100 points — the right
+    weight for ranking, far too weak for filtering: a perfect-fit role in San
+    Francisco scores 86 and crowds out every reachable role beneath it.
+
+    "Remote" is not treated as matching everywhere. "USA | Remote" and
+    "Remote - EU" are remote *within a region*, and a candidate in Bengaluru
+    cannot take either. A remote posting qualifies only when it names a wanted
+    region, says it is open globally, or names no region at all.
+    """
+    if not wanted:
+        return True
+    text = (location or "").lower()
+    aliases = _expand_aliases(wanted)
+    if any(alias in text for alias in aliases):
+        return True
+
+    looks_remote = remote or any(hint in text for hint in _REMOTE_HINT)
+    if not looks_remote:
+        return False
+    if any(hint in text for hint in _GLOBALLY_OPEN):
+        return True
+    # Remote but tied to somewhere else: strip the remote vocabulary and see what
+    # place name is left. Anything remaining is a region, and since the aliases
+    # already failed to match, it is not a region we want. Length is not a usable
+    # test here — "EU" is two characters and disqualifying.
+    residue = text
+    for hint in ("remote-friendly", "remote friendly", *_REMOTE_HINT, *_GLOBALLY_OPEN,
+                 "hybrid", "onsite", "on-site", "on site"):
+        residue = residue.replace(hint, " ")
+    leftover = [w for w in re.findall(r"[a-z]+", residue) if w not in _LOCATION_FILLER]
+    return not leftover
+
+
 def min_years_required(description: str | None) -> int | None:
     """The smallest experience requirement stated anywhere in a description.
 
