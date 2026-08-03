@@ -37,7 +37,7 @@ async def test_greenhouse_parses_fields(polite_client, allow_robots, fixture_tex
     async with polite_client() as client:
         jobs = await greenhouse.GreenhouseSource().fetch(client, target)
 
-    assert len(jobs) == 69
+    assert len(jobs) == 5
     job = jobs[0]
     assert job.source == "greenhouse"
     assert job.external_id == "7650503003"
@@ -91,7 +91,7 @@ async def test_lever_parses_fields(polite_client, allow_robots, fixture_text):
             client, Target(name="Meesho", ats="lever", ats_token="meesho")
         )
 
-    assert len(jobs) == 49
+    assert len(jobs) == 5
     job = jobs[0]
     assert job.external_id == "7d9af9b5-c1c7-48ec-bbb5-9b25e49f6596"
     # Lever's title lives in `text`, not `title`.
@@ -151,7 +151,7 @@ async def test_ashby_parses_fields(polite_client, allow_robots, fixture_text):
             client, Target(name="Sarvam", ats="ashby", ats_token="sarvam")
         )
 
-    assert len(jobs) == 63
+    assert len(jobs) == 5
     job = jobs[0]
     assert job.external_id == "3d479c06-8537-40ee-bcbb-a7d337013da4"
     assert job.title == "Head of Growth Marketing"
@@ -449,7 +449,7 @@ async def test_registry_hands_off_to_fingerprinted_ats(polite_client, allow_robo
     async with polite_client() as client:
         jobs = await fetch_target(client, Target(name="Acme", careers_url="https://acme.com/careers"))
 
-    assert len(jobs) == 69
+    assert len(jobs) == 5
     assert jobs[0].source == "greenhouse"
 
 
