@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from . import db, export as export_module, pipeline
 from .config import load_company_csv, load_profile, load_targets, settings
 from .matching.scorer import matches_location
-from .models import Company, Job
+from .models import Company, Job, Run
 
 app = typer.Typer(
     add_completion=False,
@@ -210,6 +210,15 @@ def scan(
         + (" [yellow](dry run)[/]" if dry_run else "")
     )
 
+    # Open the run row *before* fetching. Created afterwards, its started_at
+    # lands milliseconds after the last job insert, and `--since last-scan` then
+    # matches nothing — silently reporting "no new jobs" for a scan that found
+    # hundreds.
+    run_id: int | None = None
+    if not dry_run:
+        with db.session_scope() as session:
+            run_id = db.start_run(session).id
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -225,12 +234,11 @@ def scan(
 
         result = asyncio.run(pipeline.run_scan(targets, dry_run=dry_run, on_progress=tick))
 
-    if not dry_run:
+    if run_id is not None:
         with db.session_scope() as session:
-            run = db.start_run(session)
             db.finish_run(
                 session,
-                run,
+                session.get(Run, run_id),
                 jobs_seen=result.jobs_seen,
                 jobs_new=result.jobs_new,
                 errors=result.errors,

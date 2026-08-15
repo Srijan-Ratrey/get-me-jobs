@@ -298,3 +298,26 @@ def test_since_filter_selects_only_newer_jobs(session):
     titles = {r["title"] for r in collect_rows(since=cutoff)}
     assert titles == {"New Role"}
     assert len(collect_rows()) == 2
+
+
+def test_run_starts_before_the_jobs_it_records(session):
+    """`--since last-scan` is worthless if the run row is written afterwards.
+
+    Regression test: the run row used to be created after scanning finished, so
+    its started_at landed milliseconds *after* the last job insert and
+    resolve_since("last-scan") matched nothing — reporting "no new jobs" for a
+    scan that had just found 819.
+    """
+    from jobhunter.pipeline import resolve_since
+
+    run = db.start_run(session)
+    company = db.upsert_company(session, Target(name="Acme"))
+    job, _ = db.upsert_job(session, company, raw("Data Scientist"))
+    db.finish_run(session, run, jobs_seen=1, jobs_new=1)
+    session.commit()
+
+    cutoff = resolve_since("last-scan")
+    assert cutoff is not None
+    assert cutoff <= job.first_seen.replace(tzinfo=None), (
+        "the run must start before the jobs it reports, or --since last-scan hides them"
+    )
