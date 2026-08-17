@@ -109,6 +109,26 @@ async def test_missing_robots_means_unrestricted(tmp_path):
 
 
 @respx.mock
+@pytest.mark.parametrize("status", [401, 403])
+async def test_access_controlled_robots_disallows_the_whole_origin(tmp_path, status):
+    """401/403 on robots.txt means "keep out", not "help yourself".
+
+    A 404 says the site published no rules; a 401/403 says the rules exist and
+    are none of your business. Treating the second like the first would have
+    this client grant itself access to exactly the hosts that refused to state
+    terms — the inverse of the posture docs/compliance.md requires.
+    """
+    respx.get(f"{ORIGIN}/robots.txt").respond(status)
+    route = respx.get(f"{ORIGIN}/data").respond(200, text="should not be fetched")
+
+    async with PoliteClient(cache_dir=tmp_path, cache_ttl=0, requests_per_second=1000) as client:
+        with pytest.raises(RobotsDisallowed):
+            await client.get(f"{ORIGIN}/data")
+
+    assert route.call_count == 0
+
+
+@respx.mock
 async def test_robots_is_fetched_once_per_origin(tmp_path):
     """Concurrent first-hits on one host must not each fetch robots.txt."""
     robots = respx.get(f"{ORIGIN}/robots.txt").respond(404)

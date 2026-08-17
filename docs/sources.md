@@ -372,8 +372,34 @@ extracted from the URL — always better than scraping.
 | `*.teamtailor.com` | teamtailor | subdomain |
 | `*.bamboohr.com/careers` | bamboohr | subdomain |
 | `*.myworkdayjobs.com` | workday | *not supported — log and skip* |
+| `*.darwinbox.in`, `*.darwinbox.com` | darwinbox | subdomain — *see below* |
+| `*.keka.com`, `*.freshteam.com`, `*.zohorecruit.com` | keka / freshteam / zoho_recruit | subdomain — no adapter |
 
 Log every unrecognised fingerprint. That log is your backlog of which adapter to write next.
+
+### Darwinbox — wanted, but the endpoint is not discoverable from here
+
+Darwinbox is the highest-value missing adapter for an India-focused watchlist: 5 of the 11
+unsupported companies in `unresolved-companies.md` are on it (Rapido, MyGate, LeadSquared,
+Ninjacart, Tessolve) and it is ubiquitous in Indian tech. Investigated 2026-08-17:
+
+| Check | Result |
+|---|---|
+| `robots.txt` | **None.** `https://<tenant>.darwinbox.in/robots.txt` 302s to `/user/login`. Not a restriction — but note the 401/403 rule in `docs/compliance.md`. |
+| Careers portal public? | **Yes.** `/ms/candidate/careers` returns 200 with no auth and no User-Agent spoofing. |
+| Parseable HTML? | **No.** 887 bytes of Open Graph meta tags for link previews. No job data, no `<script>`. |
+| Endpoint guessable? | **No.** Every `/ms/candidate/*` path returns that same catch-all stub; `/ms/candidateapi/*` returns 403. |
+
+The official Darwinbox API (`api-docs.darwinbox.com`, "Fetch Job List V3") is the HRMS admin API:
+Basic auth plus an `api_key`, granted per-tenant on request. That is not a route we have.
+
+**To unblock:** open a tenant careers page in a browser, capture the XHR the page issues from
+DevTools → Network, and record the URL, method, body and one response here. Then the adapter is
+the ordinary ~50 lines. Do not brute-force paths against tenants to find it — it does not work
+(everything returns the stub) and it is not the kind of traffic this project sends.
+
+**Stop if the captured request carries a session cookie or CSRF token.** Manufacturing a session
+to reach it is the SmartRecruiters argument in a new costume, and the answer is the same one.
 
 **Step 2 — Detect SPA shells.** Compute the text-to-markup ratio. Under ~5% text, or fewer than
 ~200 characters of visible text on a page that should list jobs, means client-side rendering.

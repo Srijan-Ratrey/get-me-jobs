@@ -172,8 +172,17 @@ class PoliteClient:
             resp = await self._send(f"{origin}/robots.txt", timeout=10.0)
         except httpx.HTTPError:
             return None
+        if resp.status_code in (401, 403):
+            # An access-controlled robots.txt means the whole origin is off
+            # limits, not that it is unrestricted. This is what stdlib
+            # RobotFileParser.read() does and what Google's spec says, and
+            # returning None here instead would have this client quietly grant
+            # itself access to precisely the hosts that refused to state terms.
+            parser = RobotFileParser()
+            parser.disallow_all = True
+            return parser
         if resp.status_code != 200:
-            # A missing or erroring robots.txt means unrestricted.
+            # A missing (404) or erroring robots.txt means unrestricted.
             return None
         parser = RobotFileParser()
         parser.parse(resp.text.splitlines())

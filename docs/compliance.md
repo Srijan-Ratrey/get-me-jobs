@@ -25,6 +25,12 @@ Implementation requirements:
 
 - `robots.txt` is checked before every fetch and cached per origin. `respect_robots` may be
   configurable but defaults to `True`, and nothing in the codebase should set it to `False`.
+- **A 401 or 403 on `robots.txt` disallows the entire origin.** Only a 404 (or a network error)
+  means unrestricted. A missing file says the site published no rules; an access-controlled one
+  says the rules exist and are not for us, and reading that as permission would grant this client
+  access to precisely the hosts that declined to state terms. This matches stdlib
+  `RobotFileParser.read()` and Google's specification. Corrected 2026-08-17: the client previously
+  treated every non-200 alike.
 - Identify the bot honestly in `User-Agent`, with a URL a site owner can visit to understand what
   it is and how to block it. Never impersonate a browser to evade detection — that turns a
   technical measure into a circumvented one, which is where the argument gets much worse.
