@@ -129,6 +129,35 @@ async def test_access_controlled_robots_disallows_the_whole_origin(tmp_path, sta
 
 
 @respx.mock
+async def test_a_vetted_api_host_is_exempt_from_the_401_rule(tmp_path):
+    """Ashby's API gateway 401s every unrouted path, /robots.txt included.
+
+    That is a gateway default, not a crawl directive: /posting-api/job-board/ is
+    a documented public syndication endpoint cleared in docs/compliance.md. The
+    disallow-all rule above would otherwise silently stop this project reading
+    any Ashby board at all.
+    """
+    from jobhunter.http import ROBOTS_EXEMPT_HOSTS
+
+    assert "api.ashbyhq.com" in ROBOTS_EXEMPT_HOSTS
+    respx.get("https://api.ashbyhq.com/robots.txt").respond(401, text="Unauthorized")
+    respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").respond(200, text="ok")
+
+    async with PoliteClient(cache_dir=tmp_path, cache_ttl=0, requests_per_second=1000) as client:
+        assert await client.get("https://api.ashbyhq.com/posting-api/job-board/acme") == "ok"
+
+
+@respx.mock
+async def test_the_exemption_does_not_leak_to_other_hosts(tmp_path):
+    """The allowlist must stay an allowlist, not become a general bypass."""
+    respx.get(f"{ORIGIN}/robots.txt").respond(401)
+    respx.get(f"{ORIGIN}/data").respond(200, text="should not be fetched")
+    async with PoliteClient(cache_dir=tmp_path, cache_ttl=0, requests_per_second=1000) as client:
+        with pytest.raises(RobotsDisallowed):
+            await client.get(f"{ORIGIN}/data")
+
+
+@respx.mock
 async def test_robots_is_fetched_once_per_origin(tmp_path):
     """Concurrent first-hits on one host must not each fetch robots.txt."""
     robots = respx.get(f"{ORIGIN}/robots.txt").respond(404)

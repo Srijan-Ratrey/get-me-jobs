@@ -31,6 +31,14 @@ Implementation requirements:
   access to precisely the hosts that declined to state terms. This matches stdlib
   `RobotFileParser.read()` and Google's specification. Corrected 2026-08-17: the client previously
   treated every non-200 alike.
+- **One narrow exception, `http.ROBOTS_EXEMPT_HOSTS`.** `api.ashbyhq.com` answers `/robots.txt`
+  with `401 Unauthorized` because its gateway 401s every path it does not route — that is a
+  default, not a directive, and `/posting-api/job-board/` is the documented public syndication
+  endpoint cleared in the table above. Applying the rule blindly silently stopped this project
+  reading *any* Ashby board, which is ten tracked companies including the one holding the two
+  best-scoring roles. The exemption is a module constant, not a setting, so adding a host is a code
+  change someone reviews; do it only with a justification recorded here and only after actually
+  reading that host's API terms. It is an allowlist and must never become a general bypass.
 - Identify the bot honestly in `User-Agent`, with a URL a site owner can visit to understand what
   it is and how to block it. Never impersonate a browser to evade detection — that turns a
   technical measure into a circumvented one, which is where the argument gets much worse.

@@ -30,6 +30,22 @@ RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 # something a foreground scan should honour literally.
 MAX_RETRY_AFTER_SECONDS = 60.0
 
+# Hosts where a 401/403 on robots.txt is an API gateway's default answer to an
+# unrouted path, not a crawl directive.
+#
+# `api.ashbyhq.com` returns 401 "Unauthorized" for /robots.txt because it 401s
+# everything it does not route, while /posting-api/job-board/ is a documented
+# public syndication endpoint that docs/compliance.md reviewed and cleared. Left
+# unhandled, the disallow-all rule below silently stops this project reading any
+# Ashby board — ten of the tracked companies, including the one holding the two
+# best-scoring roles.
+#
+# Deliberately a module constant and not a setting: exempting a host from robots
+# handling should require a code change somebody reviews, never an env var. Add
+# to it only alongside a written justification in docs/compliance.md, and only
+# for a host whose public API terms have actually been read.
+ROBOTS_EXEMPT_HOSTS = frozenset({"api.ashbyhq.com"})
+
 
 class RobotsDisallowed(Exception):
     """Raised when robots.txt forbids the URL. Not an error to retry."""
@@ -178,6 +194,9 @@ class PoliteClient:
             # RobotFileParser.read() does and what Google's spec says, and
             # returning None here instead would have this client quietly grant
             # itself access to precisely the hosts that refused to state terms.
+            if urlparse(origin).netloc in ROBOTS_EXEMPT_HOSTS:
+                log.debug("%s: gateway-auth'd robots.txt, vetted public API", origin)
+                return None
             parser = RobotFileParser()
             parser.disallow_all = True
             return parser
