@@ -39,6 +39,7 @@ jobhunter/
   db.py               Session scope, upserts, stale-job closing, suppression
   http.py             PoliteClient: rate limit, robots, cache, retry
   pipeline.py         Run orchestration for scan / score / contacts
+  harvest.py          Probe published ATS token lists for companies hiring in India
   sources/
     base.py           JobSource protocol + HTML/date helpers
     greenhouse.py lever.py ashby.py workable.py
@@ -105,6 +106,7 @@ user's IP blocklisted. See `docs/compliance.md`.
 uv sync --extra dev              # install
 uv run jobhunter init            # create DB + companies.yaml/profile.yaml from the examples
 uv run jobhunter resolve --from list.csv   # discover each company's ATS from its careers page
+uv run jobhunter harvest --limit 300 --dry-run  # probe published ATS token lists for India hiring
 uv run jobhunter scan            # fetch jobs from all targets
 uv run jobhunter score           # rescore jobs against profile.yaml
 uv run jobhunter contacts        # resolve contacts for companies with open jobs

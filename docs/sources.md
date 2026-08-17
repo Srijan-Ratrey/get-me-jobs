@@ -377,29 +377,65 @@ extracted from the URL — always better than scraping.
 
 Log every unrecognised fingerprint. That log is your backlog of which adapter to write next.
 
-### Darwinbox — wanted, but the endpoint is not discoverable from here
+### Darwinbox — NOT USABLE, the application is withheld from identified bots
 
-Darwinbox is the highest-value missing adapter for an India-focused watchlist: 5 of the 11
-unsupported companies in `unresolved-companies.md` are on it (Rapido, MyGate, LeadSquared,
-Ninjacart, Tessolve) and it is ubiquitous in Indian tech. Investigated 2026-08-17:
+**Do not build this adapter.** Darwinbox looked like the highest-value missing adapter for an
+India-focused watchlist — 5 of the 11 unsupported companies are on it (Rapido, MyGate,
+LeadSquared, Ninjacart, Tessolve) and it is ubiquitous in Indian tech. It is still out of reach.
 
-| Check | Result |
+Checked 2026-08-17 against `https://rapido.darwinbox.in/ms/candidate/careers`, varying **only** the
+`User-Agent`:
+
+| User-Agent | Response |
 |---|---|
-| `robots.txt` | **None.** `https://<tenant>.darwinbox.in/robots.txt` 302s to `/user/login`. Not a restriction — but note the 401/403 rule in `docs/compliance.md`. |
-| Careers portal public? | **Yes.** `/ms/candidate/careers` returns 200 with no auth and no User-Agent spoofing. |
-| Parseable HTML? | **No.** 887 bytes of Open Graph meta tags for link previews. No job data, no `<script>`. |
-| Endpoint guessable? | **No.** Every `/ms/candidate/*` path returns that same catch-all stub; `/ms/candidateapi/*` returns 403. |
+| `curl/8.x` | 887 bytes, **0 `<script>` tags** |
+| *(empty)* | 1,901 bytes, 7 `<script>` tags |
+| Chrome | 2,254 bytes, 7 `<script>` tags |
+| `JobHunterBot/0.1 (+about-this-bot)` | **887 bytes, 0 `<script>` tags** |
 
-The official Darwinbox API (`api-docs.darwinbox.com`, "Fetch Job List V3") is the HRMS admin API:
-Basic auth plus an `api_key`, granted per-tenant on request. That is not a route we have.
+The 887-byte response is an Open Graph stub for link previews: no job data and nothing to render.
+The server hands the real application only to clients that do **not** identify as a bot, so
+reaching the postings requires either concealing our identity or claiming to be a browser. The
+compliance rules forbid both, and the "identify honestly" requirement is not one this project gets
+to suspend when it is inconvenient.
 
-**To unblock:** open a tenant careers page in a browser, capture the XHR the page issues from
-DevTools → Network, and record the URL, method, body and one response here. Then the adapter is
-the ordinary ~50 lines. Do not brute-force paths against tenants to find it — it does not work
-(everything returns the stub) and it is not the kind of traffic this project sends.
+Playwright does not rescue it. Given our honest User-Agent it receives the same scriptless stub and
+has nothing to render; given Chromium's default User-Agent it *is* the impersonation. The browser
+build additionally loads Cloudflare Turnstile — a CAPTCHA, which `docs/compliance.md` rules out
+separately.
 
-**Stop if the captured request carries a session cookie or CSRF token.** Manufacturing a session
-to reach it is the SmartRecruiters argument in a new costume, and the answer is the same one.
+There is no compliant path here, the same conclusion as SmartRecruiters by a different mechanism.
+Other findings, recorded so nobody re-derives them: there is no `robots.txt` (`/robots.txt` 302s to
+`/user/login`); every `/ms/candidate/*` path returns the same catch-all stub so the XHR endpoint
+cannot be guessed; and the official API (`api-docs.darwinbox.com`, "Fetch Job List V3") is the HRMS
+admin API behind Basic auth plus a per-tenant `api_key`.
+
+Apply through these companies' own careers pages instead.
+
+### Harvesting board tokens — `jobhunter harvest`
+
+Guessing board tokens from company names hit ~9%. Published token lists do better. `harvest` reads
+flat JSON arrays of tokens from `data/<ats>_companies.json`, probes each board once, and keeps the
+companies with India-located openings.
+
+It deliberately does **not** reuse `JobSource.fetch`. The adapters request full descriptions
+(`?content=true` on Greenhouse), which is 4.36 MB versus 358 KB for a board the size of Stripe's —
+across 8,333 tokens, ~36 GB versus ~3 GB. The listing endpoints carry everything harvesting needs:
+
+| ATS | Listing endpoint | Company name in response? |
+|---|---|---|
+| greenhouse | `/v1/boards/{token}/jobs` | yes, `company_name` |
+| lever | `/v0/postings/{token}?mode=json` | no — derived from the token |
+| ashby | `/posting-api/job-board/{token}` | no — derived from the token |
+
+India-reachability is decided by `matching.scorer.matches_location`, shared with scoring rather than
+reimplemented: a second location matcher is what let "USA | Remote" into the shortlist.
+
+The sweep is resumable through `.harvest-state.jsonl` because it runs for hours and will be
+interrupted. Token lists come from
+[Feashliaa/job-board-aggregator](https://github.com/Feashliaa/job-board-aggregator), whose `data/`
+directory is **CC BY-NC 4.0** — fine to use locally, not ours to redistribute, so `data/` is
+gitignored.
 
 **Step 2 — Detect SPA shells.** Compute the text-to-markup ratio. Under ~5% text, or fewer than
 ~200 characters of visible text on a page that should list jobs, means client-side rendering.

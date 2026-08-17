@@ -16,7 +16,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from sqlalchemy import func, select
 
-from . import db, export as export_module, pipeline
+from . import db, export as export_module, harvest as harvest_module, pipeline
 from .config import load_company_csv, load_profile, load_targets, settings
 from .matching.scorer import matches_location
 from .models import Company, Job, Run
@@ -188,6 +188,109 @@ def resolve(
         console.print("[yellow]Dry run: companies.yaml was not touched.[/]")
     else:
         console.print(f"[green]✓[/] appended [bold]{result.added}[/] companies to {companies}")
+
+
+@app.command()
+def harvest(
+    tokens_dir: Path = typer.Option(
+        Path("data"), "--tokens-dir", help="Directory of <ats>_companies.json token lists."
+    ),
+    ats: str = typer.Option("greenhouse,lever,ashby", "--ats", help="Comma-separated ATSs to sweep."),
+    companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML to append to."),
+    min_india_jobs: int = typer.Option(
+        1, "--min-india-jobs", help="Keep a board only if it has at least this many India openings."
+    ),
+    limit: int = typer.Option(0, "--limit", help="Probe only the first N tokens per ATS (0 = all)."),
+    state: Path = typer.Option(
+        Path(".harvest-state.jsonl"), "--state", help="Resume log. Delete it to start over."
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report only, write nothing."),
+) -> None:
+    """Probe published ATS board tokens and add the companies that hire in India."""
+    names = [a.strip().lower() for a in ats.split(",") if a.strip()]
+    tokens = harvest_module.load_tokens(tokens_dir, names)
+    if not tokens:
+        console.print(
+            f"[red]No token lists found in {tokens_dir}.[/] Expected files like "
+            "[bold]greenhouse_companies.json[/] (a flat JSON array of board tokens)."
+        )
+        raise typer.Exit(1)
+
+    total = sum(len(v[: limit or None]) for v in tokens.values())
+    console.print(
+        " · ".join(f"{k} [bold]{len(v[: limit or None])}[/]" for k, v in sorted(tokens.items()))
+        + f" · [bold]{total}[/] boards to probe"
+        + (" [yellow](dry run)[/]" if dry_run else "")
+    )
+    console.print(
+        f"[dim]~{total // max(len(tokens), 1) // 60} min per ATS at "
+        f"{settings.requests_per_second}/s; they run in parallel. Safe to interrupt — "
+        f"progress resumes from {state}.[/]"
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("probing", total=total)
+        found: list[str] = []
+
+        def tick(probe: harvest_module.Probe) -> None:
+            if probe.india_jobs:
+                found.append(probe.token)
+                progress.update(
+                    task, description=f"probing · [green]{len(found)} hiring in India[/]"
+                )
+            progress.advance(task)
+
+        result = asyncio.run(
+            harvest_module.run_harvest(
+                tokens,
+                companies_path=companies,
+                state_path=state,
+                min_india_jobs=min_india_jobs,
+                limit=limit or None,
+                dry_run=dry_run,
+                on_progress=tick,
+            )
+        )
+
+    table = Table(title="Sweep", header_style="bold")
+    table.add_column("ATS")
+    table.add_column("Probed", justify="right")
+    table.add_column("Live", justify="right")
+    table.add_column("Hiring in India", justify="right")
+    for name, row in sorted(result.by_ats().items()):
+        table.add_row(name, str(row["probed"]), str(row["live"]), str(row["india"]))
+    console.print(table)
+
+    hits = result.hits(min_india_jobs)
+    if hits:
+        top = Table(title=f"Top boards by India openings (of {len(hits)})", header_style="bold")
+        top.add_column("Company")
+        top.add_column("ATS")
+        top.add_column("Token")
+        top.add_column("India jobs", justify="right")
+        for probe in sorted(hits, key=lambda p: -p.india_jobs)[:25]:
+            top.add_row(probe.name or probe.token, probe.ats, probe.token, str(probe.india_jobs))
+        console.print(top)
+
+    console.print(
+        f"\n[green]{len(result.live)}[/] live boards of {len(result.probes)} probed · "
+        f"[green]{len(hits)}[/] hiring in India (>= {min_india_jobs}) · "
+        f"[dim]{result.skipped_known} already tracked, {result.resumed} from the resume log[/]"
+    )
+    if dry_run:
+        console.print(
+            f"[yellow]Dry run: {companies} untouched and nothing written to {state}.[/] "
+            f"A full run would add [bold]{len(hits)}[/] companies."
+        )
+    else:
+        console.print(f"[green]✓[/] appended [bold]{result.added}[/] companies to {companies}")
+        console.print("[dim]Next: jobhunter scan[/]")
         console.print("\nNext: [bold]jobhunter scan[/] — which also verifies the new tokens.")
 
 

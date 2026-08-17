@@ -23,6 +23,7 @@ Copy `.env.example` to `.env` if you want to change any setting; every one has a
 ```bash
 uv run jobhunter init                    # DB + companies.yaml / profile.yaml from the examples
 uv run jobhunter resolve --from list.csv # discover each company's ATS from its careers page
+uv run jobhunter harvest                 # probe published ATS token lists for India-hiring firms
 uv run jobhunter scan                    # fetch jobs from every target in companies.yaml
 uv run jobhunter score                   # rescore open jobs against profile.yaml
 uv run jobhunter contacts                # resolve a hiring contact where one is published
@@ -74,6 +75,22 @@ The CSV needs a company-name column and a careers-URL column; `Company` / `Caree
 to `unresolved-companies.md` **with the reason** — an unsupported ATS, a page with no ATS marker,
 or an unreachable URL. When a careers URL fails outright, `resolve` asks the ATSs directly whether
 they host that company, which recovers boards behind dead or bot-blocked careers pages.
+
+**From published token lists**, if you would rather not curate a list at all. `harvest` reads flat
+JSON arrays of ATS board tokens from `data/<ats>_companies.json`, probes each board once, and keeps
+only the companies with openings you could actually take:
+
+```bash
+uv run jobhunter harvest --limit 300 --dry-run   # pilot: project the yield before committing
+uv run jobhunter harvest                          # the full sweep
+```
+
+The sweep is long — thousands of boards at one request per second per host — so it is resumable:
+progress goes to `.harvest-state.jsonl` and a re-run picks up where it stopped. `--min-india-jobs`
+raises the bar if the yield is larger than you want to watch. Token lists are not shipped with this
+repo; the ones used during development came from
+[Feashliaa/job-board-aggregator](https://github.com/Feashliaa/job-board-aggregator) (`data/` is
+CC BY-NC 4.0 — usable locally, not redistributable, hence gitignored).
 
 ## What to expect
 

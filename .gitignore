@@ -22,3 +22,9 @@ __pycache__/
 
 .DS_Store
 unresolved-companies.md
+
+# Harvested ATS token lists. CC BY-NC 4.0 from Feashliaa/job-board-aggregator —
+# free to use locally, not ours to redistribute, so they stay out of this repo.
+data/
+.harvest-state.jsonl
+.harvest-cache/
