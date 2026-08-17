@@ -191,9 +191,19 @@ def test_unwanted_location_scores_zero():
     assert score_job(make_job(location="Buenos Aires, Argentina"), JUNIOR).components["location"] == 0
 
 
-def test_remote_makes_location_moot():
-    job = make_job(location="Buenos Aires, Argentina", remote=True)
-    assert score_job(job, JUNIOR).components["location"] == W_LOCATION
+def test_remote_makes_location_moot_only_when_it_is_not_region_locked():
+    """Remote is not a free pass.
+
+    This test used to assert that any remote posting earned the full location
+    weight. It does not: a remote role anchored to Argentina or the US is remote
+    *within that region*, and scoring it 10/10 floated unreachable roles above
+    reachable ones. Only a remote posting naming no other region qualifies.
+    """
+    anchored = make_job(location="Buenos Aires, Argentina", remote=True)
+    assert score_job(anchored, JUNIOR).components["location"] == 0
+
+    unanchored = make_job(location="Remote", remote=True)
+    assert score_job(unanchored, JUNIOR).components["location"] == W_LOCATION
 
 
 def test_remote_only_profile_rejects_onsite():
@@ -276,3 +286,132 @@ def test_matches_location_with_no_preference_accepts_everything():
     from jobhunter.matching.scorer import matches_location
 
     assert matches_location("San Francisco", False, []) is True
+
+
+# --------------------------------------------------------------------------- #
+# "Remote" in the wanted list is a modality, not a place
+# --------------------------------------------------------------------------- #
+
+# The real profile.yaml list. Every case above passes ["Bengaluru", "India"] —
+# a list that omits "Remote" — which is exactly why this bug survived the suite:
+# adding "Remote" put the bare word into the alias set, so the substring test
+# matched "USA | Remote" and 397 unreachable postings entered the shortlist.
+WANTED_WITH_REMOTE = ["Bengaluru", "India", "Remote"]
+
+
+@pytest.mark.parametrize(
+    "location,remote,expected",
+    [
+        # Reachable.
+        ("Bengaluru", False, True),
+        ("Bangalore, Karnataka", False, True),
+        ("Remote - India", True, True),
+        ("Remote", True, True),
+        ("Remote (Anywhere)", True, True),
+        (None, True, True),
+        # Region-locked remote: listing "Remote" must not make these reachable.
+        ("USA | Remote", True, False),
+        ("Remote - California", True, False),
+        ("Remote-Friendly, United States; San Francisco, CA", True, False),
+        ("Remote - EU", True, False),
+        ("Remote, United States", True, False),
+        ("Remote - United Kingdom", True, False),
+        # The remote flag is set on plenty of onsite US postings in practice.
+        ("San Francisco, CA", True, False),
+    ],
+)
+def test_listing_remote_does_not_make_every_remote_job_reachable(location, remote, expected):
+    from jobhunter.matching.scorer import matches_location
+
+    assert matches_location(location, remote, WANTED_WITH_REMOTE) is expected
+
+
+@pytest.mark.parametrize("location", ["Indianapolis, Indiana", "Indiana, United States"])
+def test_india_does_not_match_indiana(location):
+    """Substring aliasing filed US postings under an India-only shortlist."""
+    from jobhunter.matching.scorer import matches_location
+
+    assert matches_location(location, False, WANTED_WITH_REMOTE) is False
+
+
+def test_scoring_and_filtering_agree_on_location():
+    """The two used to run separate checks and disagree.
+
+    Scoring awarded the full 10 for any posting mentioning "remote", so US-only
+    roles outranked reachable Bengaluru ones. Whatever the filter rejects must
+    not be collecting location points.
+    """
+    from jobhunter.matching.scorer import matches_location
+
+    profile = Profile(titles=["Data Scientist"], locations=WANTED_WITH_REMOTE)
+    for location, remote in [
+        ("USA | Remote", True),
+        ("Remote - California", True),
+        ("Bengaluru", False),
+        ("Remote", True),
+    ]:
+        job = make_job(location=location, remote=remote)
+        reachable = matches_location(location, remote, WANTED_WITH_REMOTE)
+        awarded = score_job(job, profile).components["location"] == W_LOCATION
+        assert awarded is reachable, f"{location!r}: scored {awarded}, filtered {reachable}"
+
+
+# --------------------------------------------------------------------------- #
+# must-have alternatives
+# --------------------------------------------------------------------------- #
+
+
+def test_must_have_is_satisfied_by_any_pipe_separated_alternative():
+    """One unwritten word must not forfeit the whole must-have weight.
+
+    71% of otherwise-qualifying postings scored 0/25 because the description
+    never typed "python", including ML roles whose text was all PyTorch.
+    """
+    profile = Profile(titles=["Data Scientist"], must_have_keywords=["python|pytorch|pandas"])
+
+    job = make_job(description="We train models in PyTorch on a large cluster.")
+    score = score_job(job, profile)
+    assert score.components["must_have"] == W_MUST_HAVE
+    # The reason must name what actually matched, not the group.
+    assert any("pytorch" in r for r in score.reasons)
+    assert not any("'python'" in r for r in score.reasons)
+
+    absent = make_job(description="We work in Rust and Go.")
+    assert score_job(absent, profile).components["must_have"] == 0
+
+
+def test_must_have_without_alternatives_is_unchanged():
+    """No pipe means exactly the old behaviour."""
+    profile = Profile(titles=["Data Scientist"], must_have_keywords=["python"])
+    assert score_job(make_job(description="Python here"), profile).components["must_have"] == W_MUST_HAVE
+    assert score_job(make_job(description="PyTorch only"), profile).components["must_have"] == 0
+
+
+def test_must_have_alternatives_still_match_whole_words():
+    profile = Profile(titles=["Data Scientist"], must_have_keywords=["python|numpy"])
+    assert score_job(make_job(description="pythonic numpyish"), profile).components["must_have"] == 0
+
+
+def test_partial_must_have_credit_is_proportional_across_groups():
+    profile = Profile(
+        titles=["Data Scientist"], must_have_keywords=["python|pytorch", "sql|bigquery"]
+    )
+    job = make_job(description="We use pandas and pytorch daily.")
+    assert score_job(job, profile).components["must_have"] == round(W_MUST_HAVE / 2)
+
+
+def test_the_real_profile_still_scores_a_perfect_job_at_one_hundred():
+    """Guards the shipped profile.yaml against a typo in the pipe group."""
+    from jobhunter.config import load_profile
+
+    profile = load_profile("profile.yaml")
+    job = make_job(
+        title="Machine Learning Engineer",
+        location="Bengaluru",
+        seniority="junior",
+        description=(
+            "Python, machine learning, deep learning, pytorch, llm, nlp, sql, docker, "
+            "rag, embeddings, statistics, mlops"
+        ),
+    )
+    assert score_job(job, profile).total == 100

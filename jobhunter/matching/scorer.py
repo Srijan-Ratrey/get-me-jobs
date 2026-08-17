@@ -92,6 +92,22 @@ def _contains_word(haystack: str, needle: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(needle.lower())}(?!\w)", haystack.lower()) is not None
 
 
+def _satisfied_by(haystack: str, requirement: str) -> str | None:
+    """The alternative that satisfies a must-have, or None.
+
+    A must-have may list pipe-separated alternatives ("python|pytorch|pandas"),
+    any one of which counts. Without this a single unwritten word forfeits the
+    whole must-have weight: 71% of otherwise-qualifying postings scored 0/25
+    because their description never spelled "python", including ML roles whose
+    titles matched perfectly and whose text was all PyTorch and NumPy.
+    """
+    for alternative in requirement.split("|"):
+        alternative = alternative.strip()
+        if alternative and _contains_word(haystack, alternative):
+            return alternative
+    return None
+
+
 def _expand_aliases(values: list[str]) -> set[str]:
     """Add every known alias of each configured location."""
     out: set[str] = set()
@@ -108,6 +124,42 @@ def _expand_aliases(values: list[str]) -> set[str]:
 
 # Remote postings that really are open to anyone, as opposed to remote-within-a-country.
 _GLOBALLY_OPEN = ("anywhere", "worldwide", "global", "any location", "any country")
+
+# Entries in `locations` that describe *how* you work rather than *where* you are.
+# These must never become place aliases. A profile listing "Remote" is saying it
+# will accept remote work; it is not saying that anywhere calling itself remote is
+# reachable. Conflating the two let "USA | Remote" and "Remote - California"
+# satisfy a Bengaluru preference, which put 397 unreachable postings — over 40% of
+# everything that passed this gate — into the shortlist.
+_MODALITY_WORDS = frozenset(
+    {
+        "remote",
+        "anywhere",
+        "worldwide",
+        "global",
+        "hybrid",
+        "wfh",
+        "work from home",
+        "distributed",
+        "onsite",
+        "on-site",
+        "on site",
+    }
+)
+
+
+def _place_aliases(wanted: list[str]) -> set[str]:
+    """Alias-expanded set of the wanted entries that actually name a place."""
+    return _expand_aliases([w for w in wanted if w.strip().lower() not in _MODALITY_WORDS])
+
+
+def _names_place(text: str, aliases: set[str]) -> bool:
+    """Whole-word alias match against a location string.
+
+    Word boundaries, not substrings: "india" otherwise matches "Indianapolis"
+    and "Indiana", quietly filing US postings under an India-only shortlist.
+    """
+    return any(re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text) for alias in aliases)
 
 # Words a location string can contain that do not name a place. Anything left over
 # after these and the remote words are removed is taken to be a real region — which
@@ -131,12 +183,15 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     "Remote - EU" are remote *within a region*, and a candidate in Bengaluru
     cannot take either. A remote posting qualifies only when it names a wanted
     region, says it is open globally, or names no region at all.
+
+    Note that "Remote" appearing in `wanted` is deliberately *not* a place. It
+    only expresses willingness to work remotely, so it is stripped before the
+    place check and the region logic below decides the outcome instead.
     """
     if not wanted:
         return True
     text = (location or "").lower()
-    aliases = _expand_aliases(wanted)
-    if any(alias in text for alias in aliases):
+    if _names_place(text, _place_aliases(wanted)):
         return True
 
     looks_remote = remote or any(hint in text for hint in _REMOTE_HINT)
@@ -235,11 +290,13 @@ def score_job(job: Job, profile: Profile) -> Score:
         components["must_have"] = W_MUST_HAVE
         reasons.append("must_have: none set, full credit")
     else:
-        present = [k for k in musts if _contains_word(haystack, k)]
+        # Report the alternative that actually matched, not the group, so --why
+        # never claims "python" was found when the text only said "pytorch".
+        present = [hit for k in musts if (hit := _satisfied_by(haystack, k))]
+        missing = [k for k in musts if _satisfied_by(haystack, k) is None]
         components["must_have"] = round(W_MUST_HAVE * len(present) / len(musts))
-        missing = [k for k in musts if k not in present]
         reasons.append(
-            f"must_have: {len(present)}/{len(musts)} present"
+            f"must_have: {len(present)}/{len(musts)} present {present}"
             + (f", missing {missing}" if missing else "")
         )
 
@@ -258,8 +315,12 @@ def score_job(job: Job, profile: Profile) -> Score:
         reasons.append(f"nice_to_have: {len(present)}/{len(nices)} present {present[:6]}")
 
     # ---- location / remote (10) ------------------------------------------ #
+    # Scoring defers to matches_location so ranking and filtering can never
+    # disagree. They used to run separate substring checks, and the scoring copy
+    # awarded full credit for any posting mentioning "remote" — which is how
+    # US-only roles came to outrank reachable Bengaluru ones.
     location = (job.location or "").lower()
-    wanted = _expand_aliases(profile.locations)
+    places = _place_aliases(profile.locations)
     if profile.remote_only:
         if job.remote:
             components["location"] = W_LOCATION
@@ -267,20 +328,18 @@ def score_job(job: Job, profile: Profile) -> Score:
         else:
             components["location"] = 0
             reasons.append("location: remote_only set but posting is not remote")
-    elif not wanted:
+    elif not profile.locations:
         components["location"] = W_LOCATION
         reasons.append("location: no preference set, full credit")
+    elif matches_location(job.location, bool(job.remote), profile.locations):
+        components["location"] = W_LOCATION
+        matched = sorted(p for p in places if _names_place(location, {p}))
+        reasons.append(
+            f"location: matches {matched[0]!r}" if matched else "location: remote and not region-locked"
+        )
     else:
-        matched = sorted(w for w in wanted if w in location)
-        if matched:
-            components["location"] = W_LOCATION
-            reasons.append(f"location: matches {matched[0]!r}")
-        elif job.remote or any(h in location for h in _REMOTE_HINT):
-            components["location"] = W_LOCATION
-            reasons.append("location: remote, so location is moot")
-        else:
-            components["location"] = 0
-            reasons.append(f"location: {job.location!r} not in {sorted(wanted)[:4]}...")
+        components["location"] = 0
+        reasons.append(f"location: {job.location!r} not reachable from {sorted(places)[:4]}...")
 
     # ---- seniority (10) -------------------------------------------------- #
     wanted_levels = {s.strip().lower() for s in profile.seniority if s.strip()}

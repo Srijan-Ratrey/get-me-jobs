@@ -31,8 +31,12 @@ profile:
 
   # Deliberately short. These are treated as ALL-required, so every extra entry
   # lowers the ceiling on every job. Put skills you merely have in nice_to_have.
+  #
+  # A single entry may list pipe-separated alternatives, satisfied by ANY of
+  # them. Use this when a requirement has obvious proxies: a posting can be
+  # unmistakably a Python role and never type the word "Python".
   must_have_keywords:
-    - python
+    - python|pytorch|tensorflow|scikit-learn|sklearn|pandas|numpy|keras|jupyter|django|flask
 
   # Skills and tools you actually have. Each one present adds to the score.
   nice_to_have_keywords:
