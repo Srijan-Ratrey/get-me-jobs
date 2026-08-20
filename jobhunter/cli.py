@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 
 from . import db, export as export_module, harvest as harvest_module, pipeline
 from .config import load_company_csv, load_profile, load_targets, settings
+from .matching import llm_scorer
 from .matching.scorer import matches_location
 from .models import Company, Job, Run
 
@@ -395,6 +396,16 @@ def scan(
 @app.command()
 def score(
     profile_path: Path = typer.Option(PROFILE_YAML, "--profile", help="Profile YAML."),
+    llm: bool = typer.Option(
+        False, "--llm", help="Also ask a model whether each shortlist candidate is genuinely a fit."
+    ),
+    model: str = typer.Option(
+        llm_scorer.DEFAULT_MODEL, "--model", help="Model for --llm. A cheaper one trades accuracy."
+    ),
+    limit: int = typer.Option(0, "--limit", help="With --llm, score at most N candidates (0 = all)."),
+    rescore: bool = typer.Option(
+        False, "--rescore", help="With --llm, re-judge jobs that already have a verdict."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Score but write nothing."),
 ) -> None:
     """Rescore every open job against profile.yaml."""
@@ -414,7 +425,89 @@ def score(
         f"[bold]{summary['scored']}[/] scored · "
         f"[yellow]{summary['disqualified']}[/] hard-zeroed (excluded title or too many years)"
     )
+
+    if llm:
+        _score_with_llm(profile, model=model, limit=limit or None, rescore=rescore, dry_run=dry_run)
+
     console.print(f"\nNext: [bold]jobhunter list --min-score {profile.min_score}[/]")
+
+
+def _score_with_llm(
+    profile, *, model: str, limit: int | None, rescore: bool, dry_run: bool
+) -> None:
+    """The --llm pass. Split out to keep `score` readable."""
+    candidates = pipeline.llm_candidates(profile, limit=limit, rescore=rescore)
+    if not candidates:
+        console.print(
+            "\n[dim]Nothing to judge: every reachable, non-disqualified job already has a "
+            "verdict. Use --rescore to re-run them.[/]"
+        )
+        return
+
+    console.print(
+        f"\nAsking [bold]{model}[/] about [bold]{len(candidates)}[/] reachable candidates "
+        f"[dim](of the open jobs; the rest are elsewhere or already hard-zeroed)[/]"
+        + (" [yellow](dry run)[/]" if dry_run else "")
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("judging", total=len(candidates))
+        progress.advance(task, 0)
+
+        results = asyncio.run(
+            llm_scorer.score_many(
+                candidates,
+                profile,
+                model=model,
+                on_progress=lambda _r: progress.advance(task),
+            )
+        )
+
+    summary = pipeline.apply_llm_scores(results, dry_run=dry_run)
+    console.print(
+        f"[green]{summary['written']}[/] judged · "
+        f"[yellow]{summary['off_target']}[/] not actually ML/data roles · "
+        f"[yellow]{summary['too_senior']}[/] out of reach on experience"
+        + (f" · [red]{summary['failed']}[/] failed" if summary["failed"] else "")
+    )
+
+    # The disagreements are the point: they are what the keyword scorer got wrong.
+    by_id = {c["id"]: c for c in candidates}
+    moved = sorted(
+        (
+            (r, by_id[r.job_id])
+            for r in results
+            if r.verdict is not None and by_id[r.job_id]["fit_score"] is not None
+        ),
+        key=lambda pair: -abs(pair[0].verdict.fit - pair[1]["fit_score"]),
+    )[:12]
+    if moved:
+        diff = Table(title="Biggest disagreements with keyword scoring", header_style="bold")
+        diff.add_column("Company")
+        diff.add_column("Title")
+        diff.add_column("Keyword", justify="right")
+        diff.add_column("Model", justify="right")
+        diff.add_column("Why")
+        for result, candidate in moved:
+            verdict = result.verdict
+            colour = "green" if verdict.fit > candidate["fit_score"] else "red"
+            diff.add_row(
+                candidate["company"],
+                (candidate["title"] or "")[:44],
+                str(candidate["fit_score"]),
+                f"[{colour}]{verdict.fit}[/]",
+                verdict.reason[:70],
+            )
+        console.print(diff)
+
+    if dry_run:
+        console.print("[yellow]Dry run: no verdicts were saved.[/]")
 
 
 @app.command()

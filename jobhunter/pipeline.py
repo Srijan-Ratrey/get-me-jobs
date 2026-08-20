@@ -20,7 +20,7 @@ from . import db
 from .config import Profile, Target, settings
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from .matching.scorer import score_job
-from .models import Job, Run
+from .models import Company, Job, Run
 from .sources.registry import fetch_target
 
 log = logging.getLogger(__name__)
@@ -487,3 +487,82 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
             buckets[key] += 1
 
     return {"scored": scored, "disqualified": disqualified, "buckets": buckets}
+
+
+def llm_candidates(profile: Profile, *, limit: int | None = None, rescore: bool = False) -> list[dict]:
+    """The jobs worth spending a model call on.
+
+    Deliberately narrow. Only postings that are open, reachable from somewhere
+    the profile lists, and not already disqualified — on the current database
+    that is 167 rows of 3,808. Scoring the whole table would cost roughly
+    twenty times as much to reach the same shortlist, because the other 97% are
+    either in the wrong country or already zeroed by a hard rule the model would
+    only confirm.
+    """
+    from sqlalchemy import select
+
+    from .matching.scorer import matches_location
+
+    out: list[dict] = []
+    with db.session_scope() as session:
+        rows = session.execute(
+            select(Job, Company.name)
+            .join(Company, Job.company_id == Company.id)
+            .where(Job.closed_at.is_(None))
+            .order_by(Job.fit_score.desc().nullslast())
+        ).all()
+        for job, company_name in rows:
+            if not rescore and job.llm_score is not None:
+                continue
+            if (job.fit_reasons or {}).get("disqualified"):
+                continue
+            if not matches_location(job.location, bool(job.remote), profile.locations):
+                continue
+            out.append(
+                {
+                    "id": job.id,
+                    "company": company_name,
+                    "title": job.title,
+                    "location": job.location,
+                    "description": job.description,
+                    "fit_score": job.fit_score,
+                }
+            )
+            if limit and len(out) >= limit:
+                break
+    return out
+
+
+def apply_llm_scores(results: list, *, dry_run: bool = False) -> dict:
+    """Persist verdicts. Returns a summary including how the two scorers differ."""
+    from sqlalchemy import select
+
+    written = failed = 0
+    rejected_as_off_target = 0
+    rejected_as_too_senior = 0
+
+    with db.session_scope() as session:
+        for result in results:
+            if result.verdict is None:
+                failed += 1
+                continue
+            verdict = result.verdict
+            if not verdict.is_target_role:
+                rejected_as_off_target += 1
+            if not verdict.is_junior_appropriate:
+                rejected_as_too_senior += 1
+            written += 1
+            if dry_run:
+                continue
+            job = session.get(Job, result.job_id)
+            if job is None:  # closed between selection and writing
+                continue
+            job.llm_score = verdict.fit
+            job.llm_verdict = verdict.model_dump()
+
+    return {
+        "written": written,
+        "failed": failed,
+        "off_target": rejected_as_off_target,
+        "too_senior": rejected_as_too_senior,
+    }

@@ -91,6 +91,12 @@ class Job(Base):
     fit_score: Mapped[int | None] = mapped_column(Integer, index=True)
     fit_reasons: Mapped[dict | None] = mapped_column(JSON)
 
+    # Optional second opinion from `score --llm`, deliberately stored beside the
+    # keyword score rather than overwriting it: the two are only useful if they
+    # can be compared, and a bad prompt must not be able to destroy fit_score.
+    llm_score: Mapped[int | None] = mapped_column(Integer, index=True)
+    llm_verdict: Mapped[dict | None] = mapped_column(JSON)
+
     company: Mapped[Company] = relationship(back_populates="jobs")
 
 

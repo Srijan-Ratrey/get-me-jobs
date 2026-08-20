@@ -5,7 +5,7 @@ import logging
 from contextlib import contextmanager
 from typing import Iterator
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from .config import Target, settings
@@ -31,8 +31,39 @@ def init_db(db_url: str | None = None):
     global _engine, _Session
     _engine = create_engine(db_url or settings.db_url, future=True)
     Base.metadata.create_all(_engine)
+    _add_missing_columns(_engine)
     _Session = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
+
+
+# Columns added after the first release. `create_all` creates missing *tables*
+# and silently ignores missing *columns*, so a database built before a column
+# existed keeps working until the first query names it and SQLite raises
+# "no such column".
+#
+# This is not a migration framework and should not grow into one. It exists
+# because the alternative — asking someone to delete a database holding
+# thousands of postings and their first-seen dates, which are not recoverable by
+# rescanning — is a genuinely bad trade for two nullable columns. If this list
+# ever needs a data transformation rather than an ALTER, that is the signal to
+# adopt Alembic instead.
+_ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("jobs", "llm_score", "INTEGER"),
+    ("jobs", "llm_verdict", "JSON"),
+)
+
+
+def _add_missing_columns(engine) -> None:
+    """Add post-release columns to an existing database. Idempotent."""
+    inspector = inspect(engine)
+    for table, column, sql_type in _ADDED_COLUMNS:
+        if table not in inspector.get_table_names():
+            continue
+        if column in {c["name"] for c in inspector.get_columns(table)}:
+            continue
+        log.info("adding column %s.%s to an existing database", table, column)
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
 
 
 @contextmanager

@@ -21,6 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 spa = ["playwright>=1.44"]
+# Optional like `spa`: keyword scoring is the default and must keep working with
+# no API key and no network. See jobhunter/matching/llm_scorer.py.
+llm = ["anthropic>=0.125"]
 dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
 
 [project.scripts]
