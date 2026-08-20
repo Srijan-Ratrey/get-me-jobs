@@ -22,9 +22,9 @@ from typing import Callable, Sequence
 
 import httpx
 
-from .config import Target, append_targets, load_targets
+from .config import Profile, Target, append_targets, load_targets
 from .http import PoliteClient, RobotsDisallowed
-from .matching.scorer import matches_location
+from .matching.scorer import _contains_word, matches_location
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +34,22 @@ log = logging.getLogger(__name__)
 # accepts a genuinely unanchored remote posting, and adding it here would make
 # every US-remote board look like an India employer.
 INDIA = ["Bengaluru", "India"]
+
+
+def is_relevant_title(title: str, profile: Profile) -> bool:
+    """Would this title be worth scoring at all?
+
+    Deliberately the same two rules the scorer applies to a title — a substring
+    match against ``profile.titles``, and a whole-word veto on
+    ``exclude_keywords`` — so a board is kept for roles the scorer would go on to
+    rank, not for roles it would immediately zero.
+    """
+    lowered = (title or "").lower()
+    if not lowered:
+        return False
+    if any(_contains_word(lowered, word) for word in profile.exclude_keywords if word.strip()):
+        return False
+    return any(t.strip() and t.lower() in lowered for t in profile.titles)
 
 # Listing endpoints. Deliberately not the adapters' URLs: no descriptions.
 _ENDPOINTS = {
@@ -53,10 +69,22 @@ class Probe:
     name: str | None = None
     total_jobs: int = 0
     india_jobs: int = 0
+    relevant_india_jobs: int = 0
     error: str | None = None
 
     def as_target(self) -> Target:
         return Target(name=self.name or _name_from_token(self.token), ats=self.ats, ats_token=self.token)
+
+    def worth_watching(self, *, min_relevant: int, min_india_jobs: int) -> bool:
+        """Keep a board for a matching role now, or a durable India presence.
+
+        The union is deliberate. Relevance alone would drop a company that posts
+        nothing matching this week and an ML role next month; India volume alone
+        selects for company size rather than fit, keeping Airbnb's fifteen
+        non-ML India roles while dropping a five-person AI startup whose entire
+        board is in Bengaluru.
+        """
+        return self.relevant_india_jobs >= min_relevant or self.india_jobs >= min_india_jobs
 
 
 @dataclass
@@ -70,17 +98,22 @@ class HarvestResult:
     def live(self) -> list[Probe]:
         return [p for p in self.probes if p.live]
 
-    def hits(self, min_india_jobs: int) -> list[Probe]:
-        return [p for p in self.live if p.india_jobs >= min_india_jobs]
+    def hits(self, *, min_relevant: int = 1, min_india_jobs: int = 8) -> list[Probe]:
+        return [
+            p
+            for p in self.live
+            if p.worth_watching(min_relevant=min_relevant, min_india_jobs=min_india_jobs)
+        ]
 
     def by_ats(self) -> dict[str, dict[str, int]]:
-        """Per-ATS probed / live / India counts, for the summary table."""
+        """Per-ATS probed / live / India / relevant counts, for the summary table."""
         out: dict[str, dict[str, int]] = {}
         for p in self.probes:
-            row = out.setdefault(p.ats, {"probed": 0, "live": 0, "india": 0})
+            row = out.setdefault(p.ats, {"probed": 0, "live": 0, "india": 0, "relevant": 0})
             row["probed"] += 1
             row["live"] += int(p.live)
             row["india"] += int(p.india_jobs > 0)
+            row["relevant"] += int(p.relevant_india_jobs > 0)
         return out
 
 
@@ -90,40 +123,47 @@ def _name_from_token(token: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Per-ATS extraction: (company name or None, [(location text, remote flag)])
+# Per-ATS extraction: (company name or None, [(title, location text, remote)])
 # --------------------------------------------------------------------------- #
 
+Posting = tuple[str, str, bool]
 
-def _from_greenhouse(data: object) -> tuple[str | None, list[tuple[str, bool]]]:
+
+def _from_greenhouse(data: object) -> tuple[str | None, list[Posting]]:
     jobs = (data or {}).get("jobs") or [] if isinstance(data, dict) else []
     name = next((j.get("company_name") for j in jobs if j.get("company_name")), None)
-    return name, [((j.get("location") or {}).get("name") or "", False) for j in jobs]
+    return name, [
+        (j.get("title") or "", (j.get("location") or {}).get("name") or "", False) for j in jobs
+    ]
 
 
-def _from_lever(data: object) -> tuple[str | None, list[tuple[str, bool]]]:
+def _from_lever(data: object) -> tuple[str | None, list[Posting]]:
     jobs = data if isinstance(data, list) else []
-    out: list[tuple[str, bool]] = []
+    out: list[Posting] = []
     for job in jobs:
         categories = job.get("categories") or {}
         parts = [categories.get("location") or "", *(categories.get("allLocations") or [])]
         remote = (job.get("workplaceType") or "").lower() == "remote"
-        out.append((", ".join(p for p in parts if p), remote))
+        # Lever calls the title "text".
+        out.append((job.get("text") or "", ", ".join(p for p in parts if p), remote))
     return None, out
 
 
-def _from_ashby(data: object) -> tuple[str | None, list[tuple[str, bool]]]:
+def _from_ashby(data: object) -> tuple[str | None, list[Posting]]:
     jobs = (data or {}).get("jobs") or [] if isinstance(data, dict) else []
-    out: list[tuple[str, bool]] = []
+    out: list[Posting] = []
     for job in jobs:
         parts = [job.get("location") or ""]
         for secondary in job.get("secondaryLocations") or []:
             # Shape has drifted between an object and a bare string; accept both.
             parts.append(secondary.get("location", "") if isinstance(secondary, dict) else str(secondary))
-        out.append((", ".join(p for p in parts if p), bool(job.get("isRemote"))))
+        out.append(
+            (job.get("title") or "", ", ".join(p for p in parts if p), bool(job.get("isRemote")))
+        )
     return None, out
 
 
-_EXTRACTORS: dict[str, Callable[[object], tuple[str | None, list[tuple[str, bool]]]]] = {
+_EXTRACTORS: dict[str, Callable[[object], tuple[str | None, list[Posting]]]] = {
     "greenhouse": _from_greenhouse,
     "lever": _from_lever,
     "ashby": _from_ashby,
@@ -135,8 +175,15 @@ _EXTRACTORS: dict[str, Callable[[object], tuple[str | None, list[tuple[str, bool
 # --------------------------------------------------------------------------- #
 
 
-async def probe_board(client: PoliteClient, ats: str, token: str) -> Probe:
+async def probe_board(
+    client: PoliteClient, ats: str, token: str, profile: Profile | None = None
+) -> Probe:
     """Ask one board how many of its openings are reachable from India.
+
+    Counts both India-located postings and the subset whose titles the profile
+    would actually rank, because the two answer different questions: the first
+    is "do they hire here at all", the second "do they have something for me
+    right now". Both come from the one response already in hand.
 
     A dead token is the common case, not an error: these lists are harvested from
     crawl data and go stale. Anything that fails is recorded and the sweep
@@ -157,10 +204,13 @@ async def probe_board(client: PoliteClient, ats: str, token: str) -> Probe:
         return probe
 
     name, postings = _EXTRACTORS[ats](data)
+    india = [p for p in postings if matches_location(p[1], p[2], INDIA)]
     probe.live = True
     probe.name = name
     probe.total_jobs = len(postings)
-    probe.india_jobs = sum(1 for location, remote in postings if matches_location(location, remote, INDIA))
+    probe.india_jobs = len(india)
+    if profile is not None:
+        probe.relevant_india_jobs = sum(1 for title, _, _ in india if is_relevant_title(title, profile))
     return probe
 
 
@@ -214,7 +264,9 @@ async def run_harvest(
     *,
     companies_path: str | Path = "companies.yaml",
     state_path: str | Path = ".harvest-state.jsonl",
-    min_india_jobs: int = 1,
+    profile: Profile | None = None,
+    min_relevant: int = 1,
+    min_india_jobs: int = 8,
     limit: int | None = None,
     dry_run: bool = False,
     client: PoliteClient | None = None,
@@ -248,7 +300,7 @@ async def run_harvest(
                 if (ats, token) in known:
                     result.skipped_known += 1
                     continue
-                probe = await probe_board(client, ats, token)
+                probe = await probe_board(client, ats, token, profile)
                 result.probes.append(probe)
                 if not dry_run:
                     _append_state(state_file, probe)
@@ -260,11 +312,19 @@ async def run_harvest(
         if owns_client:
             await client.__aexit__(None, None, None)
 
-    hits = [p for p in result.hits(min_india_jobs) if (p.ats, p.token) not in known]
+    hits = [
+        p
+        for p in result.hits(min_relevant=min_relevant, min_india_jobs=min_india_jobs)
+        if (p.ats, p.token) not in known
+    ]
     if hits and not dry_run:
+        matching = sum(1 for p in hits if p.relevant_india_jobs)
         result.added = append_targets(
             companies_path,
             [p.as_target() for p in hits],
-            note=f"appended by `jobhunter harvest` ({len(hits)} boards hiring in India)",
+            note=(
+                f"appended by `jobhunter harvest` ({len(hits)} boards: {matching} with a matching "
+                f"India role, {len(hits) - matching} on India volume alone)"
+            ),
         )
     return result

@@ -197,8 +197,14 @@ def harvest(
     ),
     ats: str = typer.Option("greenhouse,lever,ashby", "--ats", help="Comma-separated ATSs to sweep."),
     companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML to append to."),
+    profile_path: Path = typer.Option(PROFILE_YAML, "--profile", help="Profile whose titles decide relevance."),
+    min_relevant: int = typer.Option(
+        1, "--min-relevant", help="Keep a board with at least this many India roles matching your titles."
+    ),
     min_india_jobs: int = typer.Option(
-        1, "--min-india-jobs", help="Keep a board only if it has at least this many India openings."
+        8,
+        "--min-india-jobs",
+        help="Or keep it on India volume alone, for a presence worth watching even with no match today.",
     ),
     limit: int = typer.Option(0, "--limit", help="Probe only the first N tokens per ATS (0 = all)."),
     state: Path = typer.Option(
@@ -207,6 +213,11 @@ def harvest(
     dry_run: bool = typer.Option(False, "--dry-run", help="Report only, write nothing."),
 ) -> None:
     """Probe published ATS board tokens and add the companies that hire in India."""
+    if not profile_path.exists():
+        console.print(f"[red]{profile_path} not found.[/] Run [bold]jobhunter init[/] first.")
+        raise typer.Exit(1)
+    profile = load_profile(profile_path)
+
     names = [a.strip().lower() for a in ats.split(",") if a.strip()]
     tokens = harvest_module.load_tokens(tokens_dir, names)
     if not tokens:
@@ -236,13 +247,13 @@ def harvest(
         console=console,
     ) as progress:
         task = progress.add_task("probing", total=total)
-        found: list[str] = []
+        matching: list[str] = []
 
         def tick(probe: harvest_module.Probe) -> None:
-            if probe.india_jobs:
-                found.append(probe.token)
+            if probe.relevant_india_jobs:
+                matching.append(probe.token)
                 progress.update(
-                    task, description=f"probing · [green]{len(found)} hiring in India[/]"
+                    task, description=f"probing · [green]{len(matching)} with a role for you[/]"
                 )
             progress.advance(task)
 
@@ -251,6 +262,8 @@ def harvest(
                 tokens,
                 companies_path=companies,
                 state_path=state,
+                profile=profile,
+                min_relevant=min_relevant,
                 min_india_jobs=min_india_jobs,
                 limit=limit or None,
                 dry_run=dry_run,
@@ -263,24 +276,37 @@ def harvest(
     table.add_column("Probed", justify="right")
     table.add_column("Live", justify="right")
     table.add_column("Hiring in India", justify="right")
+    table.add_column("Matching your titles", justify="right")
     for name, row in sorted(result.by_ats().items()):
-        table.add_row(name, str(row["probed"]), str(row["live"]), str(row["india"]))
+        table.add_row(
+            name, str(row["probed"]), str(row["live"]), str(row["india"]), str(row["relevant"])
+        )
     console.print(table)
 
-    hits = result.hits(min_india_jobs)
+    hits = result.hits(min_relevant=min_relevant, min_india_jobs=min_india_jobs)
     if hits:
-        top = Table(title=f"Top boards by India openings (of {len(hits)})", header_style="bold")
+        top = Table(title=f"Best boards (of {len(hits)} kept)", header_style="bold")
         top.add_column("Company")
         top.add_column("ATS")
         top.add_column("Token")
+        top.add_column("Matching", justify="right")
         top.add_column("India jobs", justify="right")
-        for probe in sorted(hits, key=lambda p: -p.india_jobs)[:25]:
-            top.add_row(probe.name or probe.token, probe.ats, probe.token, str(probe.india_jobs))
+        for probe in sorted(hits, key=lambda p: (-p.relevant_india_jobs, -p.india_jobs))[:25]:
+            top.add_row(
+                probe.name or probe.token,
+                probe.ats,
+                probe.token,
+                str(probe.relevant_india_jobs),
+                str(probe.india_jobs),
+            )
         console.print(top)
 
+    on_relevance = sum(1 for p in hits if p.relevant_india_jobs >= min_relevant)
     console.print(
         f"\n[green]{len(result.live)}[/] live boards of {len(result.probes)} probed · "
-        f"[green]{len(hits)}[/] hiring in India (>= {min_india_jobs}) · "
+        f"[green]{len(hits)}[/] kept "
+        f"([bold]{on_relevance}[/] with >= {min_relevant} role matching your titles, "
+        f"{len(hits) - on_relevance} on India volume >= {min_india_jobs}) · "
         f"[dim]{result.skipped_known} already tracked, {result.resumed} from the resume log[/]"
     )
     if dry_run:
@@ -290,7 +316,6 @@ def harvest(
         )
     else:
         console.print(f"[green]✓[/] appended [bold]{result.added}[/] companies to {companies}")
-        console.print("[dim]Next: jobhunter scan[/]")
         console.print("\nNext: [bold]jobhunter scan[/] — which also verifies the new tokens.")
 
 
