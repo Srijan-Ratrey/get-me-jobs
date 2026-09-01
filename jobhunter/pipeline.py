@@ -21,7 +21,7 @@ from .config import Profile, Target, settings
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from .matching.scorer import score_job
 from .models import Company, Job, Run
-from .sources.registry import fetch_target
+from .sources.registry import fetch_target, resolve
 
 log = logging.getLogger(__name__)
 
@@ -280,6 +280,31 @@ class ScanResult:
     per_company: dict[str, dict] = field(default_factory=dict)
 
 
+def _persist_catalogue(session, target: Target, raws: list) -> tuple[int, int]:
+    """File a catalogue source's postings under their real employers.
+
+    Filing them all under the search's own name would make the shortlist useless
+    (every row reading "FreeHire") and would point contact discovery at the
+    aggregator instead of the company. Using the employer also makes dedup work:
+    content_hash includes the company name, so a posting seen both directly and
+    through the catalogue collapses only when both agree on who is hiring.
+
+    Returns (new, closed). Closed is always 0 — deliberately. A keyword search
+    returns what matched, not everything a company has open, so running
+    close_stale_jobs here would close every posting the direct adapters found at
+    these same employers.
+    """
+    companies: dict[str, object] = {}
+    new_count = 0
+    for raw in raws:
+        name = (raw.company_name or "").strip() or target.name
+        if name not in companies:
+            companies[name] = db.upsert_company(session, Target(name=name))
+        _, is_new = db.upsert_job(session, companies[name], raw)
+        new_count += int(is_new)
+    return new_count, 0
+
+
 async def run_scan(
     targets: list[Target],
     *,
@@ -315,17 +340,21 @@ async def run_scan(
                 result.per_company[target.name] = {"seen": len(raws), "new": 0, "closed": 0}
                 continue
 
+            adapter = resolve(target)
             with db.session_scope() as session:
-                company = db.upsert_company(session, target)
-                seen_hashes: set[str] = set()
-                new_count = 0
-                for raw in raws:
-                    job, is_new = db.upsert_job(session, company, raw)
-                    seen_hashes.add(job.content_hash)
-                    new_count += int(is_new)
-                # Reached only because the fetch above succeeded, which is what
-                # makes closing the absent postings safe.
-                closed = db.close_stale_jobs(session, company, seen_hashes)
+                if getattr(adapter, "is_catalogue", False):
+                    new_count, closed = _persist_catalogue(session, target, raws)
+                else:
+                    company = db.upsert_company(session, target)
+                    seen_hashes: set[str] = set()
+                    new_count = 0
+                    for raw in raws:
+                        job, is_new = db.upsert_job(session, company, raw)
+                        seen_hashes.add(job.content_hash)
+                        new_count += int(is_new)
+                    # Reached only because the fetch above succeeded, which is what
+                    # makes closing the absent postings safe.
+                    closed = db.close_stale_jobs(session, company, seen_hashes)
 
             result.jobs_new += new_count
             result.jobs_closed += closed

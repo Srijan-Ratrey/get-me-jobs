@@ -323,11 +323,17 @@ def harvest(
 @app.command()
 def scan(
     companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML."),
+    sources: str = typer.Option(
+        "", "--sources", help="Only scan targets on these comma-separated ATSs (default: all)."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Fetch but write nothing."),
 ) -> None:
     """Fetch jobs from every target in companies.yaml."""
     _require(companies, "it lists the companies to watch")
     targets = load_targets(companies)
+    if sources:
+        wanted = {s.strip().lower() for s in sources.split(",") if s.strip()}
+        targets = [t for t in targets if (t.ats or "").lower() in wanted]
     if not targets:
         console.print("[yellow]No companies configured.[/]")
         raise typer.Exit(1)

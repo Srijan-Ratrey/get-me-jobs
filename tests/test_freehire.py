@@ -287,3 +287,74 @@ def test_the_same_posting_from_two_sources_collapses_to_one_row(tmp_path):
         )
         assert is_new is False
         assert session.query(Job).count() == 1
+
+
+# --------------------------------------------------------------------------- #
+# Catalogue persistence
+# --------------------------------------------------------------------------- #
+
+
+def test_catalogue_rows_are_filed_under_the_real_employer(tmp_path):
+    """Filing them under the search's own name makes the shortlist unreadable."""
+    from jobhunter import db
+    from jobhunter.models import Company, Job, RawJob
+    from jobhunter.pipeline import _persist_catalogue
+
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c.db'}")
+    raws = [
+        RawJob(source="freehire:workday", external_id="1", title="ML Engineer",
+               company_name="Acme", location="Bengaluru", url="https://a/1"),
+        RawJob(source="freehire:freshteam", external_id="2", title="Data Scientist",
+               company_name="Globex", location="Bengaluru", url="https://g/2"),
+    ]
+    with db.session_scope() as session:
+        new, closed = _persist_catalogue(session, target(), raws)
+        assert (new, closed) == (2, 0)
+    with db.session_scope() as session:
+        names = {c.name for c in session.query(Company).all()}
+        assert {"Acme", "Globex"} <= names
+        assert "FreeHire (India ML)" not in names
+
+
+def test_a_catalogue_scan_never_closes_an_employers_other_jobs(tmp_path):
+    """The dangerous edge.
+
+    A keyword search returns what matched, not everything a company has open. If
+    stale-closing ran over these rows it would close every posting the direct
+    adapters found at the same employer.
+    """
+    from jobhunter import db
+    from jobhunter.models import Job, RawJob
+    from jobhunter.pipeline import _persist_catalogue
+
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c2.db'}")
+    with db.session_scope() as session:
+        acme = db.upsert_company(session, Target(name="Acme"))
+        db.upsert_job(session, acme, RawJob(source="greenhouse", external_id="99",
+                                            title="Backend Engineer", location="Bengaluru",
+                                            url="https://a/99"))
+        session.commit()
+
+    with db.session_scope() as session:
+        _persist_catalogue(session, target(), [
+            RawJob(source="freehire:workday", external_id="1", title="ML Engineer",
+                   company_name="Acme", location="Bengaluru", url="https://a/1"),
+        ])
+
+    with db.session_scope() as session:
+        backend = session.query(Job).filter(Job.title == "Backend Engineer").one()
+        assert backend.closed_at is None, "the search must not close jobs it never looked for"
+
+
+def test_a_row_with_no_company_name_falls_back_to_the_search_name(tmp_path):
+    from jobhunter import db
+    from jobhunter.models import Company, RawJob
+    from jobhunter.pipeline import _persist_catalogue
+
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c3.db'}")
+    with db.session_scope() as session:
+        _persist_catalogue(session, target(), [
+            RawJob(source="freehire:x", external_id="1", title="T", url="https://a/1"),
+        ])
+    with db.session_scope() as session:
+        assert session.query(Company).filter(Company.name == "FreeHire (India ML)").count() == 1

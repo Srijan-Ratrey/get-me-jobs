@@ -65,6 +65,14 @@ class FreeHireSource:
 
     name = "freehire"
 
+    # This source returns postings from many employers, not one board. Two
+    # consequences the pipeline has to honour: each RawJob's company_name is the
+    # real employer and decides which Company row it belongs to, and stale-closing
+    # must be skipped — a search result is not an exhaustive list of anyone's
+    # openings, so treating it as one would close every job the direct adapters
+    # found at those same companies.
+    is_catalogue = True
+
     def matches(self, target: Target) -> bool:
         return (target.ats or "").lower() == self.name
 
