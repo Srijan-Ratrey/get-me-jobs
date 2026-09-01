@@ -60,6 +60,11 @@ class Target(BaseModel):
     careers_url: str | None = None
     contact_pages: list[str] = Field(default_factory=list)
 
+    # Saved-search filters, for sources that read a catalogue rather than one
+    # company's board (currently only `ats: freehire`). Left empty by every
+    # ordinary company entry.
+    search: dict = Field(default_factory=dict)
+
 
 class Profile(BaseModel):
     """What you are looking for. Drives fit scoring."""

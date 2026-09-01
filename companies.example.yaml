@@ -103,3 +103,17 @@ companies:
 # Both were checked on 2026-07-31. Large MNCs also hire 0-1yr candidates through
 # structured early-career programs, where a cold email does far less than it does
 # at a startup — which is where this tool's contact discovery actually helps.
+
+  # A saved search rather than a company. FreeHire aggregates roughly 300 ATSs,
+  # so it reaches Workday, Oracle, SmartRecruiters, Zoho Recruit and Freshteam —
+  # none of which has an adapter here. Its robots.txt asks bots to use the JSON
+  # API rather than scrape, and needs no key. Categories, countries and every
+  # other filter must come from /api/v1/jobs/facets: an unrecognised filter is
+  # silently ignored, not refused, so a typo returns the whole catalogue.
+  - name: FreeHire (India ML/data)
+    ats: freehire
+    search:
+      category: [ml_ai, ai_engineering, data_science, data_analytics, data_engineering]
+      countries: [in]
+      posted_within_days: 30
+      max_pages: 60

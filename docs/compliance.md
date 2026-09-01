@@ -19,7 +19,8 @@ profile, and the code should make that hard to build by accident.
 | SmartRecruiters postings API | **Do not use** | Listed as usable in an earlier version of this table; that was wrong. `api.smartrecruiters.com/robots.txt` is `Disallow: /` for `*`, with `Allow: /v1/companies/` granted **only to LinkedInBot**. Being public is not the same as being crawlable, and the site owner's directives decide. Presenting ourselves as LinkedInBot to obtain that Allow is prohibited below. See `docs/sources.md`. |
 | Company careers pages | **Use, respecting robots.txt** | Public pages a company wants indexed. Honour their crawl directives. |
 | LinkedIn, Indeed, Glassdoor, ZipRecruiter | **Do not scrape** | ToS explicitly prohibit automated collection, and they enforce it. `hiQ v. LinkedIn` established that scraping public data isn't a *CFAA* violation, but it left breach-of-contract and state-law claims alive — and they'll block you long before any of that matters. Use their official APIs or paid partners if you need this data. |
-| Aggregators reselling scraped listings | **Check individually** | Many prohibit redistribution. |
+| FreeHire (`freehire.me`) public JSON API | **Use freely** | `robots.txt` explicitly asks bots to read the API instead of the pages, and requests a self-identifying User-Agent — which is what we send. Unauthenticated, documented rate budget, OpenAPI spec. Verified 2026-09-01. |
+| Aggregators reselling scraped listings | **Check individually** | Many prohibit redistribution. FreeHire above is the vetted exception; it links out to each employer's own ATS posting. |
 
 Implementation requirements:
 
@@ -31,6 +32,13 @@ Implementation requirements:
   access to precisely the hosts that declined to state terms. This matches stdlib
   `RobotFileParser.read()` and Google's specification. Corrected 2026-08-17: the client previously
   treated every non-200 alike.
+- **FreeHire (`freehire.me`) — public API, explicitly invited.** Checked 2026-09-01.
+  `robots.txt` allows everything but `/my/` and the comment endpoints, and then says in a
+  comment: *"Bots and agents: you do not have to scrape these pages. The whole catalogue is a
+  public, unauthenticated JSON API... Please send a User-Agent naming your project."* That is
+  what `PoliteClient` already sends. `llms.txt` documents a 600 req/min budget with
+  `X-RateLimit-*` headers and publishes an OpenAPI spec. No key, no account, no ToS conflict —
+  the cleanest source in this project. Use the API, never the HTML.
 - **One narrow exception, `http.ROBOTS_EXEMPT_HOSTS`.** `api.ashbyhq.com` answers `/robots.txt`
   with `401 Unauthorized` because its gateway 401s every path it does not route — that is a
   default, not a directive, and `/posting-api/job-board/` is the documented public syndication

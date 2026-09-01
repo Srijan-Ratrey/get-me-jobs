@@ -1,0 +1,350 @@
+{
+ "data": [
+  {
+   "public_slug": "senior-machine-learning-engineer-content-platform-roku-bykc6zr2",
+   "source": "greenhouse",
+   "manually_added": false,
+   "external_id": "roku:8050555",
+   "url": "https://www.weareroku.com/jobs/8050555?gh_jid=8050555&utm_source=freehire.me",
+   "title": "Senior Machine Learning Engineer, Content Platform",
+   "company": "Roku",
+   "company_slug": "roku",
+   "location": "Bengaluru, India",
+   "description": "<div><h2>Teamwork makes the stream work.</h2>\n\n<h3><strong>Roku is changing how the world watches TV</strong></h3>\n<p>Roku is the #1 TV streaming platform in the U.S., Canada, and Mexico, and we&#39;ve set our sights on powering every television in the world. Roku pioneered streaming to the TV. Our mission is to be the TV streaming platform that connects the entire TV ecosystem. We connect consumers to the content they love, enable content publishers to build and monetize large audiences, and provide advertisers unique capabilities to engage consumers.</p>\n<p>From your first day at Roku, you&#39;ll make a valuable - and valued - contribution. We&#39;re a fast-growing public company where no </div>",
+   "countries": [
+    "in"
+   ],
+   "regions": [
+    "apac"
+   ],
+   "work_mode": "hybrid",
+   "skills": [
+    "agentic-ai",
+    "ai",
+    "airflow",
+    "automation",
+    "claude-code",
+    "data-pipelines",
+    "data-quality",
+    "deep-learning",
+    "flink",
+    "generative-ai",
+    "java",
+    "kafka",
+    "machine-learning",
+    "mcp",
+    "nlp",
+    "python",
+    "scala",
+    "spark",
+    "statistics",
+    "transformers"
+   ],
+   "cities": [
+    "Bengaluru"
+   ],
+   "collections": [
+    "us-h1b-sponsor"
+   ],
+   "is_tech": "tech",
+   "posted_at": "2026-09-01T12:07:17Z",
+   "created_at": "2026-07-24T17:56:44Z",
+   "updated_at": "2026-09-01T14:55:30Z",
+   "last_seen_at": "2026-09-01T14:55:30Z",
+   "closed_at": null,
+   "enrichment": {
+    "summary": "Builds and deploys advanced ML systems (including generative AI/vision models) to enhance Roku\u2019s content platform, focusing on entity matching, metadata quality, and user engagement for its global TV streaming audience.",
+    "seniority": "senior",
+    "experience_years_min": 7,
+    "education_level": "phd",
+    "category": "ml_ai",
+    "domains": [
+     "media"
+    ],
+    "posting_language": "en",
+    "company_type": "product",
+    "company_size": "501-1000"
+   },
+   "enriched_at": "2026-08-16T19:02:50Z",
+   "enrichment_version": 2,
+   "view_count": 16,
+   "applied_count": 0,
+   "upvote_count": 0,
+   "downvote_count": 0,
+   "my_vote": 0,
+   "reality": {
+    "class": "stale",
+    "age_days": 38,
+    "repost_count": 2,
+    "mass_posting_count": 1,
+    "fake_freshness": false
+   }
+  },
+  {
+   "public_slug": "senior-machine-learning-engineer-data-insights-roku-s5zdc5sj",
+   "source": "greenhouse",
+   "manually_added": false,
+   "external_id": "roku:8002599",
+   "url": "https://www.weareroku.com/jobs/8002599?gh_jid=8002599&utm_source=freehire.me",
+   "title": "Senior Machine Learning Engineer, Data Insights ",
+   "company": "Roku",
+   "company_slug": "roku",
+   "location": "Bengaluru, India",
+   "description": "<div><h2>Teamwork makes the stream work.</h2>\n\n<h3><strong>Roku is changing how the world watches TV</strong></h3>\n<p>Roku is the #1 TV streaming platform in the U.S., Canada, and Mexico, and we&#39;ve set our sights on powering every television in the world. Roku pioneered streaming to the TV. Our mission is to be the TV streaming platform that connects the entire TV ecosystem. We connect consumers to the content they love, enable content publishers to build and monetize large audiences, and provide advertisers unique capabilities to engage consumers.</p>\n<p>From your first day at Roku, you&#39;ll make a valuable - and valued - contribution. We&#39;re a fast-growing public company where no </div>",
+   "countries": [
+    "in"
+   ],
+   "regions": [
+    "apac"
+   ],
+   "work_mode": "hybrid",
+   "skills": [
+    "agentic-ai",
+    "ai",
+    "airflow",
+    "analytics",
+    "api",
+    "automation",
+    "aws",
+    "azure",
+    "ci-cd",
+    "claude-code",
+    "cloud",
+    "containerization",
+    "cpp",
+    "data-ingestion",
+    "data-pipelines",
+    "data-science",
+    "docker",
+    "embeddings",
+    "feature-engineering",
+    "gcp",
+    "generative-ai",
+    "java",
+    "kubernetes",
+    "llm",
+    "looker",
+    "machine-learning",
+    "mcp",
+    "mlops",
+    "nlp",
+    "python",
+    "scala",
+    "spark",
+    "trino"
+   ],
+   "cities": [
+    "Bengaluru"
+   ],
+   "collections": [
+    "us-h1b-sponsor"
+   ],
+   "is_tech": "tech",
+   "posted_at": "2026-09-01T12:05:38Z",
+   "created_at": "2026-07-14T14:50:15Z",
+   "updated_at": "2026-09-01T14:55:30Z",
+   "last_seen_at": "2026-09-01T14:55:30Z",
+   "closed_at": null,
+   "enrichment": {
+    "summary": "Build and productionise ML and generative-AI systems for Roku\u2019s advertising measurement and insights products, using large-scale data platforms and partnering with data scientists and engineers.",
+    "relocation": "not_supported",
+    "timezone_note": "Hybrid: office Mon\u2013Thu, flexible remote on Fri.",
+    "salary_currency": "INR",
+    "seniority": "senior",
+    "experience_years_min": 4,
+    "category": "ml_ai",
+    "domains": [
+     "adtech"
+    ],
+    "posting_language": "en",
+    "company_type": "product",
+    "company_size": "1000+"
+   },
+   "enriched_at": "2026-08-16T19:03:26Z",
+   "enrichment_version": 2,
+   "view_count": 15,
+   "applied_count": 0,
+   "upvote_count": 0,
+   "downvote_count": 0,
+   "my_vote": 0,
+   "reality": {
+    "class": "stale",
+    "age_days": 49,
+    "repost_count": 1,
+    "mass_posting_count": 1,
+    "fake_freshness": false
+   }
+  },
+  {
+   "public_slug": "senior-machine-learning-engineer-advertising-engineering-roku-dqnskkef",
+   "source": "greenhouse",
+   "manually_added": false,
+   "external_id": "roku:8002593",
+   "url": "https://www.weareroku.com/jobs/8002593?gh_jid=8002593&utm_source=freehire.me",
+   "title": "Senior Machine Learning Engineer - Advertising Engineering",
+   "company": "Roku",
+   "company_slug": "roku",
+   "location": "Bengaluru, India",
+   "description": "<div><h2>Teamwork makes the stream work.</h2>\n\n<h3><strong>Roku is changing how the world watches TV</strong></h3>\n<p>Roku is the #1 TV streaming platform in the U.S., Canada, and Mexico, and we&#39;ve set our sights on powering every television in the world. Roku pioneered streaming to the TV. Our mission is to be the TV streaming platform that connects the entire TV ecosystem. We connect consumers to the content they love, enable content publishers to build and monetize large audiences, and provide advertisers unique capabilities to engage consumers.</p>\n<p>From your first day at Roku, you&#39;ll make a valuable - and valued - contribution. We&#39;re a fast-growing public company where no </div>",
+   "countries": [
+    "in"
+   ],
+   "regions": [
+    "apac"
+   ],
+   "work_mode": "hybrid",
+   "skills": [
+    "agentic-ai",
+    "ai",
+    "analytics",
+    "automation",
+    "claude-code",
+    "cpp",
+    "data-ingestion",
+    "data-pipelines",
+    "data-science",
+    "embeddings",
+    "feature-engineering",
+    "generative-ai",
+    "java",
+    "llm",
+    "machine-learning",
+    "mcp",
+    "nlp",
+    "python",
+    "scala",
+    "spark",
+    "trino"
+   ],
+   "cities": [
+    "Bengaluru"
+   ],
+   "collections": [
+    "us-h1b-sponsor"
+   ],
+   "is_tech": "tech",
+   "posted_at": "2026-09-01T12:05:36Z",
+   "created_at": "2026-06-30T10:03:36Z",
+   "updated_at": "2026-09-01T14:55:30Z",
+   "last_seen_at": "2026-09-01T14:55:30Z",
+   "closed_at": null,
+   "enrichment": {
+    "summary": "Build and productionise ML and generative-AI systems for Roku\u2019s advertising data, including identity resolution, audience modeling, and campaign optimization.",
+    "relocation": "not_supported",
+    "timezone_note": "Hybrid: office Mon\u2013Thu, flexible remote on Fri (role requires Bengaluru presence).",
+    "seniority": "senior",
+    "experience_years_min": 4,
+    "category": "ml_ai",
+    "domains": [
+     "adtech"
+    ],
+    "posting_language": "en",
+    "company_type": "product",
+    "company_size": "1000+"
+   },
+   "enriched_at": "2026-08-16T19:03:26Z",
+   "enrichment_version": 2,
+   "view_count": 14,
+   "applied_count": 0,
+   "upvote_count": 0,
+   "downvote_count": 0,
+   "my_vote": 0,
+   "reality": {
+    "class": "stale",
+    "age_days": 63,
+    "repost_count": 1,
+    "mass_posting_count": 1,
+    "fake_freshness": false
+   }
+  },
+  {
+   "public_slug": "senior-machine-learning-engineer-recommendations-roku-o2cjd52s",
+   "source": "greenhouse",
+   "manually_added": false,
+   "external_id": "roku:7992122",
+   "url": "https://www.weareroku.com/jobs/7992122?gh_jid=7992122&utm_source=freehire.me",
+   "title": "Senior Machine Learning Engineer - Recommendations",
+   "company": "Roku",
+   "company_slug": "roku",
+   "location": "Bengaluru, India",
+   "description": "<div><h2>Teamwork makes the stream work.</h2>\n\n<h3><strong>Roku is changing how the world watches TV</strong></h3>\n<p>Roku is the #1 TV streaming platform in the U.S., Canada, and Mexico, and we&#39;ve set our sights on powering every television in the world. Roku pioneered streaming to the TV. Our mission is to be the TV streaming platform that connects the entire TV ecosystem. We connect consumers to the content they love, enable content publishers to build and monetize large audiences, and provide advertisers unique capabilities to engage consumers.</p>\n<p>From your first day at Roku, you&#39;ll make a valuable - and valued - contribution. We&#39;re a fast-growing public company where no </div>",
+   "countries": [
+    "in"
+   ],
+   "regions": [
+    "apac"
+   ],
+   "work_mode": "hybrid",
+   "skills": [
+    "agentic-ai",
+    "ai",
+    "airflow",
+    "automation",
+    "causal-inference",
+    "claude-code",
+    "data-pipelines",
+    "data-science",
+    "deep-learning",
+    "generative-ai",
+    "java",
+    "llm",
+    "machine-learning",
+    "mcp",
+    "neural-networks",
+    "nlp",
+    "python",
+    "scala",
+    "spark",
+    "statistics",
+    "transformers"
+   ],
+   "cities": [
+    "Bengaluru"
+   ],
+   "collections": [
+    "us-h1b-sponsor"
+   ],
+   "is_tech": "tech",
+   "posted_at": "2026-09-01T12:04:16Z",
+   "created_at": "2026-06-12T02:49:04Z",
+   "updated_at": "2026-09-01T14:55:30Z",
+   "last_seen_at": "2026-09-01T14:55:30Z",
+   "closed_at": null,
+   "enrichment": {
+    "summary": "Build and deploy ML models to improve ad relevance and performance for Roku\u2019s streaming platform using Python, Spark, and TensorFlow.",
+    "relocation": "not_supported",
+    "timezone_note": "Hybrid: office Mon\u2013Thu, flexible remote on Fri (role requires Bengaluru presence).",
+    "seniority": "senior",
+    "experience_years_min": 5,
+    "education_level": "phd",
+    "category": "ml_ai",
+    "domains": [
+     "adtech",
+     "ai"
+    ],
+    "posting_language": "en",
+    "company_type": "product",
+    "company_size": "1000+"
+   },
+   "enriched_at": "2026-08-16T19:03:54Z",
+   "enrichment_version": 2,
+   "view_count": 11,
+   "applied_count": 0,
+   "upvote_count": 0,
+   "downvote_count": 0,
+   "my_vote": 0,
+   "reality": {
+    "class": "stale",
+    "age_days": 81,
+    "repost_count": 1,
+    "mass_posting_count": 1,
+    "fake_freshness": false
+   }
+  }
+ ],
+ "meta": {
+  "limit": 4,
+  "offset": 0,
+  "total": 202
+ }
+}

@@ -15,6 +15,7 @@ from ..models import RawJob
 from .ashby import AshbySource
 from .base import JobSource
 from .careers_page import CareersPageSource, fingerprint
+from .freehire import FreeHireSource
 from .greenhouse import GreenhouseSource
 from .lever import LeverSource
 from .workable import WorkableSource
@@ -26,6 +27,7 @@ ADAPTERS: list[JobSource] = [
     LeverSource(),
     AshbySource(),
     WorkableSource(),
+    FreeHireSource(),
 ]
 
 BY_NAME: dict[str, JobSource] = {a.name: a for a in ADAPTERS}

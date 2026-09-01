@@ -466,3 +466,50 @@ Non-deterministic IDs break dedup across runs.
 3. Write the adapter, mapping to `RawJob`.
 4. Write a parser test against the fixture asserting field-by-field. No network in tests.
 5. Add the fingerprint marker to the table above.
+
+
+## FreeHire — one search across ~300 ATSs
+
+Added 2026-09-01. Every other source here reads one company's board; this reads a catalogue,
+which is the only reason it earns a place. Measured that day on
+`category=ml_ai&countries=in&posted_within_days=21`: of 645 India ML postings, **204 (31%) sat on
+Greenhouse, Lever, Ashby or Workable and 441 did not** — they were on Workday (135), Oracle (35),
+SmartRecruiters (34), Zoho Recruit (20), Freshteam, Phenom, Trakstar and JazzHR. Those are the
+systems Indian SMBs actually use, and every one of them is either undocumented or, in the
+Darwinbox and SmartRecruiters cases above, closed to identified bots. Reading the aggregate wins
+that fight once instead of once per vendor.
+
+Compliance is the cleanest of any source in this project — see `docs/compliance.md`. The API is
+unauthenticated, the rate budget is published, and `robots.txt` asks callers to use it rather than
+scrape the HTML.
+
+```
+GET https://freehire.me/api/v1/jobs/search?category=ml_ai&countries=in&posted_within_days=30&limit=100&offset=0
+-> {"data": [...], "meta": {"limit", "offset", "total", "ignored_params"}}
+```
+
+| Field | Maps to |
+|---|---|
+| `title`, `company`, `location` (or `cities`) | `title`, `company_name`, `location` |
+| `url` | `url` — **strip `utm_source=freehire.me`** so the link is the employer's own |
+| `description` | HTML; run through `html_to_text` |
+| `source` | recorded as `freehire:<ats>` so provenance names where the posting really lives |
+| `posted_at` / `created_at` / `reality.fake_freshness` | see below |
+| `enrichment.seniority`, `enrichment.work_mode` | `seniority_hint`, `remote` |
+
+**The trap: an unknown filter is ignored, not refused.** Verified live —
+`categories=ml_ai` (plural) returns **22,233** rows, the entire India catalogue, while
+`category=ml_ai` (singular) returns **202**. Both are HTTP 200 and both look like a real result.
+The adapter therefore validates parameter names against `KNOWN_PARAMS` before sending *and* checks
+`meta.ignored_params` on every response, warning loudly on either. Always read filter values from
+`/api/v1/jobs/facets` rather than inventing them.
+
+**Reposts.** FreeHire re-stamps `posted_at` when a company reposts and flags it in
+`reality.fake_freshness`. Trusting the refreshed date would make a months-old listing look like it
+appeared today and silently defeat `--posted-within`, so a flagged row falls back to `created_at`.
+
+**Aggregator rows.** Rows whose `source` starts with `whatjobs` are affiliate redirects carrying
+`utm_campaign=publisher`, not the employer's posting, and are dropped.
+
+Dedup is free: `compute_hash` excludes source and external_id, so a Greenhouse posting seen both
+directly and through FreeHire collapses to one row.
