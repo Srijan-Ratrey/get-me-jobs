@@ -29,6 +29,19 @@ profile:
     - NLP Engineer
     - Computer Vision Engineer
 
+    # Forward-deployed engineering: customer-embedded ML/AI build work, common at
+    # Databricks, Google Cloud, Palantir and the AI startups. Listed separately
+    # because the phrase carries no profile title as a substring -- "Forward
+    # Deployed Engineer" shares only the word "engineer", which the partial-match
+    # branch strips, so these scored a flat 0 on title and never surfaced.
+    #
+    # "Deployment Strategist" is deliberately absent. Adding it puts "strategist"
+    # into the partial-overlap vocabulary, which hands credit to 90+ SEO, content
+    # and creative strategist postings, and it buys two Databricks rows.
+    - Forward Deployed
+    - Forward-Deployed
+    - Forward Deployment
+
   # Deliberately short. These are treated as ALL-required, so every extra entry
   # lowers the ceiling on every job. Put skills you merely have in nice_to_have.
   #
@@ -105,6 +118,26 @@ profile:
     - ii
     - iii
     - iv
+
+    # Wrong profession, not wrong level. These are matched as whole phrases, never
+    # bare words, because the disqualifying part is the role noun and not the
+    # domain: "AI Sales Engineer" is a sales job, but "Data Scientist - Regional
+    # Sales" is a data science job, and excluding on "sales" alone would drop the
+    # second one too. Same reason "marketing" and "operations" are absent on their
+    # own -- "Data Scientist, Marketing Analytics" and "Associate Data Scientist,
+    # Operations Research" are both real matches.
+    - sales engineer
+    - business analyst
+    - operations analyst
+    - ops analyst
+    - market analyst
+    - support analyst
+    - solutions consultant
+    - account executive
+    - account manager
+    - customer success
+    - sales development
+    - recruiter
 
   # A posting demanding more than this many years is a senior role wearing a
   # neutral title, so it is also a hard zero. The scorer reads the *smallest*

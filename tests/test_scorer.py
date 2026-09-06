@@ -111,6 +111,36 @@ def test_exclude_matching_is_whole_word():
     assert score_job(make_job(title="Lead Engineer"), profile).disqualified is not None
 
 
+def test_exclude_keywords_may_be_multi_word_phrases():
+    """A role noun disqualifies; the same word as a domain must not.
+
+    The shortlist collects jobs whose title never matched but which coast to ~59
+    on must-haves and location alone -- "AI Sales Engineer", "Product Operations
+    Analyst". Excluding the bare words would be worse than the disease: "Data
+    Scientist - Regional Sales" and "Data Scientist, Marketing Analytics" are
+    real matches that say "sales" and "marketing" as the *domain* they work on.
+    So the exclusion is the whole role noun, and the phrase boundary is what
+    separates the two cases.
+    """
+    profile = Profile(
+        titles=["Data Scientist", "AI Engineer"],
+        exclude_keywords=["sales engineer", "operations analyst"],
+    )
+    assert score_job(make_job(title="AI Sales Engineer"), profile).disqualified == (
+        "exclude_keyword:sales engineer"
+    )
+    assert score_job(make_job(title="Product Operations Analyst"), profile).disqualified == (
+        "exclude_keyword:operations analyst"
+    )
+    # The same words as a domain, attached to a role we do want.
+    assert score_job(
+        make_job(title="Data Scientist 2 - Digital Banking, Regional Sales"), profile
+    ).disqualified is None
+    assert score_job(
+        make_job(title="Data Scientist, Operations Research"), profile
+    ).disqualified is None
+
+
 # --------------------------------------------------------------------------- #
 # Decision 2: years of experience is a gate, read as the minimum stated
 # --------------------------------------------------------------------------- #
