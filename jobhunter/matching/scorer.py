@@ -31,6 +31,25 @@ UNMARKED_SENIORITY_CREDIT = 0.6
 # and requiring all 40 would mean nobody ever scores well on this component.
 NICE_TO_HAVE_SATURATION = 8
 
+# Below this many characters a description is a stub -- a company blurb, or a
+# title with a sentence under it -- and the absence of a skill in it is not
+# evidence the job does not need that skill.
+#
+# Measured over every open posting with a full title match: descriptions under
+# 1k chars mention a must-have 6-11% of the time, those over 1.5k mention one
+# 71-83% of the time, and almost nothing sits in between. The population is two
+# populations. Scoring the stubs 0/25 asserted the opposite of the base rate and
+# cost 25 points to 508 postings, among them the most junior-appropriate titles
+# in the database -- "Junior ML Engineer (Computer Vision)" and "Machine
+# Learning Engineer Intern", both in Bangalore, both stranded at 62-64.
+UNINFORMATIVE_DESCRIPTION_CHARS = 1500
+
+# What an unjudgeable must-have earns. The measured base rate among descriptions
+# long enough to judge is 78%, so this is deliberately conservative: an unknown
+# should not outrank a posting that actually stated the requirement. Matches the
+# 0.6 already used for an unmarked seniority, which is the same kind of unknown.
+UNKNOWN_MUST_HAVE_CREDIT = 0.6
+
 # Cities that ATS boards spell more than one way. Greenhouse's PhonePe board
 # returns both "Bangalore" and "Bengaluru" in a single response, so matching the
 # literal string the user typed silently drops half a city's postings.
@@ -294,11 +313,21 @@ def score_job(job: Job, profile: Profile) -> Score:
         # never claims "python" was found when the text only said "pytorch".
         present = [hit for k in musts if (hit := _satisfied_by(haystack, k))]
         missing = [k for k in musts if _satisfied_by(haystack, k) is None]
-        components["must_have"] = round(W_MUST_HAVE * len(present) / len(musts))
-        reasons.append(
-            f"must_have: {len(present)}/{len(musts)} present {present}"
-            + (f", missing {missing}" if missing else "")
-        )
+        if not present and len(description) < UNINFORMATIVE_DESCRIPTION_CHARS:
+            # Nothing matched, but there was nothing to match against. Say so in
+            # the reason rather than reporting a confident 0, so --why never
+            # claims a skill is absent when the posting simply never said.
+            components["must_have"] = round(W_MUST_HAVE * UNKNOWN_MUST_HAVE_CREDIT)
+            reasons.append(
+                f"must_have: unknown, description is {len(description)} chars "
+                f"and states no requirements; partial credit"
+            )
+        else:
+            components["must_have"] = round(W_MUST_HAVE * len(present) / len(musts))
+            reasons.append(
+                f"must_have: {len(present)}/{len(musts)} present {present}"
+                + (f", missing {missing}" if missing else "")
+            )
 
     # ---- nice-to-haves (15), saturating ---------------------------------- #
     nices = [k for k in profile.nice_to_have_keywords if k.strip()]

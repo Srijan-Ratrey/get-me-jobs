@@ -14,6 +14,7 @@ from jobhunter.matching.scorer import (
     W_NICE_TO_HAVE,
     W_SENIORITY,
     W_TITLE,
+    UNKNOWN_MUST_HAVE_CREDIT,
     min_years_required,
     score_job,
 )
@@ -74,6 +75,22 @@ def test_empty_profile_gives_full_credit_without_dividing_by_zero():
     score = score_job(make_job(), Profile())
     assert score.total == 100
     assert score.disqualified is None
+
+
+# Filler carrying no profile keyword, used to push a description past
+# UNINFORMATIVE_DESCRIPTION_CHARS. A must-have absent from a stub is scored as
+# unknown, so any test asserting a *confident* zero has to supply text long
+# enough for the absence to mean something.
+_FILLER = (
+    "Our team believes that thoughtful people doing careful work together build "
+    "better products than any individual could alone. We care about craft, about "
+    "explaining our reasoning, and about leaving things better than we found them. "
+) * 8
+
+
+def judgeable(body: str) -> str:
+    """`body` padded until the scorer will draw a negative inference from it."""
+    return f"{body}\n\n{_FILLER}"
 
 
 # --------------------------------------------------------------------------- #
@@ -259,7 +276,7 @@ def test_keywords_match_whole_words_only():
 
 def test_missing_must_have_is_not_a_hard_zero():
     """Only exclude_keywords hard-zero; a missing must-have costs its component."""
-    job = make_job(description="We use R and Julia.")
+    job = make_job(description=judgeable("We use R and Julia."))
     score = score_job(job, JUNIOR)
     assert score.components["must_have"] == 0
     assert score.total > 0
@@ -406,7 +423,7 @@ def test_must_have_is_satisfied_by_any_pipe_separated_alternative():
     assert any("pytorch" in r for r in score.reasons)
     assert not any("'python'" in r for r in score.reasons)
 
-    absent = make_job(description="We work in Rust and Go.")
+    absent = make_job(description=judgeable("We work in Rust and Go."))
     assert score_job(absent, profile).components["must_have"] == 0
 
 
@@ -414,12 +431,64 @@ def test_must_have_without_alternatives_is_unchanged():
     """No pipe means exactly the old behaviour."""
     profile = Profile(titles=["Data Scientist"], must_have_keywords=["python"])
     assert score_job(make_job(description="Python here"), profile).components["must_have"] == W_MUST_HAVE
-    assert score_job(make_job(description="PyTorch only"), profile).components["must_have"] == 0
+    assert (
+        score_job(make_job(description=judgeable("PyTorch only")), profile)
+        .components["must_have"]
+        == 0
+    )
 
 
 def test_must_have_alternatives_still_match_whole_words():
     profile = Profile(titles=["Data Scientist"], must_have_keywords=["python|numpy"])
-    assert score_job(make_job(description="pythonic numpyish"), profile).components["must_have"] == 0
+    assert (
+        score_job(make_job(description=judgeable("pythonic numpyish")), profile)
+        .components["must_have"]
+        == 0
+    )
+
+
+def test_a_stub_description_makes_the_must_have_unknown_not_absent():
+    """Absence of evidence is not evidence of absence.
+
+    Small Indian employers post four-line ads, and scoring those 0/25 asserted
+    the opposite of the base rate: among descriptions long enough to judge, 78%
+    state a must-have, while descriptions under 1k chars state one 6-11% of the
+    time. The 25-point penalty landed hardest on exactly the postings this
+    profile wants -- "Junior ML Engineer (Computer Vision)" and "Machine
+    Learning Engineer Intern", both Bangalore, both stranded in the low 60s
+    beneath 400 rows that merely had wordier ads.
+    """
+    profile = Profile(titles=["ML Engineer"], must_have_keywords=["python|pytorch"])
+    stub = make_job(title="Junior ML Engineer", description="Work on computer vision.")
+    score = score_job(stub, profile)
+
+    assert score.components["must_have"] == round(W_MUST_HAVE * UNKNOWN_MUST_HAVE_CREDIT)
+    # The reason must not claim the skill is missing -- it must say we cannot tell.
+    assert any("unknown" in r for r in score.reasons)
+    assert not any("missing" in r for r in score.reasons)
+    assert score.total == sum(score.components.values())
+
+
+def test_a_long_description_without_the_must_have_still_scores_zero():
+    """The stub rule must not become a blanket amnesty.
+
+    A posting that spells out its stack at length and never mentions Python has
+    told us something, and that has to keep costing the component -- otherwise
+    the rule stops discriminating at all.
+    """
+    profile = Profile(titles=["ML Engineer"], must_have_keywords=["python|pytorch"])
+    verbose = make_job(description=judgeable("We are a Scala and Spark shop."))
+    score = score_job(verbose, profile)
+    assert score.components["must_have"] == 0
+    assert any("missing" in r for r in score.reasons)
+
+
+def test_a_stub_that_does_state_the_must_have_gets_full_credit():
+    """Evidence always beats the unknown default."""
+    profile = Profile(titles=["ML Engineer"], must_have_keywords=["python|pytorch"])
+    score = score_job(make_job(description="PyTorch."), profile)
+    assert score.components["must_have"] == W_MUST_HAVE
+    assert any("pytorch" in r for r in score.reasons)
 
 
 def test_partial_must_have_credit_is_proportional_across_groups():
