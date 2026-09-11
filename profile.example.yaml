@@ -111,6 +111,13 @@ profile:
     - head
     - vp
     - vice president
+    # The acronyms, since "chief" and "vp" above only catch the spelled-out forms.
+    - cto
+    - ceo
+    - coo
+    - cfo
+    - cio
+    - ciso
     - chief
     - architect
     - distinguished
