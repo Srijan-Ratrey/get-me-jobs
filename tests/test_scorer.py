@@ -5,6 +5,8 @@ test (components sum to total) matters as much as the boundary cases.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from jobhunter.config import Profile
@@ -499,11 +501,32 @@ def test_partial_must_have_credit_is_proportional_across_groups():
     assert score_job(job, profile).components["must_have"] == round(W_MUST_HAVE / 2)
 
 
-def test_the_real_profile_still_scores_a_perfect_job_at_one_hundred():
-    """Guards the shipped profile.yaml against a typo in the pipe group."""
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# The versioned file is profile.example.yaml; profile.yaml is what `init` copies
+# out of it and the user then edits, and it is gitignored. Checking only the
+# latter meant this test passed on the author's machine and failed on every
+# clean checkout with FileNotFoundError -- CI had been red since 2026-09-01 for
+# that reason alone. Check the shipped file always, and the local one too when
+# it happens to exist, since that is the one that actually scores the jobs.
+_PROFILES = [
+    "profile.example.yaml",
+    pytest.param(
+        "profile.yaml",
+        marks=pytest.mark.skipif(
+            not (REPO_ROOT / "profile.yaml").is_file(),
+            reason="profile.yaml is gitignored and absent on a clean checkout",
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize("filename", _PROFILES)
+def test_a_shipped_profile_still_scores_a_perfect_job_at_one_hundred(filename):
+    """Guards both profiles against a typo in the pipe group."""
     from jobhunter.config import load_profile
 
-    profile = load_profile("profile.yaml")
+    profile = load_profile(REPO_ROOT / filename)
     job = make_job(
         title="Machine Learning Engineer",
         location="Bengaluru",
