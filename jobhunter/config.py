@@ -49,6 +49,36 @@ class Settings(BaseSettings):
     enable_pattern_guessing: bool = True
     max_guesses_per_domain: int = 6
 
+    # ---- Outreach ------------------------------------------------------- #
+    # A send path exists as of 2026-09-15 and runs unattended. These numbers are
+    # the whole reason that is defensible rather than a spam operation, so they
+    # are settings with deliberately conservative defaults and a hard ceiling
+    # the settings cannot raise. See docs/compliance.md.
+    daily_send_cap: int = 15
+    # Counted off outreach.sent_at in the database, never off a counter held in
+    # the process, so a cron double-fire or a retried run cannot exceed it.
+    hard_daily_send_ceiling: int = 20
+
+    # The shortlist holds 594 rows across 379 companies: Zensar appears 11 times
+    # under two spellings, pwc 11, Google 8. Iterating rows without these would
+    # mail one HR inbox twenty-two times in a morning. They are correctness, not
+    # etiquette.
+    contact_cooldown_days: int = 30
+    company_cooldown_days: int = 14
+
+    # Seconds between sends, jittered. Fifteen messages spread over ~40 minutes
+    # rather than a burst that looks exactly like a script.
+    send_spacing_min_seconds: float = 90.0
+    send_spacing_max_seconds: float = 180.0
+
+    # Stop rather than hammer a server that is rejecting us.
+    send_failure_circuit_breaker: int = 3
+
+    # Gmail OAuth. Both are gitignored; token.json alone is enough to send mail
+    # as you. Scope is send-only — this must never be able to read the mailbox.
+    gmail_credentials_path: Path = Path("credentials.json")
+    gmail_token_path: Path = Path("token.json")
+
 
 class Target(BaseModel):
     """One company to watch."""
@@ -66,9 +96,34 @@ class Target(BaseModel):
     search: dict = Field(default_factory=dict)
 
 
+class Applicant(BaseModel):
+    """Who is applying. Drives the outreach drafter's signature and attachment.
+
+    Separate from the rest of Profile because this is identity rather than
+    search criteria, and because every field here ends up in a message sent to
+    a real person: `compliance.md` requires honest identification and a working
+    reply path, so none of it may be blank or invented.
+    """
+
+    name: str = ""
+    email: str = ""
+    phone: str = ""
+    links: list[str] = Field(default_factory=list)
+    # An application email with no CV attached is close to useless, so the
+    # sender refuses to run when this is unset or unreadable rather than
+    # quietly mailing without it.
+    resume_path: str = ""
+
+    def is_complete(self) -> list[str]:
+        """Missing fields that would make a message dishonest or unusable."""
+        missing = [f for f in ("name", "email", "resume_path") if not getattr(self, f).strip()]
+        return missing
+
+
 class Profile(BaseModel):
     """What you are looking for. Drives fit scoring."""
 
+    applicant: Applicant = Field(default_factory=Applicant)
     titles: list[str] = Field(default_factory=list)
     must_have_keywords: list[str] = Field(default_factory=list)
     nice_to_have_keywords: list[str] = Field(default_factory=list)

@@ -24,6 +24,13 @@ spa = ["playwright>=1.44"]
 # Optional like `spa`: keyword scoring is the default and must keep working with
 # no API key and no network. See jobhunter/matching/llm_scorer.py.
 llm = ["anthropic>=0.125"]
+# Gmail send path. Optional like `spa`: the whole discover/score/export
+# pipeline must keep working for anyone who never enables outreach.
+email = [
+    "google-api-python-client>=2.130",
+    "google-auth-oauthlib>=1.2",
+    "google-auth>=2.30",
+]
 dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
 
 [project.scripts]

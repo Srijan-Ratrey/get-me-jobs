@@ -158,8 +158,14 @@ networking disabled to confirm.
 
 ## Phase 3 — Workflow
 
-- [ ] LLM outreach drafter. Pulls specifics from the job description; a draft that reads
-      identically with the company name swapped is a bug. Writes `status='draft'` only.
+- [x] Outreach drafter. Pulls specifics from the job description; a draft that reads
+      identically with the company name swapped is a bug, and is now refused rather than
+      sent. Template-driven, not LLM — the specifics come from the scorer's keyword match,
+      which cannot hallucinate. See `outreach/drafter.py`.
+- [x] Automatic send path with a daily cap and cooldowns (`outreach/policy.py`,
+      `outreach/sender.py`, `com.jobhunter.outreach.plist`). 2026-09-15: reverses the
+      earlier no-send rule; see docs/compliance.md for what replaced it.
+- [x] `import-contacts` for HR addresses researched by hand.
 - [ ] Resume gap analysis: profile vs. posting requirements, with concrete suggestions
 - [ ] Application tracker: status transitions, follow-up reminders (one follow-up, 7 days)
 - [ ] `prune --older-than 365d` for retention compliance
@@ -169,8 +175,11 @@ networking disabled to confirm.
 
 - [ ] FastAPI backend over the existing store
 - [ ] Web UI: filter/sort, one-click draft, kanban application board
-- [ ] Gmail API for send + reply detection — the first place a send path exists. Gate it behind
-      explicit per-message confirmation.
+- [x] Gmail API for send (2026-09-15). Landed with a daily cap and cooldowns rather than
+      per-message confirmation — the user chose unattended operation, and the budget plus the
+      cooldowns are what carry the risk instead. Scope is `gmail.send` only.
+- [ ] Reply detection and the follow-up tracker. Needs a Gmail *read* scope, deliberately not
+      requested yet: send-only keeps the blast radius of a bug in this small.
 
 ---
 
@@ -180,5 +189,5 @@ networking disabled to confirm.
 2. Tests pass offline
 3. No network call outside `PoliteClient`
 4. No new `Contact` path that skips `source_url`
-5. Nothing sends email
+5. Nothing sends email outside `outreach/`, and nothing inside it bypasses `policy.may_send`
 6. A one-line note in `README.md` if the task added a user-facing command

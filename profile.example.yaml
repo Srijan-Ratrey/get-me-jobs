@@ -11,6 +11,20 @@
 # names which rule fired and what it was worth.
 
 profile:
+
+  # Who is applying. Used by `jobhunter outreach` for the signature and the
+  # attachment, and nowhere else. Every field here ends up in a message sent to
+  # a real person, so docs/compliance.md requires all of it to be true: honest
+  # identification and a reply path that works.
+  #
+  # `name`, `email` and `resume_path` are required — the sender refuses to run
+  # without them rather than mailing something anonymous or with nothing attached.
+  applicant:
+    name: ""              # your full name, as you want it signed
+    email: ""             # the address replies should reach
+    phone: ""             # optional
+    resume_path: ""       # absolute path to the file to attach; must be readable
+    links: []             # optional, e.g. ["https://github.com/you"]
   # Matched against the job title. Partial matches count, so "Data Scientist"
   # also hits "Data Scientist II" and "Associate Data Scientist".
   titles:

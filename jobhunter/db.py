@@ -32,6 +32,7 @@ def init_db(db_url: str | None = None):
     _engine = create_engine(db_url or settings.db_url, future=True)
     Base.metadata.create_all(_engine)
     _add_missing_columns(_engine)
+    _add_missing_indexes(_engine)
     _Session = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 
@@ -50,6 +51,18 @@ def init_db(db_url: str | None = None):
 _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("jobs", "llm_score", "INTEGER"),
     ("jobs", "llm_verdict", "JSON"),
+    ("outreach", "sent_at", "DATETIME"),
+    ("outreach", "error", "TEXT"),
+    ("outreach", "gmail_message_id", "VARCHAR(255)"),
+)
+
+# Constraints declared on the model bind only to tables `create_all` creates. An
+# `outreach` table that predates the constraint keeps its old shape, so the
+# uniqueness that stops a person being mailed twice about one job would hold on
+# a fresh database and silently not hold on the existing one. SQLite takes
+# CREATE UNIQUE INDEX without rewriting the table, so it can be added in place.
+_ADDED_INDEXES: tuple[tuple[str, str, str], ...] = (
+    ("outreach", "uq_outreach_job_contact", "(job_id, contact_id)"),
 )
 
 
@@ -64,6 +77,24 @@ def _add_missing_columns(engine) -> None:
         log.info("adding column %s.%s to an existing database", table, column)
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
+
+
+def _add_missing_indexes(engine) -> None:
+    """Add post-release indexes to an existing database. Idempotent.
+
+    A UNIQUE index fails to build if the table already holds rows that violate
+    it. That is worth surfacing rather than swallowing: it means duplicate
+    outreach exists and the caller needs to look, not that the upgrade failed.
+    """
+    inspector = inspect(engine)
+    for table, name, definition in _ADDED_INDEXES:
+        if table not in inspector.get_table_names():
+            continue
+        if name in {i["name"] for i in inspector.get_indexes(table)}:
+            continue
+        log.info("adding index %s on %s to an existing database", name, table)
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {table} {definition}"))
 
 
 @contextmanager

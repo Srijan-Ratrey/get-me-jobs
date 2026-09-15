@@ -89,25 +89,58 @@ hiring, or send unsolicited bulk mail. The design constraints below are what kee
 
 ## Outreach (CAN-SPAM / PECR / CASL)
 
-**There is no send path in Phases 1–3.** The drafter writes rows to `outreach` with
-`status='draft'`. A human reads each one and sends it from their own mail client. This isn't
-squeamishness — it's the single design decision that most reduces risk, because a human in the
-loop is what makes each message genuinely individual rather than a campaign.
+**A send path exists as of 2026-09-15, and it is automatic.** This reverses the earlier
+position, which was that no message would ever leave without a human pressing send. That is
+recorded here rather than quietly edited out, because the reasoning behind the original rule
+still holds and what replaced it has to carry the same weight.
 
-Every draft must be:
+What made the old rule safe was a human in the loop. What makes the new one safe is a budget
+small enough that the output is still a job search rather than a campaign, plus cooldowns that
+make it structurally impossible to mail the same person repeatedly. Both are enforced in
+`outreach/policy.py` and covered test by test:
+
+- **15 messages per day**, counted off `outreach.sent_at` in the database over a trailing
+  24 hours, with a hard ceiling of 20 that configuration cannot raise. Counting in the database
+  rather than in the process is what makes a scheduler double-fire, a retry, or two terminals
+  share one budget instead of each spending it.
+- **A 30-day cooldown per address and 14 days per company.** This is not politeness. The
+  shortlist holds 594 rows across 379 companies: Zensar appears eleven times under two
+  spellings that share one HR inbox, pwc eleven, Google eight. Iterating rows without these
+  would have sent twenty-two messages to one person in a single morning.
+- **One message per company per run**, so three open roles at one employer produce one email.
+- **A specificity floor.** A posting matching fewer than two profile skills is refused outright
+  rather than sent a generic note — see the drafter rule below, which is now executable.
+- **Suppression checked before every draft and every send**, against both the hashed
+  suppression list and the contact's own flag.
+- **90–180 seconds between sends**, jittered, so fifteen messages take about forty minutes
+  instead of arriving as a burst that looks exactly like what it is.
+- **A circuit breaker** that stops the run after three consecutive failures rather than
+  hammering a server that is rejecting us.
+
+The volume is the load-bearing part. 15/day of genuinely individual, job-specific mail to
+people advertising those jobs is a defensible legitimate-interest case. The same machinery at
+200/day would not be, and no amount of per-message quality would fix it.
+
+Every message must be:
 
 - **1:1 and job-specific.** It references *this* posting at *this* company and says something
   concrete about why you fit. If a draft would read identically with the company name swapped,
-  the drafter is broken.
+  the drafter is broken. **This is now executable rather than aspirational**: the drafter names
+  the profile skills the scorer matched against *that* description, and refuses to write at all
+  when fewer than two match. A posting we can say nothing specific about gets no email, because
+  the only alternative is a mail merge.
 - **Honestly identified.** Your real name and a real way to reach you.
 - **Opt-out-respecting.** One line offering to not follow up. Honour it — that's what the
   `suppressed` flag is for.
 - **Non-deceptive.** No fake subject lines, no "re:" on a thread that doesn't exist, no implying
   a prior conversation.
 
-Rate discipline, if you ever add sending: a handful of messages a day from a personal address.
-Volume is what converts a job search into a spam operation, both legally and in the eyes of every
-spam filter between you and the recipient.
+Rate discipline: a handful of messages a day from a personal address. Volume is what converts
+a job search into a spam operation, both legally and in the eyes of every spam filter between
+you and the recipient. This is why the cap is 15 and the ceiling is 20 — the point is not to
+work through the shortlist quickly. A domain that starts sending fifty cold messages a day gets
+classified as a spammer within the week, and the replies you actually wanted go to spam along
+with everything else.
 
 **One follow-up maximum**, and only after ~7 days. Anything beyond that is harassment and it
 doesn't work anyway.
@@ -140,7 +173,9 @@ it rather than implementing it.
 - Scrape LinkedIn/Indeed or any login-walled source
 - Solve or bypass CAPTCHAs, or rotate IPs/proxies to evade rate limits
 - Spoof `User-Agent` to impersonate a human browser
-- Send email automatically or in bulk
+- Send email in bulk. Automatic sending exists as of 2026-09-15 but is capped at 15/day
+  with a hard ceiling of 20; see the Outreach section. Raising that ceiling is a decision
+  somebody has to make in a diff, not a configuration change
 - Harvest contacts unrelated to an actual open role
 - Store personal data without a source URL
 - Sell, share, or publish the contact database
@@ -154,4 +189,5 @@ it rather than implementing it.
 2. Is the rate limit at or below 1 req/sec per host? 
 3. Does every contact row have a `source_url`? 
 4. Would each draft embarrass you if the recipient forwarded it to the hiring manager? 
-5. Is anything sending automatically? (Correct answer: no.)
+5. Is the daily cap still at or below 20, and are the cooldowns still in force?
+   (`jobhunter outreach status` answers both.)

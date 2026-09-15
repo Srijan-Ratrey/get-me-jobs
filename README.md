@@ -31,6 +31,11 @@ uv run jobhunter list --min-score 55     # ranked openings, best first
 uv run jobhunter export jobs.xlsx        # one row per job with its best contact
 uv run jobhunter stats                   # what is in the database
 uv run jobhunter purge --email x@y.com   # GDPR erasure: delete + suppress rediscovery
+
+uv run jobhunter import-contacts hr.csv  # HR addresses you researched by hand
+uv run jobhunter outreach preview        # render what would go out; writes nothing
+uv run jobhunter outreach run            # draft and send today's applications
+uv run jobhunter outreach status         # budget used, cooldowns, recent sends
 ```
 
 Anything that writes takes `--dry-run`. Add `-v` for debug logging.
@@ -163,8 +168,32 @@ sandbox-exec -p '(version 1)(allow default)(deny network*)' .venv/bin/pytest -q
 Adapter tests assert field-by-field against real captured board responses in `tests/fixtures/`, so
 a passing parser is one that works on production data.
 
-## Nothing sends email
+## Sending applications
 
-The outreach drafter (Phase 3, not built) writes rows to the `outreach` table with
-`status='draft'`. A human reads each one and sends it from their own client. There is no send path,
-and `docs/compliance.md` explains why that is the single design decision that most reduces risk.
+`jobhunter outreach run` drafts and sends applications unattended, from a scheduler. Read
+`docs/compliance.md` before enabling it. The short version of what keeps it a job search rather
+than a spam operation:
+
+- **15 a day**, hard ceiling 20, counted in the database over a trailing 24 hours — so a missed
+  run firing late, a retry, or two terminals all share one budget.
+- **30-day cooldown per address, 14-day per company.** The shortlist holds 594 rows across 379
+  companies; without these, one HR inbox would have received twenty-two messages in a morning.
+- **Nothing generic ever goes out.** A posting matching fewer than two of your profile skills is
+  refused rather than sent a form letter.
+- **Suppression is checked before every draft and every send.** `jobhunter purge --email` stops
+  mail to that address permanently, and re-importing your spreadsheet will not resurrect it.
+
+### Setup
+
+1. Fill in the `applicant:` block in `profile.yaml` — name, email, and a readable `resume_path`.
+   The sender refuses to run without them.
+2. `uv sync --extra email`
+3. Create an OAuth client (Desktop app) in Google Cloud with the Gmail API enabled, download it
+   as `credentials.json` into the repo root. Scope requested is `gmail.send` only — this cannot
+   read your mail. `credentials.json` and `token.json` are both gitignored.
+4. `uv run jobhunter outreach preview` and **read what it would say**.
+5. `uv run jobhunter outreach run --limit 2 --confirm-first-run`. Point the first two at your own
+   address by importing yourself as a contact; confirm the attachment arrives and the opt-out
+   line is there.
+6. Schedule it: see `com.jobhunter.outreach.plist` for the launchd agent, which handles a laptop
+   that was asleep at the appointed minute in a way cron does not.
