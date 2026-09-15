@@ -43,6 +43,24 @@ profile:
     - NLP Engineer
     - Computer Vision Engineer
 
+    # Bare-noun variants. Title matching is substring-based, so "Data Scientist"
+    # never matches "Data Science Intern" and "ML Engineer" never matches
+    # "Product Intern (Machine Learning)". That gap was hiding 499 postings at
+    # title=16 (partial overlap) instead of 40 -- 410 of them in India, and
+    # almost all the junior and internship titles in the database:
+    # "Data Science Intern" (Bengaluru), "Intern Masters Data Science",
+    # "Machine Learning Intern", "Internship - AI/ML, Computer Vision". They
+    # scored 53, one short of the shortlist.
+    #
+    # Measured before adding: the only titles gaining from the new words alone
+    # are six like "Science Teacher" and "Medical Science Liaison", which reach
+    # 32 and never surface. "Data Engineer" is the broadest of the four -- it
+    # pulls in pipeline roles alongside ML ones.
+    - Data Science
+    - Machine Learning
+    - Data Engineer
+    - AI/ML
+
     # Forward-deployed engineering: customer-embedded ML/AI build work, common at
     # Databricks, Google Cloud, Palantir and the AI startups. Listed separately
     # because the phrase carries no profile title as a substring -- "Forward
