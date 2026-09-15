@@ -1,0 +1,41 @@
+{
+  // VS Code's file watcher does not read .gitignore. Without these it watches
+  // and indexes a 525 MB SQLite database, ~800 MB of cached HTTP responses and
+  // 5,760 files in .venv — which is what makes the editor warn about memory on
+  // this repo specifically.
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/.cache/**": true,
+    "**/.harvest-cache/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/*.egg-info/**": true,
+    "**/*.db": true,
+    "**/*.db-journal": true,
+    "**/.harvest-state.jsonl": true
+  },
+
+  // Keep the same paths out of full-text search. Searching a binary database or
+  // 600 cached JSON blobs finds nothing useful and costs a lot of memory.
+  "search.exclude": {
+    "**/.venv": true,
+    "**/.cache": true,
+    "**/.harvest-cache": true,
+    "**/data": true,
+    "**/*.db": true,
+    "**/.harvest-state.jsonl": true,
+    "**/*.csv": true,
+    "**/*.xlsx": true
+  },
+
+  // Hidden from the explorer tree: generated, large, or not source.
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.egg-info": true,
+    "**/.pytest_cache": true
+  },
+
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"]
+}

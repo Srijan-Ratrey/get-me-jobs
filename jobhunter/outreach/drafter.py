@@ -88,12 +88,19 @@ def matched_skills(job: Job, profile: Profile) -> list[str]:
     did not credit. Deliberately recomputed rather than parsed back out of
     `fit_reasons`: those strings are prose written for humans and will drift.
 
-    Must-have alternatives count too, and they have to. Measured over 400
-    postings scoring 70+, nice-to-haves alone left only 9% with enough to say;
-    including must-haves takes it to 22%. The rest are stubs -- median
-    description 899 characters, 309 of 361 under 1500 -- which is the same
-    population the scorer treats as unjudgeable. A posting that says "Python"
+    Must-have alternatives count too. Over all 1,307 open postings scoring 55+,
+    nice-to-haves alone leave 598 (45%) with enough to say; including must-haves
+    takes it to 725 (55%), recovering 127 postings. A posting that says "Python"
     and nothing else has still told us one true, specific thing.
+
+    What the refused 45% have in common is length, not quality. Draftability
+    tracks the description almost exactly: every one of the 34 postings scoring
+    90+ is draftable and their median description is 4,852 characters, while the
+    70-89 band is 55% draftable at a median of 950. That band is full of stubs
+    because that is precisely what the scorer's unjudgeable-must-have rule
+    promotes into it, so the two rules pull against each other by design: the
+    scorer declines to punish a posting for saying nothing, and the drafter
+    declines to write to one.
 
     Nice-to-haves come first because they discriminate: every ML posting wants
     Python, far fewer want LoRA.

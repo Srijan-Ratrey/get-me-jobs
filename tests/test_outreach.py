@@ -188,11 +188,12 @@ def test_a_multi_office_location_names_one_city(session, profile):
 
 
 def test_a_must_have_can_supply_the_specifics(session, profile):
-    """Stub descriptions are the norm, and "Python" is still something true.
+    """Stub descriptions are common, and "Python" is still something true.
 
-    Measured over 400 postings scoring 70+: nice-to-haves alone left 9% with
-    enough to say, must-haves included took it to 22%. The rest have a median
-    description of 899 characters and genuinely say nothing.
+    Over all 1,307 open postings scoring 55+: nice-to-haves alone leave 598
+    (45%) draftable, must-haves included take it to 725 (55%). The refused rest
+    are short, not bad -- the 90+ band is 100% draftable at a median 4,852-char
+    description, the 70-89 band 55% at a median 950.
     """
     profile.nice_to_have_keywords = ["pytorch"]
     profile.must_have_keywords = ["python|pytorch", "sql|bigquery"]
