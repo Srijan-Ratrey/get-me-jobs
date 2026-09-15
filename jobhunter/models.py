@@ -153,6 +153,15 @@ class Outreach(Base):
     # draft -> sent, or draft -> failed. 'replied' is set by the reply tracker,
     # which does not exist yet and needs a Gmail read scope.
     status: Mapped[str] = mapped_column(String(20), default="draft")
+
+    # 'application' -> we applied to job_id. 'speculative' -> no role matched, and
+    # job_id is the posting the message cites as evidence the company is hiring.
+    #
+    # Speculative rows point at a real job rather than carrying a NULL because
+    # job_id is NOT NULL and SQLite cannot drop that without rebuilding the
+    # table -- which db.py says is the signal to adopt Alembic, not to hand-roll.
+    # It is also the more honest record: the message does name that posting.
+    kind: Mapped[str] = mapped_column(String(20), default="application")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
