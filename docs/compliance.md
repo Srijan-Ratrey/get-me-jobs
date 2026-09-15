@@ -82,6 +82,37 @@ advertising is a textbook legitimate-interest case: they published a hiring inte
 message is directly relevant to it. That basis evaporates if you contact people unrelated to
 hiring, or send unsolicited bulk mail. The design constraints below are what keep you inside it.
 
+**Speculative outreach (added 2026-09-15).** `outreach run` will also write to a company that is
+hiring but has nothing matching the profile. Of the companies in this database, 627 have a
+matching open role and 1,468 are hiring with nothing that matches — so "no opening" nearly always
+means "no opening *for you*", which is a different and much better position to write from.
+
+The **open-posting requirement is the load-bearing part, not a nicety.** It is the published
+hiring intent, and without it there is no basis at all. So:
+
+- A company with **no open postings is never written to**, even though that excludes only 23 of
+  them. The gate is there for the principle, not the count.
+- At least one open posting must score on the title component, so the company demonstrably hires
+  in the right family, and its postings must mention 2+ profile skills. The message then names
+  those actual roles and those actual skills — it cannot be sent unchanged to another company.
+- The message says in its subject and its first sentence that it is speculative. Reusing the
+  application template would imply a posting that was never there, which is the
+  "no implying a prior conversation" rule below.
+
+**Be honest about how sharp this is.** The strict version of the targeting — requiring a *full*
+title match — leaves 7 companies, all of them hiring overseas, so it is not a usable alternative.
+The shipped bar is partial title overlap, which admits roles like "Business Analytics Associate"
+and "GIS Technical Analyst". Those are defensible for a profile that includes Data Analyst, but
+they are weaker than a real match and should be understood as such. Speculative mail also only
+ever spends budget left over after real applications, so on a good day it sends none.
+
+**A speculative note to a named individual is the weakest case in this project.** A role address
+like `careers@` exists to receive unsolicited applications and generally is not personal data at
+all; a named recruiter published no posting that this message is answering. Named individuals are
+in scope by explicit decision (2026-09-15) rather than by default, role addresses still rank
+first, and this is the first thing to turn off — `--no-speculative` — if replies suggest it is
+landing badly.
+
 **Retention.** Contacts with no outreach after ~12 months should be purged. Add a
 `jobhunter prune --older-than 365d` command in Phase 3.
 

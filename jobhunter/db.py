@@ -54,6 +54,7 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("outreach", "sent_at", "DATETIME"),
     ("outreach", "error", "TEXT"),
     ("outreach", "gmail_message_id", "VARCHAR(255)"),
+    ("outreach", "kind", "VARCHAR(20) DEFAULT 'application'"),
 )
 
 # Constraints declared on the model bind only to tables `create_all` creates. An

@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from ..config import Profile, settings
 from ..models import Outreach, utcnow
 from . import policy
-from .drafter import Draft, Refusal, draft_for, preflight
+from .drafter import Draft, Refusal, draft_for, draft_speculative, preflight
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class SendReport:
     sent: int = 0
     skipped: int = 0
     failed: int = 0
+    speculative: int = 0
     reasons: list[str] | None = None
 
     def __post_init__(self) -> None:
@@ -136,6 +137,7 @@ def send_batch(
     min_score: int | None = None,
     dry_run: bool = False,
     pause: bool = True,
+    speculative: bool = True,
 ) -> SendReport:
     """Draft and send up to the remaining daily budget.
 
@@ -155,10 +157,30 @@ def send_batch(
 
     threshold = profile.min_score if min_score is None else min_score
     batch = policy.candidates(s, min_score=threshold, limit=budget)
+
+    # Real openings fill the budget first; speculative takes only what is left.
+    # That is what "one shared budget" has to mean in practice -- a speculative
+    # note must never displace an application to an actual advertised role, and
+    # speculative candidates carry no fit_score to interleave on anyway. A day
+    # with fifteen matching openings sends no speculative mail at all.
+    if speculative and len(batch) < budget:
+        batch = batch + policy.speculative_candidates(
+            s,
+            profile,
+            min_score=threshold,
+            limit=budget - len(batch),
+            exclude_companies={c.company.id for c in batch},
+        )
+
     consecutive_failures = 0
 
     for candidate in batch:
-        result = draft_for(candidate.job, candidate.contact, candidate.company, profile)
+        if candidate.kind == "speculative":
+            result = draft_speculative(
+                candidate.contact, candidate.company, candidate.evidence, profile
+            )
+        else:
+            result = draft_for(candidate.job, candidate.contact, candidate.company, profile)
         if isinstance(result, Refusal):
             report.skipped += 1
             report.reasons.append(f"{candidate.company.name}: {result.reason}")
@@ -186,6 +208,7 @@ def send_batch(
             subject=result.subject,
             body=result.body,
             status="draft",
+            kind=candidate.kind,
         )
 
         if dry_run:
@@ -209,6 +232,7 @@ def send_batch(
             row.status = "sent"
             row.sent_at = utcnow()
             report.sent += 1
+            report.speculative += int(candidate.kind == "speculative")
             consecutive_failures = 0
             log.info("sent to %s about %s", candidate.contact.email, candidate.job.title)
         except Exception as exc:  # one bad send must not abort the rest

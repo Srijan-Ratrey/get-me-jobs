@@ -166,6 +166,10 @@ networking disabled to confirm.
       `outreach/sender.py`, `com.jobhunter.outreach.plist`). 2026-09-15: reverses the
       earlier no-send rule; see docs/compliance.md for what replaced it.
 - [x] `import-contacts` for HR addresses researched by hand.
+- [x] Speculative outreach to companies hiring with nothing that matches (2026-09-15).
+      Gated on the company having open postings — that published hiring intent is the
+      lawful basis, so a company with none is never written to. See docs/compliance.md
+      for the honest limits of the targeting.
 - [ ] Resume gap analysis: profile vs. posting requirements, with concrete suggestions
 - [ ] Application tracker: status transitions, follow-up reminders (one follow-up, 7 days)
 - [ ] `prune --older-than 365d` for retention compliance

@@ -241,3 +241,89 @@ def preflight(subject: str, body: str) -> str | None:
     if len(body) < 200:
         return f"body is only {len(body)} chars; template probably collapsed"
     return None
+
+
+# How many of a company's open roles to name in a speculative note. Two or three
+# shows you looked; listing eight reads like a scrape, which it would be.
+MAX_ROLES_NAMED = 3
+
+
+def _role_list(evidence: list[Job]) -> list[str]:
+    """Distinct open role titles, shortest first so the sentence stays readable."""
+    seen: list[str] = []
+    for job in evidence:
+        title = (job.title or "").strip()
+        # Titles carry trailing requisition noise: "Data Engineer (R4633)".
+        title = re.sub(r"\s*[\(\[][^)\]]*[\)\]]\s*$", "", title).strip(" -–—,")
+        if title and title.lower() not in {s.lower() for s in seen}:
+            seen.append(title)
+    return sorted(seen, key=len)[:MAX_ROLES_NAMED]
+
+
+def draft_speculative(
+    contact: Contact, company: Company, evidence: list[Job], profile: Profile
+) -> Draft | Refusal:
+    """A note to a company that is hiring, but not for anything that matches.
+
+    Deliberately not the application template with a word changed. That message
+    says "I'd like to apply for the X role", and sending it when no such role
+    exists would imply a posting that was never there -- which `compliance.md`
+    rules out under "no implying a prior conversation". This one says plainly
+    that it is speculative, in its subject line as well as its first sentence.
+
+    What keeps it specific is the company's own open postings: the roles they
+    are actually advertising, and the skills those postings ask for. Both are
+    facts from the database, so the message cannot claim something untrue about
+    a company, and it cannot be sent unchanged to a different one.
+    """
+    applicant = profile.applicant
+    missing = applicant.is_complete()
+    if missing:
+        return Refusal(f"applicant profile incomplete: missing {', '.join(missing)}")
+    if not evidence:
+        # No open postings means no published hiring intent, which is the whole
+        # lawful basis for writing. Refusing here is not caution, it is the rule.
+        return Refusal(f"{company.name} has no open postings to write about")
+
+    skills: list[str] = []
+    for job in evidence:
+        for skill in matched_skills(job, profile):
+            if skill not in skills:
+                skills.append(skill)
+    if len(skills) < MIN_SPECIFIC_SKILLS:
+        return Refusal(
+            f"{company.name}'s open postings mention only {len(skills)} profile skill(s); "
+            f"need {MIN_SPECIFIC_SKILLS} to say anything true and specific"
+        )
+
+    roles = _role_list(evidence)
+    if not roles:
+        return Refusal(f"{company.name} has no nameable open role titles")
+
+    named = [_present(s) for s in _worth_naming(skills)]
+    employer = (company.name or "").strip()
+    wanted = (profile.titles[0].strip() if profile.titles else "").strip()
+    subject = (
+        f"Speculative application: {wanted} — {applicant.name.strip()}"
+        if wanted
+        else f"Speculative application — {applicant.name.strip()}"
+    )
+
+    body = f"""Hi {_greeting(contact)},
+
+I could not find an opening at {employer} that matches what I do, so this is a speculative note rather than an application.
+
+You are currently hiring for {_humanise(roles)}, and {"that posting asks" if len(roles) == 1 else "those postings ask"} for {_humanise(named)}. That is the work I have been doing, and the detail is in the CV attached.
+
+If something closer to my background opens up, I would be glad to hear about it.
+
+If you would rather I did not follow up, reply and say so and I will not.
+
+Best,
+{_signature(applicant)}
+"""
+
+    problem = preflight(subject, body)
+    if problem:
+        return Refusal(problem)
+    return Draft(subject=subject, body=body, skills=named)

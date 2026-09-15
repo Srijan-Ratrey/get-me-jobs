@@ -35,6 +35,7 @@ uv run jobhunter purge --email x@y.com   # GDPR erasure: delete + suppress redis
 uv run jobhunter import-contacts hr.csv  # HR addresses you researched by hand
 uv run jobhunter outreach preview        # render what would go out; writes nothing
 uv run jobhunter outreach run            # draft and send today's applications
+uv run jobhunter outreach run --no-speculative   # only advertised roles
 uv run jobhunter outreach status         # budget used, cooldowns, recent sends
 ```
 
@@ -182,6 +183,11 @@ than a spam operation:
   refused rather than sent a form letter.
 - **Suppression is checked before every draft and every send.** `jobhunter purge --email` stops
   mail to that address permanently, and re-importing your spreadsheet will not resurrect it.
+- **Speculative notes** go to companies that are hiring but have nothing matching — 1,468 of them
+  here. They name the roles that company really is advertising, say plainly that they are
+  speculative, and only ever use budget left over after real applications. `--no-speculative`
+  turns them off. Read the caveats in `docs/compliance.md` first: the targeting is looser than
+  for real openings.
 
 ### Setup
 

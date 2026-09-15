@@ -813,16 +813,25 @@ def _load_profile_or_exit() -> "object":
 def preview(
     limit: int = typer.Option(5, "--limit", help="How many messages to render."),
     min_score: int | None = typer.Option(None, "--min-score", help="Override the profile's floor."),
+    speculative: bool = typer.Option(
+        True, "--speculative/--no-speculative",
+        help="Include notes to companies hiring with nothing that matches.",
+    ),
 ) -> None:
     """Render the messages that would go out. Writes nothing, sends nothing."""
     from .outreach import policy
-    from .outreach.drafter import Refusal, draft_for
+    from .outreach.drafter import Refusal, draft_for, draft_speculative
 
     profile = _load_profile_or_exit()
     db.init_db()
     with db.session_scope() as session:
         threshold = profile.min_score if min_score is None else min_score
         batch = policy.candidates(session, min_score=threshold, limit=limit)
+        if speculative and len(batch) < limit:
+            batch = batch + policy.speculative_candidates(
+                session, profile, min_score=threshold, limit=limit - len(batch),
+                exclude_companies={c.company.id for c in batch},
+            )
         if not batch:
             console.print(
                 "[yellow]No eligible candidates.[/] Either no company with an open job has a "
@@ -831,8 +840,14 @@ def preview(
             )
             return
         for candidate in batch:
-            result = draft_for(candidate.job, candidate.contact, candidate.company, profile)
-            console.rule(f"{candidate.company.name} — {candidate.job.title}")
+            if candidate.kind == "speculative":
+                result = draft_speculative(
+                    candidate.contact, candidate.company, candidate.evidence, profile
+                )
+                console.rule(f"[yellow]speculative[/] · {candidate.company.name}")
+            else:
+                result = draft_for(candidate.job, candidate.contact, candidate.company, profile)
+                console.rule(f"{candidate.company.name} — {candidate.job.title}")
             if isinstance(result, Refusal):
                 console.print(f"[yellow]refused:[/] {result.reason}")
                 continue
@@ -898,6 +913,10 @@ def run(
     no_pause: bool = typer.Option(
         False, "--no-pause", help="Skip the gap between sends. For testing only."
     ),
+    speculative: bool = typer.Option(
+        True, "--speculative/--no-speculative",
+        help="Also write to companies hiring with nothing that matches your profile.",
+    ),
 ) -> None:
     """Draft and send today's applications. This is the scheduler's entry point."""
     from .models import Outreach
@@ -938,6 +957,7 @@ def run(
             min_score=min_score,
             dry_run=dry_run,
             pause=not no_pause,
+            speculative=speculative,
         )
         if dry_run:
             session.rollback()
@@ -947,6 +967,7 @@ def run(
     console.print(
         f"[bold]{report.drafted}[/] drafted · [green]{report.sent}[/] sent · "
         f"{report.skipped} skipped · [red]{report.failed}[/] failed"
+        + (f" · {report.speculative} speculative" if report.speculative else "")
     )
     if dry_run:
         console.print("[dim]Dry run — nothing sent, nothing written.[/]")
