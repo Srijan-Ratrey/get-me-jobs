@@ -126,18 +126,37 @@ class Contact(Base):
 
 
 class Outreach(Base):
-    """A drafted message. There is no send path: status starts and stays 'draft'
-    until a human sends it from their own mail client. See docs/compliance.md."""
+    """One application email: drafted, then sent by `jobhunter outreach send`.
+
+    A send path exists as of 2026-09-15 and is automatic. What keeps that
+    defensible is not a human clicking each time but the gates in
+    `outreach/policy.py` — a daily cap counted off `sent_at`, per-contact and
+    per-company cooldowns, and the suppression list. See docs/compliance.md.
+
+    `sent_at` is deliberately separate from `created_at`: the daily cap counts
+    messages that actually left, so a draft written at 23:59 and sent at 00:01
+    belongs to the second day's budget, and a run that drafts fifty but sends
+    fifteen is counted honestly.
+    """
 
     __tablename__ = "outreach"
+    # One job is mailed to one person exactly once, enforced by the database
+    # rather than by remembering to check. See _ADDED_INDEXES in db.py for the
+    # same constraint applied to databases that predate it.
+    __table_args__ = (UniqueConstraint("job_id", "contact_id", name="uq_outreach_job_contact"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     contact_id: Mapped[int] = mapped_column(ForeignKey("contacts.id"))
     subject: Mapped[str] = mapped_column(String(500))
     body: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft|sent|replied
+    # draft -> sent, or draft -> failed. 'replied' is set by the reply tracker,
+    # which does not exist yet and needs a Gmail read scope.
+    status: Mapped[str] = mapped_column(String(20), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    error: Mapped[str | None] = mapped_column(Text, default=None)
+    gmail_message_id: Mapped[str | None] = mapped_column(String(255), default=None)
 
 
 class Suppression(Base):

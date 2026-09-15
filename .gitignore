@@ -3,6 +3,17 @@
 .cache/
 .env
 
+# Gmail OAuth. `credentials.json` is the client secret you download from Google
+# Cloud; `token.json` is the refresh token minted on first authorisation and is
+# enough on its own to send mail as you. Neither belongs in a public repo.
+credentials.json
+token.json
+
+# HR contacts you research by hand. Personal data — keep it off GitHub. The
+# *.csv rule below already covers this, but name it so the intent is explicit.
+hr.csv
+contacts-*.csv
+
 # Your own search config. These describe what you are looking for and which
 # employers you are targeting, so they stay local; the *.example.yaml files are
 # what ships, and `jobhunter init` copies them into place.

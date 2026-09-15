@@ -747,3 +747,206 @@ def stats() -> None:
 
 if __name__ == "__main__":
     app()
+
+
+@app.command(name="import-contacts")
+def import_contacts_cmd(
+    path: Path = typer.Argument(..., metavar="<csv>", help="CSV of HR contacts you researched."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would change, write nothing."),
+) -> None:
+    """Import hand-researched HR contacts from a CSV.
+
+    Columns are matched by name, so `Company`/`Employer` and `Email`/`HR Email`
+    all work. `source_url` is required on every row: see docs/compliance.md.
+    """
+    _require(path, "it holds the contacts to import")
+    from .contacts.importer import import_contacts, load_contact_csv
+
+    rows, skipped = load_contact_csv(path)
+    for reason in skipped:
+        console.print(f"[yellow]skipped[/] {reason}")
+    if not rows:
+        console.print("[red]Nothing to import.[/] Check the column names and try again.")
+        raise typer.Exit(1)
+
+    db.init_db()
+    with db.session_scope() as session:
+        report = import_contacts(session, rows, dry_run=dry_run)
+        if dry_run:
+            session.rollback()
+
+    for reason in report.reasons:
+        console.print(f"[yellow]skipped[/] {reason}")
+    console.print(
+        f"[bold]{len(rows)}[/] rows · [green]{report.added}[/] added · "
+        f"{report.updated} updated · {report.skipped + len(skipped)} skipped"
+        + (f" · {report.new_companies} new companies" if report.new_companies else "")
+    )
+    if dry_run:
+        console.print("[dim]Dry run — nothing written.[/]")
+    else:
+        console.print("\nNext: [bold]jobhunter outreach preview[/] to read what would go out.")
+
+
+outreach_app = typer.Typer(
+    add_completion=False,
+    help="Draft and send job applications. Read docs/compliance.md before enabling the cron.",
+)
+app.add_typer(outreach_app, name="outreach")
+
+
+def _load_profile_or_exit() -> "object":
+    _require(PROFILE_YAML, "it holds your profile and applicant details")
+    profile = load_profile(PROFILE_YAML)
+    missing = profile.applicant.is_complete()
+    if missing:
+        console.print(
+            f"[red]profile.yaml is missing applicant fields:[/] {', '.join(missing)}.\n"
+            "Every message names a real person with a real reply path and attaches a CV; "
+            "the sender will not run without them."
+        )
+        raise typer.Exit(1)
+    return profile
+
+
+@outreach_app.command()
+def preview(
+    limit: int = typer.Option(5, "--limit", help="How many messages to render."),
+    min_score: int | None = typer.Option(None, "--min-score", help="Override the profile's floor."),
+) -> None:
+    """Render the messages that would go out. Writes nothing, sends nothing."""
+    from .outreach import policy
+    from .outreach.drafter import Refusal, draft_for
+
+    profile = _load_profile_or_exit()
+    db.init_db()
+    with db.session_scope() as session:
+        threshold = profile.min_score if min_score is None else min_score
+        batch = policy.candidates(session, min_score=threshold, limit=limit)
+        if not batch:
+            console.print(
+                "[yellow]No eligible candidates.[/] Either no company with an open job has a "
+                "contact yet, or everything is inside a cooldown. Try "
+                "[bold]jobhunter outreach status[/]."
+            )
+            return
+        for candidate in batch:
+            result = draft_for(candidate.job, candidate.contact, candidate.company, profile)
+            console.rule(f"{candidate.company.name} — {candidate.job.title}")
+            if isinstance(result, Refusal):
+                console.print(f"[yellow]refused:[/] {result.reason}")
+                continue
+            console.print(f"[dim]To:[/] {candidate.contact.email}")
+            console.print(f"[dim]Subject:[/] {result.subject}\n")
+            console.print(result.body)
+        session.rollback()
+
+
+@outreach_app.command()
+def status() -> None:
+    """What has been sent, what is left in today's budget, what is cooling down."""
+    from .models import Contact, Outreach
+    from .outreach import policy
+
+    db.init_db()
+    with db.session_scope() as session:
+        sent_24h = policy.sent_recently(session)
+        cap = policy.daily_cap()
+        total_sent = session.scalar(
+            select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
+        ) or 0
+        failed = session.scalar(
+            select(func.count()).select_from(Outreach).where(Outreach.status == "failed")
+        ) or 0
+
+        table = Table(title="Outreach", header_style="bold")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+        table.add_row("Sent, last 24h", f"{sent_24h} / {cap}")
+        table.add_row("Remaining now", str(max(0, cap - sent_24h)))
+        table.add_row("Sent, all time", str(total_sent))
+        table.add_row("Failed", str(failed))
+        table.add_row("Contact cooldown", f"{settings.contact_cooldown_days}d")
+        table.add_row("Company cooldown", f"{settings.company_cooldown_days}d")
+        console.print(table)
+
+        recent = session.execute(
+            select(Outreach.sent_at, Contact.email, Outreach.subject)
+            .join(Contact, Contact.id == Outreach.contact_id)
+            .where(Outreach.status == "sent")
+            .order_by(Outreach.sent_at.desc())
+            .limit(10)
+        ).all()
+        if recent:
+            log_table = Table(title="Most recent", header_style="bold")
+            log_table.add_column("When")
+            log_table.add_column("To")
+            log_table.add_column("Subject")
+            for when, email, subject in recent:
+                log_table.add_row(str(when)[:16], email, subject[:60])
+            console.print(log_table)
+
+
+@outreach_app.command()
+def run(
+    limit: int | None = typer.Option(None, "--limit", help="Cap this run below the daily budget."),
+    min_score: int | None = typer.Option(None, "--min-score", help="Override the profile's floor."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Decide everything, send nothing."),
+    confirm_first_run: bool = typer.Option(
+        False, "--confirm-first-run", help="Required once, before the first message ever sent."
+    ),
+    no_pause: bool = typer.Option(
+        False, "--no-pause", help="Skip the gap between sends. For testing only."
+    ),
+) -> None:
+    """Draft and send today's applications. This is the scheduler's entry point."""
+    from .models import Outreach
+    from .outreach.sender import GmailTransport, send_batch
+
+    profile = _load_profile_or_exit()
+    db.init_db()
+
+    with db.session_scope() as session:
+        ever_sent = session.scalar(
+            select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
+        ) or 0
+
+    if ever_sent == 0 and not dry_run and not confirm_first_run:
+        console.print(
+            "[yellow]This would be the first mail this tool has ever sent.[/]\n"
+            "Read what is about to go out first:\n\n"
+            "    [bold]jobhunter outreach preview[/]\n\n"
+            "then re-run with [bold]--confirm-first-run[/]. Asked once, never again — "
+            "a template mistake reaches real people and cannot be recalled."
+        )
+        raise typer.Exit(1)
+
+    transport = None
+    if not dry_run:
+        try:
+            transport = GmailTransport()
+        except RuntimeError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(1)
+
+    with db.session_scope() as session:
+        report = send_batch(
+            session,
+            profile=profile,
+            transport=transport,
+            limit=limit,
+            min_score=min_score,
+            dry_run=dry_run,
+            pause=not no_pause,
+        )
+        if dry_run:
+            session.rollback()
+
+    for reason in (report.reasons or [])[:20]:
+        console.print(f"[dim]·[/] {reason}")
+    console.print(
+        f"[bold]{report.drafted}[/] drafted · [green]{report.sent}[/] sent · "
+        f"{report.skipped} skipped · [red]{report.failed}[/] failed"
+    )
+    if dry_run:
+        console.print("[dim]Dry run — nothing sent, nothing written.[/]")

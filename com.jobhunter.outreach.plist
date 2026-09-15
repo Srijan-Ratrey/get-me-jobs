@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily outreach run.
+
+  launchd rather than cron: cron silently skips a run if the machine was asleep
+  at the appointed minute, and a laptop is asleep most of the time. launchd runs
+  a missed job at the next wake, which is the behaviour you want for something
+  that is supposed to happen once a day.
+
+  Install:
+      cp com.jobhunter.outreach.plist ~/Library/LaunchAgents/
+      # edit the two paths below first
+      launchctl load ~/Library/LaunchAgents/com.jobhunter.outreach.plist
+
+  Check on it:
+      launchctl list | grep jobhunter
+      tail -f ~/Library/Logs/jobhunter-outreach.log
+
+  Stop it:
+      launchctl unload ~/Library/LaunchAgents/com.jobhunter.outreach.plist
+
+  The daily cap is enforced in the database, not here, so a missed run that
+  fires late — or two runs in one day — cannot exceed the budget.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jobhunter.outreach</string>
+
+    <!-- EDIT: absolute paths. launchd has almost no PATH, so `uv` must be
+         given in full; `which uv` will tell you where yours is. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/uv</string>
+        <string>run</string>
+        <string>jobhunter</string>
+        <string>outreach</string>
+        <string>run</string>
+    </array>
+
+    <!-- EDIT: the repo, so profile.yaml, the database and token.json resolve. -->
+    <key>WorkingDirectory</key>
+    <string>/Users/CHANGEME/Documents/get-me-jobs</string>
+
+    <!-- 09:30 local. Applications sent during working hours get read; ones that
+         land at 3am sit under everything that arrived overnight. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>9</integer>
+        <key>Minute</key><integer>30</integer>
+    </dict>
+
+    <!-- Do not fire on load. Otherwise installing this sends a batch
+         immediately, before you have read what it would say. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/jobhunter-outreach.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/jobhunter-outreach.log</string>
+</dict>
+</plist>

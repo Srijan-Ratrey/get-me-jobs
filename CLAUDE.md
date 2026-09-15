@@ -51,7 +51,10 @@ jobhunter/
     patterns.py       Tier 2: name -> candidate emails
     verify.py         Tier 3: MX + catch-all + RCPT probe
   matching/scorer.py  Profile -> 0-100 fit score + reasons
-  outreach/drafter.py Draft-only email generation  (Phase 3, not built yet)
+  outreach/
+    drafter.py        One message per (job, contact), or a refusal
+    policy.py         Every send gate: cap, cooldowns, suppression
+    sender.py         Gmail transport; knows nothing about eligibility
   export.py           CSV / XLSX
   cli.py              typer app
 companies.yaml        Targets to watch
@@ -77,8 +80,11 @@ user's IP blocklisted. See `docs/compliance.md`.
    The rate limiting, robots.txt checks, and caching live there and must not be bypassable.
 2. **No LinkedIn, Indeed, Glassdoor, or ZipRecruiter scraping.** Their ToS prohibit it and they
    have serious anti-bot. If a task seems to need them, stop and say so.
-3. **Nothing sends email automatically.** The drafter writes to the `outreach` table with
-   `status='draft'`. There is no send path in Phase 1–3.
+3. **Sending is capped and gated, never unbounded.** A send path exists as of 2026-09-15 and
+   runs unattended from a scheduler. What keeps that defensible lives in `outreach/policy.py`:
+   15 messages a day counted in the database, a hard ceiling of 20 that config cannot raise,
+   a 30-day per-address and 14-day per-company cooldown, and a refusal to write anything
+   generic. Do not add a caller that bypasses `policy.may_send`.
 4. **Every contact row records `source_url` and `discovery_method`.** Provenance for personal
    data is a GDPR obligation.
 5. **Prefer role addresses** (`careers@`, `jobs@`, `talent@`) over named individuals. When both
@@ -114,6 +120,10 @@ uv run jobhunter list --min-score 55 --since last-scan --why
 uv run jobhunter export out.xlsx --posted-within 30d
 uv run jobhunter stats           # what is in the database
 uv run jobhunter purge --email x@y.com   # GDPR erasure
+uv run jobhunter import-contacts hr.csv  # HR addresses researched by hand
+uv run jobhunter outreach preview        # render messages, write nothing
+uv run jobhunter outreach run            # draft + send, capped at 15/day
+uv run jobhunter outreach status         # budget, cooldowns, recent sends
 uv run pytest                    # tests must pass offline
 ```
 
