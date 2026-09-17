@@ -11,6 +11,7 @@ adapters' full-content one — 358 KB versus 4.4 MB for a board the size of
 Stripe's. Across 8,333 Greenhouse tokens that is the difference between ~3 GB and
 ~36 GB, which is why this module does not reuse ``JobSource.fetch``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,6 +52,7 @@ def is_relevant_title(title: str, profile: Profile) -> bool:
         return False
     return any(t.strip() and t.lower() in lowered for t in profile.titles)
 
+
 # Listing endpoints. Deliberately not the adapters' URLs: no descriptions.
 _ENDPOINTS = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{token}/jobs",
@@ -73,7 +75,9 @@ class Probe:
     error: str | None = None
 
     def as_target(self) -> Target:
-        return Target(name=self.name or _name_from_token(self.token), ats=self.ats, ats_token=self.token)
+        return Target(
+            name=self.name or _name_from_token(self.token), ats=self.ats, ats_token=self.token
+        )
 
     def worth_watching(self, *, min_relevant: int, min_india_jobs: int) -> bool:
         """Keep a board for a matching role now, or a durable India presence.
@@ -156,7 +160,9 @@ def _from_ashby(data: object) -> tuple[str | None, list[Posting]]:
         parts = [job.get("location") or ""]
         for secondary in job.get("secondaryLocations") or []:
             # Shape has drifted between an object and a bare string; accept both.
-            parts.append(secondary.get("location", "") if isinstance(secondary, dict) else str(secondary))
+            parts.append(
+                secondary.get("location", "") if isinstance(secondary, dict) else str(secondary)
+            )
         out.append(
             (job.get("title") or "", ", ".join(p for p in parts if p), bool(job.get("isRemote")))
         )
@@ -210,7 +216,9 @@ async def probe_board(
     probe.total_jobs = len(postings)
     probe.india_jobs = len(india)
     if profile is not None:
-        probe.relevant_india_jobs = sum(1 for title, _, _ in india if is_relevant_title(title, profile))
+        probe.relevant_india_jobs = sum(
+            1 for title, _, _ in india if is_relevant_title(title, profile)
+        )
     return probe
 
 
@@ -284,7 +292,11 @@ async def run_harvest(
     done = load_state(state_file)
     result.resumed = len(done)
 
-    known = {(t.ats, t.ats_token) for t in load_targets(companies_path)} if Path(companies_path).exists() else set()
+    known = (
+        {(t.ats, t.ats_token) for t in load_targets(companies_path)}
+        if Path(companies_path).exists()
+        else set()
+    )
 
     owns_client = client is None
     client = client or PoliteClient()

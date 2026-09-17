@@ -3,6 +3,7 @@
 No test here reaches the network. The Anthropic client is replaced by a fake, so
 the suite stays offline and runs without the `llm` extra installed.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -54,9 +55,7 @@ class FakeClient:
 
 
 def verdict(fit=80, target=True, junior=True, reason="because") -> Verdict:
-    return Verdict(
-        is_target_role=target, is_junior_appropriate=junior, fit=fit, reason=reason
-    )
+    return Verdict(is_target_role=target, is_junior_appropriate=junior, fit=fit, reason=reason)
 
 
 JOB = {
@@ -212,7 +211,12 @@ def seeded(tmp_path):
             return job
 
         add("Data Scientist", "Bengaluru", external_id="keep")
-        add("Senior Data Scientist", "Bengaluru", disqualified="exclude_keyword:senior", external_id="dq")
+        add(
+            "Senior Data Scientist",
+            "Bengaluru",
+            disqualified="exclude_keyword:senior",
+            external_id="dq",
+        )
         add("Data Scientist", "San Francisco, CA", external_id="usa")
         session.commit()
     yield
@@ -225,7 +229,10 @@ def test_candidates_exclude_disqualified_and_unreachable(seeded):
 
 
 def test_candidates_skip_jobs_already_judged(seeded):
-    results = [llm_scorer.Scored(job_id=c["id"], verdict=verdict()) for c in pipeline.llm_candidates(JUNIOR)]
+    results = [
+        llm_scorer.Scored(job_id=c["id"], verdict=verdict())
+        for c in pipeline.llm_candidates(JUNIOR)
+    ]
     pipeline.apply_llm_scores(results)
     assert pipeline.llm_candidates(JUNIOR) == []
     assert len(pipeline.llm_candidates(JUNIOR, rescore=True)) == 1
@@ -292,8 +299,13 @@ def test_columns_are_added_to_a_database_that_predates_them(tmp_path):
         db.upsert_job(
             session,
             company,
-            RawJob(source="greenhouse", external_id="1", title="Data Scientist",
-                   location="Bengaluru", url="https://x/1"),
+            RawJob(
+                source="greenhouse",
+                external_id="1",
+                title="Data Scientist",
+                location="Bengaluru",
+                url="https://x/1",
+            ),
         )
         session.commit()
 
@@ -301,7 +313,8 @@ def test_columns_are_added_to_a_database_that_predates_them(tmp_path):
     # created by an earlier version of this package.
     raw = sqlite3.connect(path)
     kept = [
-        r[1] for r in raw.execute("PRAGMA table_info(jobs)")
+        r[1]
+        for r in raw.execute("PRAGMA table_info(jobs)")
         if r[1] not in ("llm_score", "llm_verdict")
     ]
     raw.executescript(
@@ -335,7 +348,9 @@ def test_the_migration_is_idempotent(tmp_path):
         job, _ = db.upsert_job(
             session,
             company,
-            RawJob(source="greenhouse", external_id="1", title="X", location="Y", url="https://x/1"),
+            RawJob(
+                source="greenhouse", external_id="1", title="X", location="Y", url="https://x/1"
+            ),
         )
         job.llm_score = 50
         session.commit()

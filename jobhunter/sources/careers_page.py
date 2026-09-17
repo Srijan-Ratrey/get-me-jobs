@@ -5,6 +5,7 @@ way we discover which ATS they *are* on. Handing off to a real adapter is always
 better than scraping, so fingerprinting runs first and extraction is the
 last resort.
 """
+
 from __future__ import annotations
 
 import json
@@ -159,7 +160,9 @@ def _iter_jsonld(html: str):
                 stack.extend(item)
             elif isinstance(item, dict):
                 if "@graph" in item:
-                    stack.extend(item["@graph"] if isinstance(item["@graph"], list) else [item["@graph"]])
+                    stack.extend(
+                        item["@graph"] if isinstance(item["@graph"], list) else [item["@graph"]]
+                    )
                 yield item
 
 
@@ -209,7 +212,9 @@ def extract_jsonld(html: str, base_url: str) -> list[RawJob]:
             RawJob(
                 source="careers_page",
                 # Stable across runs: a URL path, never a positional index.
-                external_id=str(identifier) if identifier else urlparse(str(url)).path or str(title),
+                external_id=str(identifier)
+                if identifier
+                else urlparse(str(url)).path or str(title),
                 title=str(title).strip(),
                 location=_jsonld_location(item),
                 description=normalize_text(
@@ -252,9 +257,7 @@ def extract_repeated(html: str, base_url: str) -> list[RawJob]:
         anchors = [
             a
             for a in container.css("a[href]")
-            if JOB_LINK_LOOSE.search(
-                f"{a.attributes.get('href') or ''} {a.text(strip=True) or ''}"
-            )
+            if JOB_LINK_LOOSE.search(f"{a.attributes.get('href') or ''} {a.text(strip=True) or ''}")
         ]
         if len(anchors) < 3 or len(anchors) <= len(best):
             continue
@@ -347,7 +350,9 @@ class CareersPageSource:
                         external_id=urlparse(link).path,
                         title=title,
                         url=link,
-                        description=normalize_text(tree.body.text(separator="\n")) if tree.body else None,
+                        description=normalize_text(tree.body.text(separator="\n"))
+                        if tree.body
+                        else None,
                     )
                 )
         return jobs

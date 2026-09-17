@@ -4,6 +4,7 @@ Goal: **one high-confidence contact per company, not fifty guesses.** A guessed
 address presented as a real one is worse than no answer, because guesses bounce
 and bounces damage the sending reputation you are trying to spend.
 """
+
 from __future__ import annotations
 
 import logging
@@ -149,9 +150,7 @@ async def find_contacts(
     unproven = [c for c in result.candidates if c.confidence < SURFACE_THRESHOLD]
     if not should_verify:
         if unproven:
-            result.notes.append(
-                f"{len(unproven)} guess(es) left unverified (verify_emails is off)"
-            )
+            result.notes.append(f"{len(unproven)} guess(es) left unverified (verify_emails is off)")
     elif unproven:
         ordered = sorted(unproven, key=lambda c: c.confidence, reverse=True)
         verdicts, catch_all = verify.verify_candidates(

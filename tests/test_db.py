@@ -1,4 +1,5 @@
 """Persistence: idempotent upserts, stale closing, and the erasure path."""
+
 from __future__ import annotations
 
 import pytest

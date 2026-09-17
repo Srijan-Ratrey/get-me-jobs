@@ -77,6 +77,7 @@ Each source adapter implements one interface, so adding a new ATS is ~40 lines:
 ```python
 class JobSource(Protocol):
     name: str
+
     async def fetch(self, target: Target) -> list[RawJob]: ...
 ```
 

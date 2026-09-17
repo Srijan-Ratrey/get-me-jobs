@@ -3,6 +3,7 @@
 Per-host rate limiting, robots.txt compliance, on-disk caching, and retry with
 backoff. Everything that touches the network goes through here.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -96,9 +97,7 @@ class PoliteClient:
     ):
         rps = requests_per_second or settings.requests_per_second
         self._min_interval = 1.0 / rps if rps > 0 else 0.0
-        self._respect_robots = (
-            settings.respect_robots if respect_robots is None else respect_robots
-        )
+        self._respect_robots = settings.respect_robots if respect_robots is None else respect_robots
         self._cache_dir = cache_dir or settings.cache_dir
         self._cache_ttl = settings.cache_ttl_seconds if cache_ttl is None else cache_ttl
         self._max_retries = settings.max_retries if max_retries is None else max_retries

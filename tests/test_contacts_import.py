@@ -5,6 +5,7 @@ records where its address came from, because "a spreadsheet" is not an answer
 to a subject access request. A row without it is rejected and reported, never
 quietly stored with a blank.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -90,9 +91,7 @@ def test_headers_are_matched_by_meaning_not_exact_text(tmp_path):
 def test_a_bom_and_blank_rows_do_not_break_the_import(tmp_path):
     path = write_csv(
         tmp_path,
-        "﻿company,email,source_url\n"
-        "Acme,careers@acme.com,https://acme.com/careers\n"
-        ",,\n",
+        "﻿company,email,source_url\nAcme,careers@acme.com,https://acme.com/careers\n,,\n",
     )
     rows, skipped = load_contact_csv(path)
     assert len(rows) == 1

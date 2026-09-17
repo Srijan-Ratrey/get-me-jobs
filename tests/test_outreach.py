@@ -5,6 +5,7 @@ runs from a scheduler with nobody watching, so these are the only thing between
 it and a spam operation, and each one exists because the alternative was
 measured in the real database rather than imagined.
 """
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -71,9 +72,17 @@ class FakeTransport:
         return f"gmail-{len(self.sent)}"
 
 
-def make_job(session, company_name: str, *, title="ML Engineer", score=90,
-             description="We use PyTorch and RAG for NLP.", external_id=None, url=None,
-             title_component=40) -> Job:
+def make_job(
+    session,
+    company_name: str,
+    *,
+    title="ML Engineer",
+    score=90,
+    description="We use PyTorch and RAG for NLP.",
+    external_id=None,
+    url=None,
+    title_component=40,
+) -> Job:
     """A scored job row.
 
     `title_component` matters for the speculative path, which reads it to decide
@@ -94,13 +103,19 @@ def make_job(session, company_name: str, *, title="ML Engineer", score=90,
         ),
     )
     job.fit_score = score
-    job.fit_reasons = {"total": score, "components": {"title": title_component},
-                       "reasons": [], "disqualified": None}
+    job.fit_reasons = {
+        "total": score,
+        "components": {"title": title_component},
+        "reasons": [],
+        "disqualified": None,
+    }
     session.flush()
     return job
 
 
-def make_contact(session, company_name: str, email: str, *, kind="role", confidence=0.95) -> Contact:
+def make_contact(
+    session, company_name: str, email: str, *, kind="role", confidence=0.95
+) -> Contact:
     company = db.upsert_company(session, Target(name=company_name))
     contact = Contact(
         company_id=company.id,
@@ -176,12 +191,16 @@ def test_the_body_reads_like_a_person_wrote_it(session, profile):
     """
     profile.nice_to_have_keywords = ["llm", "lora", "recommendation", "pytorch"]
     job = make_job(
-        session, "Bosch Group", title="Data Scientist",
+        session,
+        "Bosch Group",
+        title="Data Scientist",
         description="Work on LLM and LoRA fine-tuning with PyTorch for recommendation.",
     )
-    job.location = "bengaluru, in"   # exactly as SmartRecruiters stores it
+    job.location = "bengaluru, in"  # exactly as SmartRecruiters stores it
     session.flush()
-    result = draft_for(job, make_contact(session, "Bosch Group", "hr@bosch.test"), job.company, profile)
+    result = draft_for(
+        job, make_contact(session, "Bosch Group", "hr@bosch.test"), job.company, profile
+    )
 
     assert isinstance(result, Draft)
     assert "in Bengaluru." in result.body, "location was not cleaned up"
@@ -276,9 +295,14 @@ def test_the_window_rolls_rather_than_resetting_at_midnight(session, profile, mo
     make_job(session, "Acme", description="PyTorch and RAG.")
     contact = make_contact(session, "Acme", "careers@acme.com")
     session.add(
-        Outreach(job_id=make_job(session, "Old", description="PyTorch and RAG.").id,
-                 contact_id=contact.id, subject="s", body="b", status="sent",
-                 sent_at=utcnow() - timedelta(hours=25))
+        Outreach(
+            job_id=make_job(session, "Old", description="PyTorch and RAG.").id,
+            contact_id=contact.id,
+            subject="s",
+            body="b",
+            status="sent",
+            sent_at=utcnow() - timedelta(hours=25),
+        )
     )
     session.flush()
     # The 25-hour-old send has aged out, so the budget is free again.
@@ -316,12 +340,20 @@ def test_a_company_inside_its_cooldown_is_skipped(session, profile, monkeypatch)
     job = make_job(session, "Acme", description="PyTorch and RAG.")
     contact = make_contact(session, "Acme", "careers@acme.com")
     session.add(
-        Outreach(job_id=job.id, contact_id=contact.id, subject="s", body="b",
-                 status="sent", sent_at=utcnow() - timedelta(days=2))
+        Outreach(
+            job_id=job.id,
+            contact_id=contact.id,
+            subject="s",
+            body="b",
+            status="sent",
+            sent_at=utcnow() - timedelta(days=2),
+        )
     )
     session.flush()
 
-    decision = policy.may_send(session, policy.Candidate(job=job, contact=contact, company=job.company))
+    decision = policy.may_send(
+        session, policy.Candidate(job=job, contact=contact, company=job.company)
+    )
     assert not decision
     assert "cooldown" in decision.reason or "already" in decision.reason
 
@@ -363,7 +395,9 @@ def test_a_contact_flagged_suppressed_is_never_mailed(session, profile, monkeypa
     contact.suppressed = True
     session.flush()
 
-    decision = policy.may_send(session, policy.Candidate(job=job, contact=contact, company=job.company))
+    decision = policy.may_send(
+        session, policy.Candidate(job=job, contact=contact, company=job.company)
+    )
     assert not decision and "suppressed" in decision.reason
 
 
@@ -374,7 +408,9 @@ def test_a_job_that_closed_after_drafting_is_dropped_at_send_time(session, profi
     job.closed_at = utcnow()
     session.flush()
 
-    decision = policy.may_send(session, policy.Candidate(job=job, contact=contact, company=job.company))
+    decision = policy.may_send(
+        session, policy.Candidate(job=job, contact=contact, company=job.company)
+    )
     assert not decision and "closed" in decision.reason
 
 
@@ -428,8 +464,12 @@ def test_a_failed_send_records_why(session, profile, monkeypatch):
     make_job(session, "Acme", description="PyTorch and RAG.")
     make_contact(session, "Acme", "careers@acme.com")
 
-    send_batch(session, profile=profile, transport=FakeTransport(fail_with=RuntimeError("boom")),
-               pause=False)
+    send_batch(
+        session,
+        profile=profile,
+        transport=FakeTransport(fail_with=RuntimeError("boom")),
+        pause=False,
+    )
     row = session.query(Outreach).one()
     assert row.status == "failed"
     assert "boom" in row.error
@@ -451,7 +491,9 @@ def test_role_addresses_outrank_named_individuals(session):
 # --------------------------------------------------------------------------- #
 
 
-def test_a_company_with_a_matching_role_gets_an_application_not_a_note(session, profile, monkeypatch):
+def test_a_company_with_a_matching_role_gets_an_application_not_a_note(
+    session, profile, monkeypatch
+):
     """Never write speculatively to someone advertising the job you want."""
     monkeypatch.setattr(settings, "daily_send_cap", 10)
     make_job(session, "Acme", description="PyTorch and RAG and NLP.")
@@ -472,10 +514,20 @@ def test_a_company_hiring_something_else_gets_a_speculative_note(session, profil
     # Scores below the threshold, so no application — but the postings are technical.
     # Hires ML people, but only in San Francisco -- full title credit, no
     # location credit, so it scores below the floor and never matches.
-    make_job(session, "Beta", title="Machine Learning Engineer", score=45,
-             description="Python services, some PyTorch model serving, SQL.")
-    make_job(session, "Beta", title="Data Engineer", score=42,
-             description="Docker, SQL and Python across the stack.")
+    make_job(
+        session,
+        "Beta",
+        title="Machine Learning Engineer",
+        score=45,
+        description="Python services, some PyTorch model serving, SQL.",
+    )
+    make_job(
+        session,
+        "Beta",
+        title="Data Engineer",
+        score=42,
+        description="Docker, SQL and Python across the stack.",
+    )
     make_contact(session, "Beta", "careers@beta.com")
 
     transport = FakeTransport()
@@ -495,27 +547,35 @@ def test_a_company_hiring_something_else_gets_a_speculative_note(session, profil
 def test_a_company_with_no_technical_signal_is_refused(session, profile, monkeypatch):
     """A speculative ML note to a firm hiring accountants has nothing true to say."""
     monkeypatch.setattr(settings, "daily_send_cap", 10)
-    make_job(session, "Gamma", title="Office Administrator", score=35,
-             title_component=0,
-             description="Answer the phone, manage the diary, greet visitors.")
+    make_job(
+        session,
+        "Gamma",
+        title="Office Administrator",
+        score=35,
+        title_component=0,
+        description="Answer the phone, manage the diary, greet visitors.",
+    )
     make_contact(session, "Gamma", "careers@gamma.com")
 
-    report = send_batch(session, profile=profile, transport=FakeTransport(),
-                        min_score=55, pause=False)
+    report = send_batch(
+        session, profile=profile, transport=FakeTransport(), min_score=55, pause=False
+    )
     assert report.sent == 0
 
 
 def test_a_company_with_no_open_postings_is_never_written_to(session, profile, monkeypatch):
     """The published hiring intent is the entire lawful basis. No postings, no basis."""
     monkeypatch.setattr(settings, "daily_send_cap", 10)
-    job = make_job(session, "Delta", title="ML Engineer", score=95,
-                   description="PyTorch, RAG, NLP and SQL.")
-    job.closed_at = utcnow()          # they were hiring; they are not now
+    job = make_job(
+        session, "Delta", title="ML Engineer", score=95, description="PyTorch, RAG, NLP and SQL."
+    )
+    job.closed_at = utcnow()  # they were hiring; they are not now
     session.flush()
     make_contact(session, "Delta", "careers@delta.com")
 
-    report = send_batch(session, profile=profile, transport=FakeTransport(),
-                        min_score=55, pause=False)
+    report = send_batch(
+        session, profile=profile, transport=FakeTransport(), min_score=55, pause=False
+    )
     assert report.sent == 0
 
     result = draft_speculative(
@@ -528,52 +588,87 @@ def test_a_company_with_no_open_postings_is_never_written_to(session, profile, m
 def test_real_openings_fill_the_budget_before_any_speculative(session, profile, monkeypatch):
     """A speculative note must never displace an application to a real advert."""
     monkeypatch.setattr(settings, "daily_send_cap", 2)
-    for n in range(4):                       # four genuine matches
+    for n in range(4):  # four genuine matches
         make_job(session, f"Real{n}", description="PyTorch and RAG and NLP.")
         make_contact(session, f"Real{n}", f"careers@real{n}.com")
-    for n in range(4):                       # and four speculative options
-        make_job(session, f"Spec{n}", title="Data Engineer", score=45,
-                 description="Python and SQL and Docker.")
+    for n in range(4):  # and four speculative options
+        make_job(
+            session,
+            f"Spec{n}",
+            title="Data Engineer",
+            score=45,
+            description="Python and SQL and Docker.",
+        )
         make_contact(session, f"Spec{n}", f"careers@spec{n}.com")
 
-    report = send_batch(session, profile=profile, transport=FakeTransport(),
-                        min_score=55, pause=False)
+    report = send_batch(
+        session, profile=profile, transport=FakeTransport(), min_score=55, pause=False
+    )
     assert report.sent == 2
     assert report.speculative == 0, "speculative mail took a slot from a real application"
 
 
 def test_speculative_can_be_turned_off_entirely(session, profile, monkeypatch):
     monkeypatch.setattr(settings, "daily_send_cap", 10)
-    make_job(session, "Beta", title="Data Engineer", score=45,
-             description="Python, PyTorch and SQL.")
+    make_job(
+        session, "Beta", title="Data Engineer", score=45, description="Python, PyTorch and SQL."
+    )
     make_contact(session, "Beta", "careers@beta.com")
 
-    report = send_batch(session, profile=profile, transport=FakeTransport(),
-                        min_score=55, pause=False, speculative=False)
+    report = send_batch(
+        session,
+        profile=profile,
+        transport=FakeTransport(),
+        min_score=55,
+        pause=False,
+        speculative=False,
+    )
     assert report.sent == 0
 
 
 def test_a_cooldown_spans_both_kinds(session, profile, monkeypatch):
     """Mailing a company speculatively must block a real application next week."""
     monkeypatch.setattr(settings, "daily_send_cap", 10)
-    job = make_job(session, "Beta", title="Data Engineer", score=45,
-                   description="Python, PyTorch and SQL.")
+    job = make_job(
+        session, "Beta", title="Data Engineer", score=45, description="Python, PyTorch and SQL."
+    )
     contact = make_contact(session, "Beta", "careers@beta.com")
-    session.add(Outreach(job_id=job.id, contact_id=contact.id, subject="s", body="b",
-                         status="sent", kind="speculative", sent_at=utcnow() - timedelta(days=1)))
+    session.add(
+        Outreach(
+            job_id=job.id,
+            contact_id=contact.id,
+            subject="s",
+            body="b",
+            status="sent",
+            kind="speculative",
+            sent_at=utcnow() - timedelta(days=1),
+        )
+    )
     session.flush()
 
-    decision = policy.may_send(session, policy.Candidate(job=job, contact=contact, company=job.company))
+    decision = policy.may_send(
+        session, policy.Candidate(job=job, contact=contact, company=job.company)
+    )
     assert not decision
     assert "cooldown" in decision.reason or "already" in decision.reason
 
 
 def test_two_speculative_notes_do_not_read_alike(session, profile):
     """Same rule as applications: swap the company and the text must change."""
-    a = make_job(session, "Alpha", title="ML Engineer", score=45,
-                 description="PyTorch and RAG model serving.")
-    b = make_job(session, "Beta", title="Data Platform Engineer", score=45,
-                 description="SQL, Docker and NLP pipelines.")
+    a = make_job(
+        session,
+        "Alpha",
+        title="ML Engineer",
+        score=45,
+        description="PyTorch and RAG model serving.",
+    )
+    b = make_job(
+        session,
+        "Beta",
+        title="Data Platform Engineer",
+        score=45,
+        description="SQL, Docker and NLP pipelines.",
+    )
     da = draft_speculative(make_contact(session, "Alpha", "c@alpha.com"), a.company, [a], profile)
     dbf = draft_speculative(make_contact(session, "Beta", "c@beta.com"), b.company, [b], profile)
 
@@ -582,9 +677,16 @@ def test_two_speculative_notes_do_not_read_alike(session, profile):
 
 
 def test_requisition_noise_is_stripped_from_named_roles(session, profile):
-    job = make_job(session, "Alpha", title="Data Engineer (R4633)", score=45,
-                   description="Python and SQL and Docker.")
-    result = draft_speculative(make_contact(session, "Alpha", "c@alpha.com"), job.company, [job], profile)
+    job = make_job(
+        session,
+        "Alpha",
+        title="Data Engineer (R4633)",
+        score=45,
+        description="Python and SQL and Docker.",
+    )
+    result = draft_speculative(
+        make_contact(session, "Alpha", "c@alpha.com"), job.company, [job], profile
+    )
     assert isinstance(result, Draft)
     assert "Data Engineer" in result.body
     assert "R4633" not in result.body

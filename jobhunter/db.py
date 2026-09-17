@@ -1,4 +1,5 @@
 """Database session management and upsert helpers."""
+
 from __future__ import annotations
 
 import logging
@@ -181,8 +182,7 @@ def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int
 def is_suppressed(s: Session, email: str) -> bool:
     """Has this address asked to be forgotten? Matched on hash, never plaintext."""
     return (
-        s.scalar(select(Suppression).where(Suppression.email_hash == hash_email(email)))
-        is not None
+        s.scalar(select(Suppression).where(Suppression.email_hash == hash_email(email))) is not None
     )
 
 

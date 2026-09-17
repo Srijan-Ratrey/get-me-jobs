@@ -10,4 +10,5 @@ The split matters because `policy` is the only thing standing between an
 unattended cron job and a spam operation, and it should be readable and
 testable on its own. See docs/compliance.md.
 """
+
 from __future__ import annotations

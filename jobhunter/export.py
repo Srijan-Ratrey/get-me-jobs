@@ -1,4 +1,5 @@
 """CSV / XLSX export: one row per job with its best contact, highest score first."""
+
 from __future__ import annotations
 
 import logging
@@ -95,7 +96,12 @@ def collect_rows(
                 contacts[company.id] = _best_contact(session, company.id)
             contact = contacts[company.id]
             name = " ".join(
-                p for p in ((contact.first_name if contact else None), (contact.last_name if contact else None)) if p
+                p
+                for p in (
+                    (contact.first_name if contact else None),
+                    (contact.last_name if contact else None),
+                )
+                if p
             )
             rows.append(
                 {

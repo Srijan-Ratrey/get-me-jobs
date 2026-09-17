@@ -3,6 +3,7 @@
 Free, safe, and the highest-signal tier — a published `careers@` needs no
 verification and is the address you actually want. See docs/contact-discovery.md.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,10 +21,19 @@ log = logging.getLogger(__name__)
 # Resolved against the company domain, in this order. EU sites are legally
 # required to publish a contact, which is what makes imprint/impressum worth it.
 CANDIDATE_PATHS = (
-    "/careers", "/career", "/jobs", "/join-us",
-    "/about", "/about-us", "/team", "/people",
-    "/contact", "/contact-us", "/company",
-    "/imprint", "/impressum",
+    "/careers",
+    "/career",
+    "/jobs",
+    "/join-us",
+    "/about",
+    "/about-us",
+    "/team",
+    "/people",
+    "/contact",
+    "/contact-us",
+    "/company",
+    "/imprint",
+    "/impressum",
 )
 
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -65,10 +75,37 @@ RECRUITING_TITLE = re.compile(
 # Local part -> (confidence, kind). Highest first; see the ranking table in
 # docs/contact-discovery.md.
 ROLE_RANKS: list[tuple[frozenset[str], float]] = [
-    (frozenset({"careers", "career", "jobs", "job", "recruiting", "recruitment", "recruiter",
-                "talent", "hiring"}), 0.95),
-    (frozenset({"hr", "people", "peopleops", "people-ops", "personal", "personnel",
-                "bewerbung", "hrteam"}), 0.90),
+    (
+        frozenset(
+            {
+                "careers",
+                "career",
+                "jobs",
+                "job",
+                "recruiting",
+                "recruitment",
+                "recruiter",
+                "talent",
+                "hiring",
+            }
+        ),
+        0.95,
+    ),
+    (
+        frozenset(
+            {
+                "hr",
+                "people",
+                "peopleops",
+                "people-ops",
+                "personal",
+                "personnel",
+                "bewerbung",
+                "hrteam",
+            }
+        ),
+        0.90,
+    ),
     (frozenset({"apply", "applications", "application", "join", "work", "workwithus"}), 0.85),
     (frozenset({"hello", "contact", "team", "hi", "enquiries", "enquiry", "inquiries"}), 0.55),
     (frozenset({"info", "information", "office", "mail"}), 0.50),
@@ -152,7 +189,9 @@ def is_acceptable(email: str, company_domain: str | None) -> bool:
     return _domain_matches(domain, company_domain)
 
 
-_ROLE_WORDS: frozenset[str] = frozenset().union(*(locals_ for locals_, _ in ROLE_RANKS)) | REJECT_LOCAL
+_ROLE_WORDS: frozenset[str] = (
+    frozenset().union(*(locals_ for locals_, _ in ROLE_RANKS)) | REJECT_LOCAL
+)
 
 
 def looks_like_person(local: str) -> bool:
@@ -226,7 +265,9 @@ def _split_person_name(local: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def harvest(text: str, source_url: str, company_domain: str | None, *, is_html: bool) -> list[Candidate]:
+def harvest(
+    text: str, source_url: str, company_domain: str | None, *, is_html: bool
+) -> list[Candidate]:
     """Pull every plausible address out of one page or job description."""
     found: dict[str, Candidate] = {}
 
@@ -235,7 +276,9 @@ def harvest(text: str, source_url: str, company_domain: str | None, *, is_html: 
         if not is_acceptable(email, company_domain):
             return
         confidence, kind, title = rank(email, context)
-        first, last = _split_person_name(email.split("@", 1)[0]) if kind == "person" else (None, None)
+        first, last = (
+            _split_person_name(email.split("@", 1)[0]) if kind == "person" else (None, None)
+        )
         existing = found.get(email)
         if existing is None or confidence > existing.confidence:
             found[email] = Candidate(
@@ -280,8 +323,11 @@ def harvest(text: str, source_url: str, company_domain: str | None, *, is_html: 
     # 4. Obfuscated in prose.
     for match in OBFUSCATED.finditer(plain):
         local, domain, tld = match.groups()
-        add(f"{local}@{domain}.{tld}", plain[max(0, match.start() - 200) : match.end() + 200],
-            "scraped:obfuscated")
+        add(
+            f"{local}@{domain}.{tld}",
+            plain[max(0, match.start() - 200) : match.end() + 200],
+            "scraped:obfuscated",
+        )
 
     return list(found.values())
 

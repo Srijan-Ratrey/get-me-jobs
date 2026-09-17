@@ -4,6 +4,7 @@ Mocking each call site is easy to forget; making the network structurally
 unreachable is not. If a test ever needs real I/O, that is a design problem with
 the test, not a reason to relax this.
 """
+
 from __future__ import annotations
 
 import json

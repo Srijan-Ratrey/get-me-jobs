@@ -31,7 +31,7 @@ email = [
     "google-auth-oauthlib>=1.2",
     "google-auth>=2.30",
 ]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21", "ruff>=0.16"]
 
 [project.scripts]
 jobhunter = "jobhunter.cli:app"
@@ -42,6 +42,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["jobhunter*"]
+
+[tool.ruff]
+# The codebase was written at ~100 columns; the 88 default would reflow about
+# 450 lines of working code to no benefit. Kept here so `ruff format` is
+# reproducible rather than depending on whose machine it runs on.
+line-length = 100
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

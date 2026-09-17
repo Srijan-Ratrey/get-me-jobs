@@ -3,6 +3,7 @@
 Import direction is one-way (registry -> adapters), which is why the
 fingerprint handoff lives here rather than inside careers_page.
 """
+
 from __future__ import annotations
 
 import logging
@@ -97,7 +98,11 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
                 f"{target.name}: uses {detected.ats}, which has no adapter "
                 f"(matched {detected.marker!r})"
             )
-        log.info("%s: %s detected but no token found; falling back to crawling", target.name, detected.ats)
+        log.info(
+            "%s: %s detected but no token found; falling back to crawling",
+            target.name,
+            detected.ats,
+        )
     else:
         UNKNOWN_ATS.append({"company": target.name, "ats": None, "token": None})
 

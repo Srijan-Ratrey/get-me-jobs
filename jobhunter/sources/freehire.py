@@ -23,6 +23,7 @@ A FreeHire target is a saved search rather than a company:
         countries: [in]
         posted_within_days: 21
 """
+
 from __future__ import annotations
 
 import logging

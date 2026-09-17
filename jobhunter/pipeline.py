@@ -4,6 +4,7 @@
 collection. The key invariant: one target failing is data for ``runs.errors``,
 never a reason to abandon the other targets.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,7 +55,11 @@ def resolve_since(value: str | None) -> datetime | None:
 
     if match := _DURATION.fullmatch(raw):
         count, unit = int(match.group(1)), match.group(2)
-        delta = {"h": timedelta(hours=count), "d": timedelta(days=count), "w": timedelta(weeks=count)}
+        delta = {
+            "h": timedelta(hours=count),
+            "d": timedelta(days=count),
+            "w": timedelta(weeks=count),
+        }
         return datetime.now(timezone.utc).replace(tzinfo=None) - delta[unit]
 
     try:
@@ -191,9 +196,7 @@ async def run_resolve(
         except RobotsDisallowed:
             return ResolveOutcome(target, "unreachable", detail="robots.txt disallows the page")
         except httpx.HTTPStatusError as exc:
-            return ResolveOutcome(
-                target, "unreachable", detail=f"HTTP {exc.response.status_code}"
-            )
+            return ResolveOutcome(target, "unreachable", detail=f"HTTP {exc.response.status_code}")
         except httpx.HTTPError as exc:
             return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
         except Exception as exc:  # noqa: BLE001 - one bad page must not end the run
@@ -249,7 +252,9 @@ async def run_resolve(
                     ats, slug, count = hit
                     outcome.bucket = "resolved"
                     outcome.ats, outcome.token = ats, slug
-                    outcome.detail = f"careers URL failed; found {ats}/{slug} by probe ({count} jobs)"
+                    outcome.detail = (
+                        f"careers URL failed; found {ats}/{slug} by probe ({count} jobs)"
+                    )
                     recovered.append(outcome)
             for outcome in recovered:
                 result.unreachable.remove(outcome)
@@ -507,10 +512,14 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
                 job.fit_reasons = score.as_fit_reasons()
             total = score.total
             key = (
-                "90+" if total >= 90
-                else "70-89" if total >= 70
-                else "50-69" if total >= 50
-                else "1-49" if total >= 1
+                "90+"
+                if total >= 90
+                else "70-89"
+                if total >= 70
+                else "50-69"
+                if total >= 50
+                else "1-49"
+                if total >= 1
                 else "0"
             )
             buckets[key] += 1
@@ -518,7 +527,9 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
     return {"scored": scored, "disqualified": disqualified, "buckets": buckets}
 
 
-def llm_candidates(profile: Profile, *, limit: int | None = None, rescore: bool = False) -> list[dict]:
+def llm_candidates(
+    profile: Profile, *, limit: int | None = None, rescore: bool = False
+) -> list[dict]:
     """The jobs worth spending a model call on.
 
     Deliberately narrow. Only postings that are open, reachable from somewhere

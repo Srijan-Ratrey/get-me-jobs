@@ -16,6 +16,7 @@ Opt-in, exactly like ``verify_emails``. Nothing here runs unless ``--llm`` is
 passed, the package extra is installed and a key is configured; the pipeline
 must work fully without any of the three.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -202,7 +203,5 @@ def build_client():
     try:
         from anthropic import AsyncAnthropic
     except ImportError as exc:  # pragma: no cover - depends on install extras
-        raise RuntimeError(
-            "LLM scoring needs the `llm` extra: uv sync --extra llm"
-        ) from exc
+        raise RuntimeError("LLM scoring needs the `llm` extra: uv sync --extra llm") from exc
     return AsyncAnthropic()

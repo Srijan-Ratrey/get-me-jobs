@@ -11,6 +11,7 @@ eight. Iterating rows without a per-contact cooldown would mail one HR inbox
 twenty-two times in a single morning, which is both useless to the applicant
 and indistinguishable from spam to everyone else.
 """
+
 from __future__ import annotations
 
 import logging
@@ -80,7 +81,9 @@ def sent_recently(s: Session) -> int:
         s.scalar(
             select(func.count())
             .select_from(Outreach)
-            .where(Outreach.status == "sent", Outreach.sent_at.is_not(None), Outreach.sent_at >= since)
+            .where(
+                Outreach.status == "sent", Outreach.sent_at.is_not(None), Outreach.sent_at >= since
+            )
         )
         or 0
     )
@@ -136,8 +139,9 @@ def may_send(s: Session, candidate: Candidate) -> Decision:
         return Decision(False, f"job {job.id} closed since it was drafted")
 
     already = s.scalar(
-        select(Outreach.id).where(Outreach.job_id == job.id, Outreach.contact_id == contact.id,
-                                  Outreach.status == "sent")
+        select(Outreach.id).where(
+            Outreach.job_id == job.id, Outreach.contact_id == contact.id, Outreach.status == "sent"
+        )
     )
     if already is not None:
         return Decision(False, f"already mailed {contact.email} about job {job.id}")
@@ -147,14 +151,18 @@ def may_send(s: Session, candidate: Candidate) -> Decision:
         age = utcnow() - last
         if age < timedelta(days=settings.contact_cooldown_days):
             days = settings.contact_cooldown_days - age.days
-            return Decision(False, f"{contact.email} mailed {age.days}d ago; {days}d of cooldown left")
+            return Decision(
+                False, f"{contact.email} mailed {age.days}d ago; {days}d of cooldown left"
+            )
 
     last_company = _last_sent_to_company(s, company.id)
     if last_company is not None:
         age = utcnow() - last_company
         if age < timedelta(days=settings.company_cooldown_days):
             days = settings.company_cooldown_days - age.days
-            return Decision(False, f"{company.name} mailed {age.days}d ago; {days}d of cooldown left")
+            return Decision(
+                False, f"{company.name} mailed {age.days}d ago; {days}d of cooldown left"
+            )
 
     return Decision(True)
 
@@ -265,9 +273,7 @@ def speculative_candidates(
     has_match = select(Job.company_id).where(
         Job.closed_at.is_(None), Job.fit_score.is_not(None), Job.fit_score >= min_score
     )
-    title_component = func.coalesce(
-        func.json_extract(Job.fit_reasons, "$.components.title"), 0
-    )
+    title_component = func.coalesce(func.json_extract(Job.fit_reasons, "$.components.title"), 0)
     ranked = s.execute(
         select(Job.company_id, func.max(Job.fit_score))
         .where(Job.closed_at.is_(None), Job.company_id.not_in(has_match))
@@ -312,9 +318,11 @@ def speculative_candidates(
             (j.fit_reasons or {}).get("components", {}).get("title", 0) for j in openings
         )
         openings = [
-            j for j in openings
+            j
+            for j in openings
             if (j.fit_reasons or {}).get("components", {}).get("title", 0) == best_title
         ]
+
         # Within a tier, richer postings first -- counting only concrete skills.
         # Ranking on the raw count put "M&E Associate" top, because Monitoring &
         # Evaluation matches the profile keyword "evaluation". Vague terms are
@@ -345,8 +353,11 @@ def speculative_candidates(
 
         company = s.get(Company, company_id)
         candidate = Candidate(
-            job=openings[0], contact=contact, company=company,
-            kind="speculative", evidence=list(openings),
+            job=openings[0],
+            contact=contact,
+            company=company,
+            kind="speculative",
+            evidence=list(openings),
         )
         decision = may_send(s, candidate)
         if not decision:
