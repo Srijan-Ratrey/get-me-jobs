@@ -1,4 +1,5 @@
 """Ashby public job board API. See docs/sources.md."""
+
 from __future__ import annotations
 
 import logging
@@ -39,9 +40,7 @@ class AshbySource:
         ]
 
     def _to_raw(self, job: dict) -> RawJob:
-        secondary = [
-            (loc or {}).get("location") for loc in job.get("secondaryLocations") or []
-        ]
+        secondary = [(loc or {}).get("location") for loc in job.get("secondaryLocations") or []]
         return RawJob(
             source=self.name,
             external_id=job["id"],

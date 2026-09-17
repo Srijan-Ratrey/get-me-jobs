@@ -1,4 +1,5 @@
 """SQLAlchemy ORM models plus the RawJob transport object."""
+
 from __future__ import annotations
 
 import hashlib
@@ -228,10 +229,28 @@ _GEO = frozenset(
     australia japan china korea brazil mexico argentina israel uae singapore
     emea apac amer latam noram europe asia global worldwide onsite""".split()
 ) | {
-    "new york", "san francisco", "bay area", "los angeles", "san diego", "new delhi",
-    "hong kong", "tel aviv", "abu dhabi", "sao paulo", "mexico city", "cape town",
-    "united states", "united kingdom", "south korea", "new zealand", "south africa",
-    "north america", "south america", "latin america", "middle east", "greater noida",
+    "new york",
+    "san francisco",
+    "bay area",
+    "los angeles",
+    "san diego",
+    "new delhi",
+    "hong kong",
+    "tel aviv",
+    "abu dhabi",
+    "sao paulo",
+    "mexico city",
+    "cape town",
+    "united states",
+    "united kingdom",
+    "south korea",
+    "new zealand",
+    "south africa",
+    "north america",
+    "south america",
+    "latin america",
+    "middle east",
+    "greater noida",
 }
 
 _SENIORITY = [

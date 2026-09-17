@@ -4,6 +4,7 @@ Written defensively: the live shape drops several fields the documentation shows
 (no `id`, no `requirements`, no `benefits`), so every optional key is treated as
 optional rather than indexed directly.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,9 +38,7 @@ class WorkableSource:
             data = await client.get_json(WIDGET_URL.format(token=token))
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code != 404:
-                raise SourceUnavailable(
-                    f"{target.name}: workable fetch failed: {exc}"
-                ) from exc
+                raise SourceUnavailable(f"{target.name}: workable fetch failed: {exc}") from exc
             # Some accounts only answer on v3.
             log.debug("%s: workable v1 404, trying v3", target.name)
             try:

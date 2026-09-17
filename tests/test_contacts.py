@@ -4,6 +4,7 @@ The bar these tests hold the module to is the one from docs/contact-discovery.md
 one high-confidence contact beats fifty guesses, and a guess presented as a real
 address is worse than admitting you found nothing.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -60,7 +61,9 @@ def test_harvest_prefers_role_address_and_finds_the_person():
 
 
 def test_harvest_rejects_the_reject_list_and_offdomain():
-    emails = {c.email for c in harvest(TEAM_PAGE, "https://acme.com/team", "acme.com", is_html=True)}
+    emails = {
+        c.email for c in harvest(TEAM_PAGE, "https://acme.com/team", "acme.com", is_html=True)
+    }
     assert "press@acme.com" not in emails
     assert "support@acme.com" not in emails
     assert "noreply@acme.com" not in emails
@@ -76,7 +79,7 @@ def test_harvest_ignores_script_bodies():
 
 
 def test_json_escapes_are_decoded_before_matching():
-    html = '<html><body>Contact \\u003ecareers@acme.com\\u003c today</body></html>'
+    html = "<html><body>Contact \\u003ecareers@acme.com\\u003c today</body></html>"
     emails = {c.email for c in harvest(html, "https://acme.com/", "acme.com", is_html=True)}
     assert emails == {"careers@acme.com"}
 
@@ -152,7 +155,7 @@ def test_looks_like_person(local, expected):
 
 
 def test_unrecognised_local_stays_below_the_surfacing_threshold():
-    """"future@" and friends must not be presented as hiring contacts."""
+    """ "future@" and friends must not be presented as hiring contacts."""
     confidence, kind, _ = rank("future@acme.com")
     assert confidence < SURFACE_THRESHOLD
 
@@ -386,7 +389,7 @@ async def test_finder_stops_at_a_role_address(polite_client, allow_robots):
 
 @respx.mock
 async def test_finder_returns_nothing_rather_than_a_guess(polite_client, allow_robots):
-    """"No contact found - apply through the posting" is an honest answer."""
+    """ "No contact found - apply through the posting" is an honest answer."""
     allow_robots("https://acme.com")
     respx.route(host="acme.com").respond(404)
 
@@ -440,7 +443,9 @@ async def test_finder_never_returns_a_suppressed_address(polite_client, allow_ro
 
 
 @respx.mock
-async def test_suppressed_pattern_guesses_are_never_probed(polite_client, allow_robots, monkeypatch):
+async def test_suppressed_pattern_guesses_are_never_probed(
+    polite_client, allow_robots, monkeypatch
+):
     allow_robots("https://acme.com")
     respx.route(host="acme.com").respond(404)
     probed: list[str] = []

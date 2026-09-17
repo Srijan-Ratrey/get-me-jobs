@@ -10,6 +10,7 @@ Scope is `gmail.send` and nothing else. This process cannot read the mailbox,
 which makes the blast radius of a bug in it small and bounded. Reply detection
 needs a read scope and belongs to the follow-up tracker, not here.
 """
+
 from __future__ import annotations
 
 import base64
@@ -242,9 +243,7 @@ def send_batch(
             report.reasons.append(f"{candidate.company.name}: send failed: {exc}")
             consecutive_failures += 1
             if consecutive_failures >= settings.send_failure_circuit_breaker:
-                report.reasons.append(
-                    f"stopping: {consecutive_failures} sends failed in a row"
-                )
+                report.reasons.append(f"stopping: {consecutive_failures} sends failed in a row")
                 break
         s.commit()
 

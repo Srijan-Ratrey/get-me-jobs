@@ -4,6 +4,7 @@ Fixtures in tests/fixtures/ are real captured responses, so a parser passing
 here is a parser that works on production data — which is the whole point of
 capturing them rather than hand-writing the shapes.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -104,7 +105,9 @@ async def test_lever_parses_fields(polite_client, allow_robots, fixture_text):
 
 
 @respx.mock
-async def test_lever_description_includes_lists(polite_client, allow_robots, fixture_json, fixture_text):
+async def test_lever_description_includes_lists(
+    polite_client, allow_robots, fixture_json, fixture_text
+):
     """descriptionPlain alone omits requirements, which live in lists[]."""
     allow_robots(LV_ORIGIN)
     respx.get(lever.POSTINGS_URL.format(token="meesho")).respond(
@@ -143,9 +146,7 @@ async def test_lever_rejects_non_array(polite_client, allow_robots):
 @respx.mock
 async def test_ashby_parses_fields(polite_client, allow_robots, fixture_text):
     allow_robots(AB_ORIGIN)
-    respx.get(ashby.BOARD_URL.format(token="sarvam")).respond(
-        200, text=fixture_text("ashby.json")
-    )
+    respx.get(ashby.BOARD_URL.format(token="sarvam")).respond(200, text=fixture_text("ashby.json"))
     async with polite_client() as client:
         jobs = await ashby.AshbySource().fetch(
             client, Target(name="Sarvam", ats="ashby", ats_token="sarvam")
@@ -237,7 +238,12 @@ async def test_ashby_joins_secondary_locations(polite_client, allow_robots):
 
 @pytest.mark.parametrize(
     "ats,expected",
-    [("greenhouse", "greenhouse"), ("lever", "lever"), ("ashby", "ashby"), ("GREENHOUSE", "greenhouse")],
+    [
+        ("greenhouse", "greenhouse"),
+        ("lever", "lever"),
+        ("ashby", "ashby"),
+        ("GREENHOUSE", "greenhouse"),
+    ],
 )
 def test_registry_resolves_by_ats(ats, expected):
     adapter = resolve(Target(name="X", ats=ats, ats_token="t"))
@@ -299,9 +305,12 @@ async def test_workable_empty_board_is_not_an_error(polite_client, allow_robots)
         200, json={"name": "Quiet", "description": None, "jobs": []}
     )
     async with polite_client() as client:
-        assert await workable.WorkableSource().fetch(
-            client, Target(name="Quiet", ats="workable", ats_token="quiet")
-        ) == []
+        assert (
+            await workable.WorkableSource().fetch(
+                client, Target(name="Quiet", ats="workable", ats_token="quiet")
+            )
+            == []
+        )
 
 
 @respx.mock
@@ -440,14 +449,17 @@ async def test_registry_hands_off_to_fingerprinted_ats(polite_client, allow_robo
     allow_robots("https://acme.com", GH_ORIGIN)
     respx.get("https://acme.com/careers").respond(
         200,
-        text='<html><body><p>' + "Join us. " * 60
+        text="<html><body><p>"
+        + "Join us. " * 60
         + '</p><a href="https://boards.greenhouse.io/phonepe">See roles</a></body></html>',
     )
     respx.get(greenhouse.BOARD_URL.format(token="phonepe")).respond(
         200, text=fixture_text("greenhouse.json")
     )
     async with polite_client() as client:
-        jobs = await fetch_target(client, Target(name="Acme", careers_url="https://acme.com/careers"))
+        jobs = await fetch_target(
+            client, Target(name="Acme", careers_url="https://acme.com/careers")
+        )
 
     assert len(jobs) == 5
     assert jobs[0].source == "greenhouse"
@@ -458,7 +470,8 @@ async def test_registry_reports_unsupported_fingerprint(polite_client, allow_rob
     allow_robots("https://acme.com")
     respx.get("https://acme.com/careers").respond(
         200,
-        text="<html><body><p>" + "We are hiring. " * 60
+        text="<html><body><p>"
+        + "We are hiring. " * 60
         + '</p><a href="https://acme.myworkdayjobs.com/x">Apply</a></body></html>',
     )
     async with polite_client() as client:
@@ -472,7 +485,8 @@ async def test_registry_reports_spa_rather_than_silently_finding_nothing(
 ):
     allow_robots("https://acme.com")
     respx.get("https://acme.com/careers").respond(
-        200, text='<html><head><script src="/a.js"></script></head><body><div id="root"></div></body></html>'
+        200,
+        text='<html><head><script src="/a.js"></script></head><body><div id="root"></div></body></html>',
     )
     async with polite_client() as client:
         with pytest.raises(SourceUnavailable, match="client-rendered"):
@@ -490,7 +504,10 @@ async def test_target_with_neither_ats_nor_careers_url(polite_client):
     [
         # Vendor boilerplate must not be mistaken for a board token.
         ('<a href="https://www.workable.com/">Powered by Workable</a>', None),
-        ('<footer>www.workable.com</footer><a href="https://apply.workable.com/acme/">Jobs</a>', "acme"),
+        (
+            '<footer>www.workable.com</footer><a href="https://apply.workable.com/acme/">Jobs</a>',
+            "acme",
+        ),
         ('<a href="https://acme.workable.com/j/1">Apply</a>', "acme"),
         # Greenhouse regional hosts are still Greenhouse.
         ('<a href="https://eu.greenhouse.io/acme">Roles</a>', "acme"),

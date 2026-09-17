@@ -4,6 +4,7 @@ Adapters return ``list[RawJob]`` and never touch the DB: normalization and
 persistence belong to ``db.upsert_job``, which keeps adapters trivially testable
 against saved fixtures.
 """
+
 from __future__ import annotations
 
 import html as html_module

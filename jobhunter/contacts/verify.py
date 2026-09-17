@@ -7,6 +7,7 @@ Tier-1 role addresses need no verification anyway.
 **This module never issues DATA.** The probe is structurally incapable of
 delivering a message, which is the property that keeps it defensible.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,9 +31,17 @@ UNKNOWN = "unknown"
 # Providers that deliberately do not leak recipient validity. An `unknown` from
 # these means "no information", never a negative signal.
 OPAQUE_MX_SUFFIXES = (
-    "google.com", "googlemail.com", "outlook.com", "protection.outlook.com",
-    "hotmail.com", "office365.com", "protonmail.ch", "proton.me", "pphosted.com",
-    "mimecast.com", "barracudanetworks.com",
+    "google.com",
+    "googlemail.com",
+    "outlook.com",
+    "protection.outlook.com",
+    "hotmail.com",
+    "office365.com",
+    "protonmail.ch",
+    "proton.me",
+    "pphosted.com",
+    "mimecast.com",
+    "barracudanetworks.com",
 )
 
 ACCEPT_CODES = frozenset({250, 251})

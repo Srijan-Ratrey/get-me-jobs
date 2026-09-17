@@ -1,4 +1,5 @@
 """Lever public postings API. See docs/sources.md."""
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,9 @@ class LeverSource:
         except httpx.HTTPError as exc:
             raise SourceUnavailable(f"{target.name}: lever fetch failed: {exc}") from exc
         if not isinstance(data, list):
-            raise SourceUnavailable(f"{target.name}: lever returned {type(data).__name__}, not a list")
+            raise SourceUnavailable(
+                f"{target.name}: lever returned {type(data).__name__}, not a list"
+            )
 
         return [self._to_raw(job) for job in data]
 

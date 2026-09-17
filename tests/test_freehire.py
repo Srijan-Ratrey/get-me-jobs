@@ -3,6 +3,7 @@
 Offline like everything else. The fixture is a real response captured on
 2026-09-01 from `category=ml_ai&countries=in&posted_within_days=21`.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,9 @@ def allow_robots() -> None:
 
 
 def target(**search) -> Target:
-    return Target(name="FreeHire (India ML)", ats="freehire", search=search or {"category": "ml_ai"})
+    return Target(
+        name="FreeHire (India ML)", ats="freehire", search=search or {"category": "ml_ai"}
+    )
 
 
 def page(rows, *, total=None, ignored=None) -> dict:
@@ -63,8 +66,18 @@ async def test_provenance_names_the_originating_ats_not_freehire(client):
     """The export should say where the posting actually lives."""
     allow_robots()
     respx.get(url__startswith=SEARCH).respond(
-        200, json=page([{"title": "ML Engineer", "company": "Acme", "source": "workday",
-                         "url": "https://acme.wd1.myworkdayjobs.com/j/1", "external_id": "a:1"}])
+        200,
+        json=page(
+            [
+                {
+                    "title": "ML Engineer",
+                    "company": "Acme",
+                    "source": "workday",
+                    "url": "https://acme.wd1.myworkdayjobs.com/j/1",
+                    "external_id": "a:1",
+                }
+            ]
+        ),
     )
     async with client as c:
         jobs = await FreeHireSource().fetch(c, target())
@@ -119,9 +132,7 @@ async def test_an_ignored_filter_is_reported_loudly(client, caplog):
     silence here would mean scanning the wrong thing entirely.
     """
     allow_robots()
-    respx.get(url__startswith=SEARCH).respond(
-        200, json=page([], ignored=[{"param": "categories"}])
-    )
+    respx.get(url__startswith=SEARCH).respond(200, json=page([], ignored=[{"param": "categories"}]))
     async with client as c:
         await FreeHireSource().fetch(c, target())
     assert "ignored" in caplog.text.lower()
@@ -154,10 +165,18 @@ async def test_aggregator_rows_are_dropped(client):
         200,
         json=page(
             [
-                {"title": "ML Engineer", "company": "Real", "source": "greenhouse",
-                 "url": "https://boards.greenhouse.io/r/jobs/1"},
-                {"title": "ML Engineer", "company": "Via Aggregator", "source": "whatjobs-in",
-                 "url": "https://in.whatjobs.com/pub_api__cpl__1?utm_campaign=publisher"},
+                {
+                    "title": "ML Engineer",
+                    "company": "Real",
+                    "source": "greenhouse",
+                    "url": "https://boards.greenhouse.io/r/jobs/1",
+                },
+                {
+                    "title": "ML Engineer",
+                    "company": "Via Aggregator",
+                    "source": "whatjobs-in",
+                    "url": "https://in.whatjobs.com/pub_api__cpl__1?utm_campaign=publisher",
+                },
             ]
         ),
     )
@@ -192,6 +211,7 @@ async def test_a_row_without_a_url_or_title_is_skipped_not_fatal(client):
 @respx.mock
 async def test_pagination_stops_on_a_short_page(client):
     allow_robots()
+
     def rows(start, n):
         return [
             {"title": f"Role {i}", "company": "A", "source": "greenhouse", "url": f"https://x/{i}"}
@@ -302,10 +322,22 @@ def test_catalogue_rows_are_filed_under_the_real_employer(tmp_path):
 
     db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c.db'}")
     raws = [
-        RawJob(source="freehire:workday", external_id="1", title="ML Engineer",
-               company_name="Acme", location="Bengaluru", url="https://a/1"),
-        RawJob(source="freehire:freshteam", external_id="2", title="Data Scientist",
-               company_name="Globex", location="Bengaluru", url="https://g/2"),
+        RawJob(
+            source="freehire:workday",
+            external_id="1",
+            title="ML Engineer",
+            company_name="Acme",
+            location="Bengaluru",
+            url="https://a/1",
+        ),
+        RawJob(
+            source="freehire:freshteam",
+            external_id="2",
+            title="Data Scientist",
+            company_name="Globex",
+            location="Bengaluru",
+            url="https://g/2",
+        ),
     ]
     with db.session_scope() as session:
         new, closed = _persist_catalogue(session, target(), raws)
@@ -330,16 +362,34 @@ def test_a_catalogue_scan_never_closes_an_employers_other_jobs(tmp_path):
     db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c2.db'}")
     with db.session_scope() as session:
         acme = db.upsert_company(session, Target(name="Acme"))
-        db.upsert_job(session, acme, RawJob(source="greenhouse", external_id="99",
-                                            title="Backend Engineer", location="Bengaluru",
-                                            url="https://a/99"))
+        db.upsert_job(
+            session,
+            acme,
+            RawJob(
+                source="greenhouse",
+                external_id="99",
+                title="Backend Engineer",
+                location="Bengaluru",
+                url="https://a/99",
+            ),
+        )
         session.commit()
 
     with db.session_scope() as session:
-        _persist_catalogue(session, target(), [
-            RawJob(source="freehire:workday", external_id="1", title="ML Engineer",
-                   company_name="Acme", location="Bengaluru", url="https://a/1"),
-        ])
+        _persist_catalogue(
+            session,
+            target(),
+            [
+                RawJob(
+                    source="freehire:workday",
+                    external_id="1",
+                    title="ML Engineer",
+                    company_name="Acme",
+                    location="Bengaluru",
+                    url="https://a/1",
+                ),
+            ],
+        )
 
     with db.session_scope() as session:
         backend = session.query(Job).filter(Job.title == "Backend Engineer").one()
@@ -353,8 +403,12 @@ def test_a_row_with_no_company_name_falls_back_to_the_search_name(tmp_path):
 
     db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c3.db'}")
     with db.session_scope() as session:
-        _persist_catalogue(session, target(), [
-            RawJob(source="freehire:x", external_id="1", title="T", url="https://a/1"),
-        ])
+        _persist_catalogue(
+            session,
+            target(),
+            [
+                RawJob(source="freehire:x", external_id="1", title="T", url="https://a/1"),
+            ],
+        )
     with db.session_scope() as session:
         assert session.query(Company).filter(Company.name == "FreeHire (India ML)").count() == 1

@@ -3,6 +3,7 @@
 These are the guarantees that keep the project's IP unblocked and its legal
 footing intact, so they get tested directly rather than trusted.
 """
+
 from __future__ import annotations
 
 import asyncio

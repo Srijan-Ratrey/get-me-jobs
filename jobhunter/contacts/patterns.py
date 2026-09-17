@@ -5,6 +5,7 @@ inferring the house pattern from an address you already trust. That turns twelve
 guesses at 0.14 into one guess at 0.85, and makes the second contact you look up
 at a company nearly free. See docs/contact-discovery.md.
 """
+
 from __future__ import annotations
 
 import logging

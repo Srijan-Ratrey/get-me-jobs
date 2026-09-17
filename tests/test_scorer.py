@@ -3,6 +3,7 @@
 A score you cannot decompose is a score you cannot tune, so the reconciliation
 test (components sum to total) matters as much as the boundary cases.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -124,7 +125,7 @@ def test_exclude_keywords_are_not_matched_against_the_description():
 
 
 def test_exclude_matching_is_whole_word():
-    """"lead" must not match "leadership", "sr" must not match "srinagar"."""
+    """ "lead" must not match "leadership", "sr" must not match "srinagar"."""
     profile = Profile(titles=["Engineer"], exclude_keywords=["lead", "sr"])
     assert score_job(make_job(title="Leadership Engineer"), profile).disqualified is None
     assert score_job(make_job(title="Lead Engineer"), profile).disqualified is not None
@@ -152,12 +153,16 @@ def test_exclude_keywords_may_be_multi_word_phrases():
         "exclude_keyword:operations analyst"
     )
     # The same words as a domain, attached to a role we do want.
-    assert score_job(
-        make_job(title="Data Scientist 2 - Digital Banking, Regional Sales"), profile
-    ).disqualified is None
-    assert score_job(
-        make_job(title="Data Scientist, Operations Research"), profile
-    ).disqualified is None
+    assert (
+        score_job(
+            make_job(title="Data Scientist 2 - Digital Banking, Regional Sales"), profile
+        ).disqualified
+        is None
+    )
+    assert (
+        score_job(make_job(title="Data Scientist, Operations Research"), profile).disqualified
+        is None
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -229,7 +234,8 @@ def test_unwanted_seniority_gets_zero():
 
 
 @pytest.mark.parametrize(
-    "location", ["Bengaluru", "Bangalore", "Hybrid in Bangalore, India", "BLR", "Bangalore, Karnataka"]
+    "location",
+    ["Bengaluru", "Bangalore", "Hybrid in Bangalore, India", "BLR", "Bangalore, Karnataka"],
 )
 def test_bengaluru_and_bangalore_are_the_same_city(location):
     """ATS boards use both spellings, sometimes in one response."""
@@ -237,7 +243,9 @@ def test_bengaluru_and_bangalore_are_the_same_city(location):
 
 
 def test_unwanted_location_scores_zero():
-    assert score_job(make_job(location="Buenos Aires, Argentina"), JUNIOR).components["location"] == 0
+    assert (
+        score_job(make_job(location="Buenos Aires, Argentina"), JUNIOR).components["location"] == 0
+    )
 
 
 def test_remote_makes_location_moot_only_when_it_is_not_region_locked():
@@ -267,8 +275,10 @@ def test_remote_only_profile_rejects_onsite():
 
 
 def test_keywords_match_whole_words_only():
-    """"gan" must not match "organization", nor "lora" match "exploration"."""
-    profile = Profile(titles=["Data Scientist"], must_have_keywords=[], nice_to_have_keywords=["gan", "lora"])
+    """ "gan" must not match "organization", nor "lora" match "exploration"."""
+    profile = Profile(
+        titles=["Data Scientist"], must_have_keywords=[], nice_to_have_keywords=["gan", "lora"]
+    )
     job = make_job(description="Our organization values exploration.")
     assert score_job(job, profile).components["nice_to_have"] == 0
 
@@ -432,10 +442,12 @@ def test_must_have_is_satisfied_by_any_pipe_separated_alternative():
 def test_must_have_without_alternatives_is_unchanged():
     """No pipe means exactly the old behaviour."""
     profile = Profile(titles=["Data Scientist"], must_have_keywords=["python"])
-    assert score_job(make_job(description="Python here"), profile).components["must_have"] == W_MUST_HAVE
     assert (
-        score_job(make_job(description=judgeable("PyTorch only")), profile)
-        .components["must_have"]
+        score_job(make_job(description="Python here"), profile).components["must_have"]
+        == W_MUST_HAVE
+    )
+    assert (
+        score_job(make_job(description=judgeable("PyTorch only")), profile).components["must_have"]
         == 0
     )
 
@@ -443,8 +455,9 @@ def test_must_have_without_alternatives_is_unchanged():
 def test_must_have_alternatives_still_match_whole_words():
     profile = Profile(titles=["Data Scientist"], must_have_keywords=["python|numpy"])
     assert (
-        score_job(make_job(description=judgeable("pythonic numpyish")), profile)
-        .components["must_have"]
+        score_job(make_job(description=judgeable("pythonic numpyish")), profile).components[
+            "must_have"
+        ]
         == 0
     )
 

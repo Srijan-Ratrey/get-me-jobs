@@ -4,13 +4,16 @@ The hash is what decides whether two postings are the same opening. Getting it
 wrong in one direction shows a duplicate; wrong in the other silently loses a job
 you could have applied to. The second failure is the one these tests are for.
 """
+
 from __future__ import annotations
 
 from jobhunter.models import RawJob, hash_email
 
 
 def job(title: str, location: str | None = None, **kw) -> RawJob:
-    return RawJob(source=kw.pop("source", "test"), title=title, location=location, url="https://x/1", **kw)
+    return RawJob(
+        source=kw.pop("source", "test"), title=title, location=location, url="https://x/1", **kw
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -19,9 +22,9 @@ def job(title: str, location: str | None = None, **kw) -> RawJob:
 
 
 def test_strips_location_and_gender_tags():
-    assert job("Senior Backend Engineer (Remote) - Berlin", "Berlin, Germany").canonical_title() == (
-        "senior backend engineer"
-    )
+    assert job(
+        "Senior Backend Engineer (Remote) - Berlin", "Berlin, Germany"
+    ).canonical_title() == ("senior backend engineer")
     assert job("Senior Backend Engineer m/f/d", "Berlin").canonical_title() == (
         "senior backend engineer"
     )
@@ -34,9 +37,9 @@ def test_keeps_role_discriminators():
     assert job("Engineering Manager - Platform Team", "Bangalore").canonical_title() == (
         "engineering manager platform team"
     )
-    assert job("ML Engineer (Training Infra), Foundational Models", "Bengaluru").canonical_title() == (
-        "ml engineer training infra foundational models"
-    )
+    assert job(
+        "ML Engineer (Training Infra), Foundational Models", "Bengaluru"
+    ).canonical_title() == ("ml engineer training infra foundational models")
     assert job("Site Reliability Engineer (4+ YOE)", "Bangalore").canonical_title() == (
         "site reliability engineer 4+ yoe"
     )
@@ -101,7 +104,7 @@ def test_same_title_in_different_cities_stays_distinct():
 
 
 def test_remote_does_not_create_a_phantom_variant():
-    """"(Remote)" must not split one posting into two rows."""
+    """ "(Remote)" must not split one posting into two rows."""
     a = job("Data Scientist (Remote)", "Bengaluru")
     b = job("Data Scientist", "Bengaluru")
     assert a.compute_hash("Acme") == b.compute_hash("Acme")

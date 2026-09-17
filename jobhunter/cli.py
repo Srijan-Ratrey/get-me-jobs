@@ -2,6 +2,7 @@
 
 This is the one module allowed to print.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -84,7 +85,9 @@ def resolve(
     from_csv: Path = typer.Option(
         ..., "--from", help="CSV of companies. Needs a name column and a careers-URL column."
     ),
-    companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML to append to."),
+    companies: Path = typer.Option(
+        COMPANIES_YAML, "--companies", help="Targets YAML to append to."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report only, write nothing."),
     probe_slugs: bool = typer.Option(
         True,
@@ -106,7 +109,9 @@ def resolve(
     for reason in skipped:
         console.print(f"[yellow]skipped[/] {reason}")
 
-    already = {t.name.strip().lower() for t in load_targets(companies)} if companies.exists() else set()
+    already = (
+        {t.name.strip().lower() for t in load_targets(companies)} if companies.exists() else set()
+    )
     todo = [t for t in candidates if t.name.strip().lower() not in already]
     console.print(
         f"{len(candidates)} in {from_csv.name} · [dim]{len(candidates) - len(todo)} already "
@@ -196,18 +201,28 @@ def harvest(
     tokens_dir: Path = typer.Option(
         Path("data"), "--tokens-dir", help="Directory of <ats>_companies.json token lists."
     ),
-    ats: str = typer.Option("greenhouse,lever,ashby", "--ats", help="Comma-separated ATSs to sweep."),
-    companies: Path = typer.Option(COMPANIES_YAML, "--companies", help="Targets YAML to append to."),
-    profile_path: Path = typer.Option(PROFILE_YAML, "--profile", help="Profile whose titles decide relevance."),
+    ats: str = typer.Option(
+        "greenhouse,lever,ashby", "--ats", help="Comma-separated ATSs to sweep."
+    ),
+    companies: Path = typer.Option(
+        COMPANIES_YAML, "--companies", help="Targets YAML to append to."
+    ),
+    profile_path: Path = typer.Option(
+        PROFILE_YAML, "--profile", help="Profile whose titles decide relevance."
+    ),
     min_relevant: int = typer.Option(
-        1, "--min-relevant", help="Keep a board with at least this many India roles matching your titles."
+        1,
+        "--min-relevant",
+        help="Keep a board with at least this many India roles matching your titles.",
     ),
     min_india_jobs: int = typer.Option(
         8,
         "--min-india-jobs",
         help="Or keep it on India volume alone, for a presence worth watching even with no match today.",
     ),
-    limit: int = typer.Option(0, "--limit", help="Probe only the first N tokens per ATS (0 = all)."),
+    limit: int = typer.Option(
+        0, "--limit", help="Probe only the first N tokens per ATS (0 = all)."
+    ),
     state: Path = typer.Option(
         Path(".harvest-state.jsonl"), "--state", help="Resume log. Delete it to start over."
     ),
@@ -408,7 +423,9 @@ def score(
     model: str = typer.Option(
         llm_scorer.DEFAULT_MODEL, "--model", help="Model for --llm. A cheaper one trades accuracy."
     ),
-    limit: int = typer.Option(0, "--limit", help="With --llm, score at most N candidates (0 = all)."),
+    limit: int = typer.Option(
+        0, "--limit", help="With --llm, score at most N candidates (0 = all)."
+    ),
     rescore: bool = typer.Option(
         False, "--rescore", help="With --llm, re-judge jobs that already have a verdict."
     ),
@@ -614,7 +631,9 @@ def list_jobs(
         None, "--posted-within", help="Only jobs the company posted within: 7d, 30d, a date."
     ),
     location: list[str] = typer.Option(
-        None, "--location", help="Only jobs here, or remote. Repeatable. Aliases Bengaluru/Bangalore."
+        None,
+        "--location",
+        help="Only jobs here, or remote. Repeatable. Aliases Bengaluru/Bangalore.",
     ),
 ) -> None:
     """Show scored openings, best first."""
@@ -660,7 +679,13 @@ def list_jobs(
     if show_why:
         table.add_column("Why")
     for job, comp in rows:
-        colour = "green" if (job.fit_score or 0) >= 70 else "yellow" if (job.fit_score or 0) >= 50 else "dim"
+        colour = (
+            "green"
+            if (job.fit_score or 0) >= 70
+            else "yellow"
+            if (job.fit_score or 0) >= 50
+            else "dim"
+        )
         cells = [
             f"[{colour}]{job.fit_score if job.fit_score is not None else '—'}[/]",
             comp.name,
@@ -726,12 +751,14 @@ def stats() -> None:
     with db.session_scope() as session:
         companies = session.scalar(select(func.count()).select_from(Company)) or 0
         total = session.scalar(select(func.count()).select_from(Job)) or 0
-        open_jobs = session.scalar(
-            select(func.count()).select_from(Job).where(Job.closed_at.is_(None))
-        ) or 0
-        scored = session.scalar(
-            select(func.count()).select_from(Job).where(Job.fit_score.is_not(None))
-        ) or 0
+        open_jobs = (
+            session.scalar(select(func.count()).select_from(Job).where(Job.closed_at.is_(None)))
+            or 0
+        )
+        scored = (
+            session.scalar(select(func.count()).select_from(Job).where(Job.fit_score.is_not(None)))
+            or 0
+        )
     table = Table(header_style="bold")
     table.add_column("Metric")
     table.add_column("Count", justify="right")
@@ -752,7 +779,9 @@ if __name__ == "__main__":
 @app.command(name="import-contacts")
 def import_contacts_cmd(
     path: Path = typer.Argument(..., metavar="<csv>", help="CSV of HR contacts you researched."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would change, write nothing."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Report what would change, write nothing."
+    ),
 ) -> None:
     """Import hand-researched HR contacts from a CSV.
 
@@ -814,7 +843,8 @@ def preview(
     limit: int = typer.Option(5, "--limit", help="How many messages to render."),
     min_score: int | None = typer.Option(None, "--min-score", help="Override the profile's floor."),
     speculative: bool = typer.Option(
-        True, "--speculative/--no-speculative",
+        True,
+        "--speculative/--no-speculative",
         help="Include notes to companies hiring with nothing that matches.",
     ),
 ) -> None:
@@ -829,7 +859,10 @@ def preview(
         batch = policy.candidates(session, min_score=threshold, limit=limit)
         if speculative and len(batch) < limit:
             batch = batch + policy.speculative_candidates(
-                session, profile, min_score=threshold, limit=limit - len(batch),
+                session,
+                profile,
+                min_score=threshold,
+                limit=limit - len(batch),
                 exclude_companies={c.company.id for c in batch},
             )
         if not batch:
@@ -867,12 +900,18 @@ def status() -> None:
     with db.session_scope() as session:
         sent_24h = policy.sent_recently(session)
         cap = policy.daily_cap()
-        total_sent = session.scalar(
-            select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
-        ) or 0
-        failed = session.scalar(
-            select(func.count()).select_from(Outreach).where(Outreach.status == "failed")
-        ) or 0
+        total_sent = (
+            session.scalar(
+                select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
+            )
+            or 0
+        )
+        failed = (
+            session.scalar(
+                select(func.count()).select_from(Outreach).where(Outreach.status == "failed")
+            )
+            or 0
+        )
 
         table = Table(title="Outreach", header_style="bold")
         table.add_column("Metric")
@@ -914,7 +953,8 @@ def run(
         False, "--no-pause", help="Skip the gap between sends. For testing only."
     ),
     speculative: bool = typer.Option(
-        True, "--speculative/--no-speculative",
+        True,
+        "--speculative/--no-speculative",
         help="Also write to companies hiring with nothing that matches your profile.",
     ),
 ) -> None:
@@ -926,9 +966,12 @@ def run(
     db.init_db()
 
     with db.session_scope() as session:
-        ever_sent = session.scalar(
-            select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
-        ) or 0
+        ever_sent = (
+            session.scalar(
+                select(func.count()).select_from(Outreach).where(Outreach.status == "sent")
+            )
+            or 0
+        )
 
     if ever_sent == 0 and not dry_run and not confirm_first_run:
         console.print(

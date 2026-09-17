@@ -4,6 +4,7 @@ The components are stored in ``jobs.fit_reasons`` and always sum to the total.
 That is not decoration: "why is everything a 70" is the failure mode this module
 exists to avoid, and a score you cannot decompose is a score you cannot tune.
 """
+
 from __future__ import annotations
 
 import logging
@@ -180,6 +181,7 @@ def _names_place(text: str, aliases: set[str]) -> bool:
     """
     return any(re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text) for alias in aliases)
 
+
 # Words a location string can contain that do not name a place. Anything left over
 # after these and the remote words are removed is taken to be a real region — which
 # is what distinguishes "Remote" from "Remote - EU".
@@ -223,8 +225,16 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     # already failed to match, it is not a region we want. Length is not a usable
     # test here — "EU" is two characters and disqualifying.
     residue = text
-    for hint in ("remote-friendly", "remote friendly", *_REMOTE_HINT, *_GLOBALLY_OPEN,
-                 "hybrid", "onsite", "on-site", "on site"):
+    for hint in (
+        "remote-friendly",
+        "remote friendly",
+        *_REMOTE_HINT,
+        *_GLOBALLY_OPEN,
+        "hybrid",
+        "onsite",
+        "on-site",
+        "on site",
+    ):
         residue = residue.replace(hint, " ")
     leftover = [w for w in re.findall(r"[a-z]+", residue) if w not in _LOCATION_FILLER]
     return not leftover
@@ -260,7 +270,9 @@ def score_job(job: Job, profile: Profile) -> Score:
         if _contains_word(title, keyword):
             return Score(
                 total=0,
-                components={k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")},
+                components={
+                    k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")
+                },
                 reasons=[f"excluded: title contains {keyword!r}"],
                 disqualified=f"exclude_keyword:{keyword}",
             )
@@ -270,7 +282,9 @@ def score_job(job: Job, profile: Profile) -> Score:
         if required is not None and required > profile.max_years_experience:
             return Score(
                 total=0,
-                components={k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")},
+                components={
+                    k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")
+                },
                 reasons=[
                     f"excluded: needs {required}+ years, cap is {profile.max_years_experience}"
                 ],
@@ -364,7 +378,9 @@ def score_job(job: Job, profile: Profile) -> Score:
         components["location"] = W_LOCATION
         matched = sorted(p for p in places if _names_place(location, {p}))
         reasons.append(
-            f"location: matches {matched[0]!r}" if matched else "location: remote and not region-locked"
+            f"location: matches {matched[0]!r}"
+            if matched
+            else "location: remote and not region-locked"
         )
     else:
         components["location"] = 0

@@ -12,6 +12,7 @@ arriving as a special case that the rest of the pipeline has to know about.
 where their address came from, "a spreadsheet" is not an answer. A row without
 provenance is rejected and reported, never quietly accepted with a blank.
 """
+
 from __future__ import annotations
 
 import csv
@@ -51,17 +52,47 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
 # ATS slugs do ("Citigroup", "Aeratechnology"). Nothing short enough to appear
 # inside an ordinary word belongs here.
 _GLUED_SUFFIXES = (
-    "technologies", "technology", "solutions", "consulting", "international",
-    "corporation", "enterprises", "industries", "holdings", "services", "systems",
-    "limited", "private", "group",
+    "technologies",
+    "technology",
+    "solutions",
+    "consulting",
+    "international",
+    "corporation",
+    "enterprises",
+    "industries",
+    "holdings",
+    "services",
+    "systems",
+    "limited",
+    "private",
+    "group",
 )
 
 # Short and ambiguous: only ever stripped as a separate word. Stripping these by
 # characters turns "Cisco" into "cis" and "Telecom" into "tele", which is how a
 # join key starts merging unrelated employers.
 _WORD_SUFFIXES = frozenset(
-    {"co", "com", "inc", "llc", "ltd", "plc", "pvt", "corp", "company",
-     "global", "india", "labs", "gmbh", "sa", "ag", "bv", "nv", "oy", "ab"}
+    {
+        "co",
+        "com",
+        "inc",
+        "llc",
+        "ltd",
+        "plc",
+        "pvt",
+        "corp",
+        "company",
+        "global",
+        "india",
+        "labs",
+        "gmbh",
+        "sa",
+        "ag",
+        "bv",
+        "nv",
+        "oy",
+        "ab",
+    }
 )
 
 _MIN_KEY = 3

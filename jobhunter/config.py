@@ -1,4 +1,5 @@
 """Configuration: settings from env, targets and profile from YAML."""
+
 from __future__ import annotations
 
 import csv
@@ -33,9 +34,7 @@ class Settings(BaseSettings):
     retry_backoff_base: float = 2.0
 
     # Identify yourself. A real contact URL here dramatically reduces the odds of a block.
-    user_agent: str = (
-        "JobHunterBot/0.1 (personal job search; +https://example.com/about-this-bot)"
-    )
+    user_agent: str = "JobHunterBot/0.1 (personal job search; +https://example.com/about-this-bot)"
 
     # SMTP verification. Off by default: it is optional enrichment, and careless
     # probing gets your IP blocklisted.
@@ -159,8 +158,19 @@ def load_profile(path: str | Path) -> Profile:
 # Header aliases, matched after normalising to lowercase alphanumerics. Real
 # spreadsheets say "Career page", "Careers URL", "careers_url" and mean the same.
 _NAME_HEADERS = ("company", "companyname", "name", "employer", "organisation", "organization")
-_URL_HEADERS = ("careerpage", "careerspage", "careerurl", "careersurl", "careers", "career",
-                "jobspage", "jobsurl", "url", "link", "website")
+_URL_HEADERS = (
+    "careerpage",
+    "careerspage",
+    "careerurl",
+    "careersurl",
+    "careers",
+    "career",
+    "jobspage",
+    "jobsurl",
+    "url",
+    "link",
+    "website",
+)
 _DOMAIN_HEADERS = ("domain", "companydomain", "site", "homepage")
 
 
@@ -181,14 +191,37 @@ def _pick_column(headers: dict[str, str], candidates: Sequence[str]) -> str | No
 # depends on this module. Kept short: it only needs the hosts a careers-page URL
 # might plausibly point at.
 ATS_HOSTS = (
-    "greenhouse.io", "lever.co", "ashbyhq.com", "workable.com", "smartrecruiters.com",
-    "recruitee.com", "personio.de", "personio.com", "teamtailor.com", "bamboohr.com",
-    "myworkdayjobs.com", "workday.com", "keka.com", "darwinbox.in", "darwinbox.com",
-    "zohorecruit.com", "freshteam.com", "icims.com", "successfactors.com", "jobvite.com",
-    "recruiterbox.com", "turbohire.co", "instahyre.com", "hirist.com",
+    "greenhouse.io",
+    "lever.co",
+    "ashbyhq.com",
+    "workable.com",
+    "smartrecruiters.com",
+    "recruitee.com",
+    "personio.de",
+    "personio.com",
+    "teamtailor.com",
+    "bamboohr.com",
+    "myworkdayjobs.com",
+    "workday.com",
+    "keka.com",
+    "darwinbox.in",
+    "darwinbox.com",
+    "zohorecruit.com",
+    "freshteam.com",
+    "icims.com",
+    "successfactors.com",
+    "jobvite.com",
+    "recruiterbox.com",
+    "turbohire.co",
+    "instahyre.com",
+    "hirist.com",
     # Aggregators and marketplaces: also not the employer, and scraping them for
     # a company's hiring address finds the aggregator's own contact details.
-    "wellfound.com", "angel.co", "ycombinator.com", "trakstar.com", "lever.co",
+    "wellfound.com",
+    "angel.co",
+    "ycombinator.com",
+    "trakstar.com",
+    "lever.co",
 )
 
 

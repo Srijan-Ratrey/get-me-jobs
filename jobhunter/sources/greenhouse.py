@@ -1,4 +1,5 @@
 """Greenhouse public job board API. See docs/sources.md."""
+
 from __future__ import annotations
 
 import logging

@@ -3,6 +3,7 @@
 Offline, like everything else: respx serves the three board listings and no real
 board is ever contacted.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,18 +48,20 @@ def greenhouse_body(locations: list[str], name: str = "Acme", title: str = "X") 
 def greenhouse_jobs(pairs: list[tuple[str, str]], name: str = "Acme") -> dict:
     """Explicit (title, location) pairs, for relevance tests."""
     return {
-        "jobs": [
-            {"title": t, "company_name": name, "location": {"name": loc}} for t, loc in pairs
-        ]
+        "jobs": [{"title": t, "company_name": name, "location": {"name": loc}} for t, loc in pairs]
     }
 
 
 def lever_body(locations: list[str]) -> list[dict]:
-    return [{"text": "X", "categories": {"location": loc, "allLocations": [loc]}} for loc in locations]
+    return [
+        {"text": "X", "categories": {"location": loc, "allLocations": [loc]}} for loc in locations
+    ]
 
 
 def ashby_body(locations: list[str]) -> dict:
-    return {"jobs": [{"title": "X", "location": loc, "secondaryLocations": []} for loc in locations]}
+    return {
+        "jobs": [{"title": "X", "location": loc, "secondaryLocations": []} for loc in locations]
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -70,7 +73,10 @@ def ashby_body(locations: list[str]) -> dict:
 async def test_greenhouse_probe_counts_india_jobs_and_reads_the_company_name(client):
     allow_robots("https://boards-api.greenhouse.io")
     respx.get(GH.format(t="acme")).respond(
-        200, json=greenhouse_body(["Bengaluru, India", "San Francisco, CA", "Bangalore"], name="Acme Corp")
+        200,
+        json=greenhouse_body(
+            ["Bengaluru, India", "San Francisco, CA", "Bangalore"], name="Acme Corp"
+        ),
     )
     async with client as c:
         probe = await harvest.probe_board(c, "greenhouse", "acme")
@@ -95,7 +101,11 @@ async def test_ashby_probe_reads_location_and_secondary_locations(client):
     allow_robots("https://api.ashbyhq.com")
     body = {
         "jobs": [
-            {"title": "A", "location": "New York", "secondaryLocations": [{"location": "Bengaluru"}]},
+            {
+                "title": "A",
+                "location": "New York",
+                "secondaryLocations": [{"location": "Bengaluru"}],
+            },
             {"title": "B", "location": "London", "secondaryLocations": ["Remote - EU"]},
         ]
     }
@@ -122,7 +132,10 @@ async def test_us_remote_boards_do_not_count_as_india_employers(client):
     """The whole point of the sweep is India reach, so this must not leak."""
     allow_robots("https://boards-api.greenhouse.io")
     respx.get(GH.format(t="usonly")).respond(
-        200, json=greenhouse_body(["USA | Remote", "Remote - California", "Remote-Friendly, United States"])
+        200,
+        json=greenhouse_body(
+            ["USA | Remote", "Remote - California", "Remote-Friendly, United States"]
+        ),
     )
     async with client as c:
         probe = await harvest.probe_board(c, "greenhouse", "usonly")
@@ -133,7 +146,9 @@ async def test_us_remote_boards_do_not_count_as_india_employers(client):
 @respx.mock
 async def test_an_unanchored_remote_board_does_count(client):
     allow_robots("https://boards-api.greenhouse.io")
-    respx.get(GH.format(t="anywhere")).respond(200, json=greenhouse_body(["Remote", "Remote (Anywhere)"]))
+    respx.get(GH.format(t="anywhere")).respond(
+        200, json=greenhouse_body(["Remote", "Remote (Anywhere)"])
+    )
     async with client as c:
         probe = await harvest.probe_board(c, "greenhouse", "anywhere")
     assert probe.india_jobs == 2
@@ -151,9 +166,9 @@ async def test_relevant_counts_only_india_roles_matching_the_profile(client):
         200,
         json=greenhouse_jobs(
             [
-                ("Machine Learning Engineer", "Bengaluru"),      # counts
-                ("Data Scientist", "Bangalore, India"),          # counts
-                ("Account Executive", "Bengaluru"),              # India, wrong title
+                ("Machine Learning Engineer", "Bengaluru"),  # counts
+                ("Data Scientist", "Bangalore, India"),  # counts
+                ("Account Executive", "Bengaluru"),  # India, wrong title
                 ("Machine Learning Engineer", "San Francisco"),  # right title, wrong place
             ]
         ),
@@ -236,7 +251,9 @@ def test_worth_watching_is_a_union(relevant, india, kept, why):
 
 
 @respx.mock
-async def test_a_small_ai_startup_survives_where_a_big_employer_does_not(companies_yaml, tmp_path, client):
+async def test_a_small_ai_startup_survives_where_a_big_employer_does_not(
+    companies_yaml, tmp_path, client
+):
     """The reason relevance exists.
 
     Filtering on India volume alone keeps Airbnb, which has fifteen India roles
@@ -249,9 +266,7 @@ async def test_a_small_ai_startup_survives_where_a_big_employer_does_not(compani
     )
     respx.get(GH.format(t="bigco")).respond(
         200,
-        json=greenhouse_jobs(
-            [("Sales Manager Intl", "Bengaluru")] * 15, name="Big Co"
-        ),
+        json=greenhouse_jobs([("Sales Manager Intl", "Bengaluru")] * 15, name="Big Co"),
     )
 
     async with client as c:
@@ -289,8 +304,12 @@ def companies_yaml(tmp_path) -> Path:
 @respx.mock
 async def test_sweep_adds_india_boards_and_leaves_the_rest(companies_yaml, tmp_path, client):
     allow_robots("https://boards-api.greenhouse.io")
-    respx.get(GH.format(t="hiring")).respond(200, json=greenhouse_body(["Bengaluru"], name="Hiring Co"))
-    respx.get(GH.format(t="uscorp")).respond(200, json=greenhouse_body(["Austin, TX"], name="US Corp"))
+    respx.get(GH.format(t="hiring")).respond(
+        200, json=greenhouse_body(["Bengaluru"], name="Hiring Co")
+    )
+    respx.get(GH.format(t="uscorp")).respond(
+        200, json=greenhouse_body(["Austin, TX"], name="US Corp")
+    )
     respx.get(GH.format(t="dead")).respond(404)
 
     async with client as c:
@@ -330,7 +349,9 @@ async def test_already_tracked_tokens_are_not_reprobed(companies_yaml, tmp_path,
 @respx.mock
 async def test_dry_run_writes_nothing_at_all(companies_yaml, tmp_path, client):
     allow_robots("https://boards-api.greenhouse.io")
-    respx.get(GH.format(t="hiring")).respond(200, json=greenhouse_body(["Bengaluru"], name="Hiring Co"))
+    respx.get(GH.format(t="hiring")).respond(
+        200, json=greenhouse_body(["Bengaluru"], name="Hiring Co")
+    )
     before = companies_yaml.read_text()
     state = tmp_path / "state.jsonl"
 
@@ -345,7 +366,9 @@ async def test_dry_run_writes_nothing_at_all(companies_yaml, tmp_path, client):
         )
 
     assert result.added == 0
-    assert len(result.hits(min_india_jobs=1)) == 1, "a dry run still reports what it would have added"
+    assert len(result.hits(min_india_jobs=1)) == 1, (
+        "a dry run still reports what it would have added"
+    )
     assert companies_yaml.read_text() == before
     assert not state.exists(), "the resume log is a write too"
 
@@ -401,8 +424,15 @@ async def test_a_resumed_sweep_does_not_reprobe(companies_yaml, tmp_path, client
     state = tmp_path / "state.jsonl"
     state.write_text(
         json.dumps(
-            {"ats": "greenhouse", "token": "hiring", "live": True, "name": "Hiring Co",
-             "total_jobs": 1, "india_jobs": 1, "error": None}
+            {
+                "ats": "greenhouse",
+                "token": "hiring",
+                "live": True,
+                "name": "Hiring Co",
+                "total_jobs": 1,
+                "india_jobs": 1,
+                "error": None,
+            }
         )
         + "\n",
         encoding="utf-8",
@@ -428,7 +458,8 @@ def test_state_survives_a_truncated_final_line(tmp_path):
     """Killing the process mid-write leaves half a line. Read the rest anyway."""
     state = tmp_path / "state.jsonl"
     state.write_text(
-        json.dumps({"ats": "lever", "token": "good", "live": True, "india_jobs": 2}) + "\n"
+        json.dumps({"ats": "lever", "token": "good", "live": True, "india_jobs": 2})
+        + "\n"
         + '{"ats": "lever", "token": "trunc"',
         encoding="utf-8",
     )

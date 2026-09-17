@@ -4,6 +4,7 @@ The stakes here are quiet ones: a CSV row that fails to parse is a company you
 believe you are watching and are not, and a YAML append that loses comments
 destroys the provenance of the hand-verified entries.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -150,7 +151,9 @@ def test_append_preserves_comments_and_existing_entries(tmp_path):
     path.write_text(EXISTING)
     from jobhunter.config import Target
 
-    added = append_targets(path, [Target(name="Khatabook", domain="khatabook.com", ats="lever", ats_token="khatabook")])
+    added = append_targets(
+        path, [Target(name="Khatabook", domain="khatabook.com", ats="lever", ats_token="khatabook")]
+    )
     assert added == 1
 
     text = path.read_text()
@@ -212,13 +215,16 @@ async def test_run_resolve_sorts_into_four_buckets(tmp_path, allow_robots):
         allow_robots(f"https://{host}.com")
 
     respx.get("https://gh.com/careers").respond(
-        200, text=f'<html><body><p>{FILLER}</p><a href="https://boards.greenhouse.io/acme">Roles</a></body></html>'
+        200,
+        text=f'<html><body><p>{FILLER}</p><a href="https://boards.greenhouse.io/acme">Roles</a></body></html>',
     )
     respx.get("https://workday.com/careers").respond(
-        200, text=f'<html><body><p>{FILLER}</p><a href="https://acme.myworkdayjobs.com/x">Roles</a></body></html>'
+        200,
+        text=f'<html><body><p>{FILLER}</p><a href="https://acme.myworkdayjobs.com/x">Roles</a></body></html>',
     )
     respx.get("https://spa.com/careers").respond(
-        200, text='<html><head><script src="/a.js"></script></head><body><div id="root"></div></body></html>'
+        200,
+        text='<html><head><script src="/a.js"></script></head><body><div id="root"></div></body></html>',
     )
     respx.get("https://gone.com/careers").respond(404)
 
@@ -253,7 +259,8 @@ async def test_run_resolve_dry_run_writes_nothing(tmp_path, allow_robots):
 
     allow_robots("https://gh.com")
     respx.get("https://gh.com/careers").respond(
-        200, text=f'<html><body><p>{FILLER}</p><a href="https://jobs.lever.co/acme/1">Roles</a></body></html>'
+        200,
+        text=f'<html><body><p>{FILLER}</p><a href="https://jobs.lever.co/acme/1">Roles</a></body></html>',
     )
     companies = tmp_path / "companies.yaml"
     companies.write_text("companies: []\n")
@@ -352,7 +359,7 @@ def test_append_refuses_an_inline_list_rather_than_corrupting_it(tmp_path):
 
 
 def test_candidate_slugs_prefers_the_domain_label():
-    """"inmobi.com" -> "inmobi" is the real token; the squashed name rarely is."""
+    """ "inmobi.com" -> "inmobi" is the real token; the squashed name rarely is."""
     from jobhunter.config import Target
     from jobhunter.pipeline import candidate_slugs
 
@@ -373,9 +380,9 @@ async def test_unreachable_is_recovered_by_probing_the_ats(tmp_path, allow_robot
 
     allow_robots("https://inmobi.com", "https://boards-api.greenhouse.io")
     respx.get("https://inmobi.com/company/openings").respond(404)
-    respx.get(
-        "https://boards-api.greenhouse.io/v1/boards/inmobi/jobs?content=true"
-    ).respond(200, text=fixture_text("greenhouse.json"))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/inmobi/jobs?content=true").respond(
+        200, text=fixture_text("greenhouse.json")
+    )
     # Every other ATS is asked and says no.
     respx.get(url__startswith="https://api.lever.co").respond(404)
     respx.get(url__startswith="https://api.ashbyhq.com").respond(404)
@@ -385,7 +392,13 @@ async def test_unreachable_is_recovered_by_probing_the_ats(tmp_path, allow_robot
     companies = tmp_path / "companies.yaml"
     companies.write_text("companies:\n")
     result = await run_resolve(
-        [Target(name="InMobi", domain="inmobi.com", careers_url="https://inmobi.com/company/openings")],
+        [
+            Target(
+                name="InMobi",
+                domain="inmobi.com",
+                careers_url="https://inmobi.com/company/openings",
+            )
+        ],
         companies_path=companies,
         dry_run=False,
     )
@@ -419,12 +432,22 @@ async def test_probing_can_be_turned_off(tmp_path, allow_robots):
 async def test_probe_that_finds_nothing_leaves_it_unreachable(tmp_path, allow_robots):
     from jobhunter.config import Target
 
-    for origin in ("https://acme.com", "https://boards-api.greenhouse.io", "https://api.lever.co",
-                   "https://api.ashbyhq.com", "https://apply.workable.com"):
+    for origin in (
+        "https://acme.com",
+        "https://boards-api.greenhouse.io",
+        "https://api.lever.co",
+        "https://api.ashbyhq.com",
+        "https://apply.workable.com",
+    ):
         allow_robots(origin)
     respx.get("https://acme.com/careers").respond(404)
     respx.route(
-        host__in=("boards-api.greenhouse.io", "api.lever.co", "api.ashbyhq.com", "apply.workable.com")
+        host__in=(
+            "boards-api.greenhouse.io",
+            "api.lever.co",
+            "api.ashbyhq.com",
+            "apply.workable.com",
+        )
     ).respond(404)
 
     result = await run_resolve(
@@ -441,8 +464,13 @@ async def test_probe_ignores_a_board_that_exists_but_is_empty(tmp_path, allow_ro
     """An account with zero postings is not a useful target."""
     from jobhunter.config import Target
 
-    for origin in ("https://acme.com", "https://boards-api.greenhouse.io", "https://api.lever.co",
-                   "https://api.ashbyhq.com", "https://apply.workable.com"):
+    for origin in (
+        "https://acme.com",
+        "https://boards-api.greenhouse.io",
+        "https://api.lever.co",
+        "https://api.ashbyhq.com",
+        "https://apply.workable.com",
+    ):
         allow_robots(origin)
     respx.get("https://acme.com/careers").respond(404)
     respx.get(url__startswith="https://boards-api.greenhouse.io").respond(200, json={"jobs": []})

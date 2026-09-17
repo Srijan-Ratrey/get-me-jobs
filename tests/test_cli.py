@@ -5,6 +5,7 @@ it did not, and until this test existed nothing checked. Running it from the rep
 root used to copy companies.yaml onto itself and report success having done
 nothing, which left a fresh clone with no config at all.
 """
+
 from __future__ import annotations
 
 import os
@@ -49,7 +50,9 @@ def test_example_configs_carry_no_personal_detail():
 
     for name in ("profile.example.yaml", "companies.example.yaml"):
         text = (REPO_ROOT / name).read_text()
-        assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]{2,}", text), f"{name} contains an email address"
+        assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]{2,}", text), (
+            f"{name} contains an email address"
+        )
         assert not re.search(r"(?<!\w)(?:\+\d{1,3}[\s-]?)?\d{10}(?!\w)", text), (
             f"{name} contains something shaped like a phone number"
         )

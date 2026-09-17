@@ -13,6 +13,7 @@ an email at all. Refusing to write is the correct output for a job we know
 nothing about — the alternative is a mail merge, which is the thing this
 project exists not to be.
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,28 +41,65 @@ MAX_SKILLS_NAMED = 3
 # exactly as the profile spells it, which is already correct for ordinary words
 # like "machine learning".
 SKILL_CASING = {
-    "python": "Python", "java": "Java", "scala": "Scala", "spark": "Spark",
-    "llm": "LLM", "llms": "LLMs", "nlp": "NLP", "rag": "RAG", "lora": "LoRA",
-    "sql": "SQL", "gcp": "GCP", "aws": "AWS", "cnn": "CNNs", "gan": "GANs",
-    "mlops": "MLOps", "a/b testing": "A/B testing", "pytorch": "PyTorch",
-    "tensorflow": "TensorFlow", "scikit-learn": "scikit-learn", "sklearn": "scikit-learn",
-    "xgboost": "XGBoost", "opencv": "OpenCV", "yolo": "YOLO", "faiss": "FAISS",
-    "bigquery": "BigQuery", "vertex ai": "Vertex AI", "mongodb": "MongoDB",
-    "docker": "Docker", "keras": "Keras", "langchain": "LangChain", "numpy": "NumPy",
-    "pandas": "pandas", "jupyter": "Jupyter", "django": "Django", "flask": "Flask",
-    "machine learning": "machine learning", "deep learning": "deep learning",
-    "computer vision": "computer vision", "vector database": "vector databases",
+    "python": "Python",
+    "java": "Java",
+    "scala": "Scala",
+    "spark": "Spark",
+    "llm": "LLM",
+    "llms": "LLMs",
+    "nlp": "NLP",
+    "rag": "RAG",
+    "lora": "LoRA",
+    "sql": "SQL",
+    "gcp": "GCP",
+    "aws": "AWS",
+    "cnn": "CNNs",
+    "gan": "GANs",
+    "mlops": "MLOps",
+    "a/b testing": "A/B testing",
+    "pytorch": "PyTorch",
+    "tensorflow": "TensorFlow",
+    "scikit-learn": "scikit-learn",
+    "sklearn": "scikit-learn",
+    "xgboost": "XGBoost",
+    "opencv": "OpenCV",
+    "yolo": "YOLO",
+    "faiss": "FAISS",
+    "bigquery": "BigQuery",
+    "vertex ai": "Vertex AI",
+    "mongodb": "MongoDB",
+    "docker": "Docker",
+    "keras": "Keras",
+    "langchain": "LangChain",
+    "numpy": "NumPy",
+    "pandas": "pandas",
+    "jupyter": "Jupyter",
+    "django": "Django",
+    "flask": "Flask",
+    "machine learning": "machine learning",
+    "deep learning": "deep learning",
+    "computer vision": "computer vision",
+    "vector database": "vector databases",
 }
 
 # Skills too generic to be worth naming. "The posting asks for evaluation" says
 # nothing, and it crowds out the concrete technology sitting behind it in the
 # list. Still counted toward MIN_SPECIFIC_SKILLS — they are real matches — but
 # named last if at all.
-VAGUE_SKILLS = frozenset({
-    "evaluation", "statistics", "experimentation", "classifier", "embeddings",
-    "recommendation", "collaborative filtering", "data pipeline", "fine-tuning",
-    "prompt engineering",
-})
+VAGUE_SKILLS = frozenset(
+    {
+        "evaluation",
+        "statistics",
+        "experimentation",
+        "classifier",
+        "embeddings",
+        "recommendation",
+        "collaborative filtering",
+        "data pipeline",
+        "fine-tuning",
+        "prompt engineering",
+    }
+)
 
 
 @dataclass

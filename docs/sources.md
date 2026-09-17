@@ -15,6 +15,7 @@ Every source implements the same protocol. Adding a new ATS should be ~40 lines.
 ```python
 class JobSource(Protocol):
     name: str
+
     def matches(self, target: Target) -> bool: ...
     async def fetch(self, client: PoliteClient, target: Target) -> list[RawJob]: ...
 ```
