@@ -42,6 +42,12 @@ not a lead-gen scraper. That distinction is what keeps it legal and what makes t
 
 ## 3. Component map
 
+> This is the sketch from before the code existed, kept for the shape of the
+> idea. It has drifted — the drafter is not LLM-based, and `pipeline`,
+> `outreach/policy`, `harvest`, `sources/freehire` and `contacts/importer`
+> all came later. **`docs/architecture.md` is the map derived from the code**,
+> and `tests/test_architecture.py` fails when it stops being true.
+
 ```
                        ┌────────────────────────────┐
   companies.yaml  ───► │  Source adapters           │
