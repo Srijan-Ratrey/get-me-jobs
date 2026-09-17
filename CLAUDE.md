@@ -13,6 +13,7 @@ have to guess at.
 |---|---|
 | `TASKS.md` | The build backlog. Phased, with acceptance criteria. **Start here.** |
 | `PLAN.md` | Architecture, component map, data model, failure modes |
+| `docs/architecture.md` | Layer map derived from the code, and where each hard rule is enforced |
 | `docs/sources.md` | Exact ATS endpoints, response shapes, field mappings |
 | `docs/contact-discovery.md` | Tiered discovery algorithm, pattern table, verification state machine |
 | `docs/compliance.md` | Hard legal/ethical rules. Non-negotiable. |
