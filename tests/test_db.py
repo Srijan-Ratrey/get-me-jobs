@@ -291,8 +291,10 @@ def test_since_filter_selects_only_newer_jobs(session):
 
     company = db.upsert_company(session, Target(name="Acme"))
     old, _ = db.upsert_job(session, company, raw("Old Role"))
-    new, _ = db.upsert_job(session, company, raw("New Role"))
-    old.first_seen = datetime(2020, 1, 1)
+    db.upsert_job(session, company, raw("New Role"))
+    # Naive on purpose: first_seen is stored naive, which is why the cutoff
+    # below strips tzinfo too.
+    old.first_seen = datetime(2020, 1, 1)  # noqa: DTZ001
     session.commit()
 
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)

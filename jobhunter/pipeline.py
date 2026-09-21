@@ -10,15 +10,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
 
 import httpx
 
 from . import db
-from .config import Profile, Target, settings
+from .config import Profile, Target
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from .matching.scorer import score_job
 from .models import Company, Job, Run
@@ -199,7 +199,7 @@ async def run_resolve(
             return ResolveOutcome(target, "unreachable", detail=f"HTTP {exc.response.status_code}")
         except httpx.HTTPError as exc:
             return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
-        except Exception as exc:  # noqa: BLE001 - one bad page must not end the run
+        except Exception as exc:  # one bad page must not end the run
             log.exception("%s: unexpected failure fetching careers page", target.name)
             return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
 
@@ -332,7 +332,7 @@ async def run_scan(
                 )
                 result.per_company[target.name] = {"error": str(exc)}
                 continue
-            except Exception as exc:  # noqa: BLE001 - one bad adapter must not end the run
+            except Exception as exc:  # one bad adapter must not end the run
                 log.exception("%s: unexpected adapter failure", target.name)
                 result.errors.append(
                     {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
@@ -447,7 +447,7 @@ async def run_contacts(
                     verify_emails=verify_emails,
                     is_suppressed=suppressed,
                 )
-            except Exception as exc:  # noqa: BLE001 - one company must not end the run
+            except Exception as exc:  # one company must not end the run
                 log.exception("%s: contact discovery failed", company["name"])
                 result.errors.append(
                     {"company": company["name"], "error": type(exc).__name__, "detail": str(exc)}
@@ -575,7 +575,6 @@ def llm_candidates(
 
 def apply_llm_scores(results: list, *, dry_run: bool = False) -> dict:
     """Persist verdicts. Returns a summary including how the two scorers differ."""
-    from sqlalchemy import select
 
     written = failed = 0
     rejected_as_off_target = 0

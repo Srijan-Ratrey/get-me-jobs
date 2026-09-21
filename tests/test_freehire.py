@@ -317,7 +317,7 @@ def test_the_same_posting_from_two_sources_collapses_to_one_row(tmp_path):
 def test_catalogue_rows_are_filed_under_the_real_employer(tmp_path):
     """Filing them under the search's own name makes the shortlist unreadable."""
     from jobhunter import db
-    from jobhunter.models import Company, Job, RawJob
+    from jobhunter.models import Company, RawJob
     from jobhunter.pipeline import _persist_catalogue
 
     db.init_db(f"sqlite+pysqlite:///{tmp_path / 'c.db'}")

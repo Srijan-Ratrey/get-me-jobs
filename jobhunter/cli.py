@@ -17,7 +17,9 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from sqlalchemy import func, select
 
-from . import db, export as export_module, harvest as harvest_module, pipeline
+from . import db, pipeline
+from . import export as export_module
+from . import harvest as harvest_module
 from .config import load_company_csv, load_profile, load_targets, settings
 from .matching import llm_scorer
 from .matching.scorer import matches_location
@@ -824,7 +826,7 @@ outreach_app = typer.Typer(
 app.add_typer(outreach_app, name="outreach")
 
 
-def _load_profile_or_exit() -> "object":
+def _load_profile_or_exit() -> object:
     _require(PROFILE_YAML, "it holds your profile and applicant details")
     profile = load_profile(PROFILE_YAML)
     missing = profile.applicant.is_complete()
@@ -989,7 +991,7 @@ def run(
             transport = GmailTransport()
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from exc
 
     with db.session_scope() as session:
         report = send_batch(

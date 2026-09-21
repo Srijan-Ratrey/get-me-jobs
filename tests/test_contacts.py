@@ -19,7 +19,6 @@ from jobhunter.contacts.scraper import (
     is_acceptable,
     looks_like_person,
     rank,
-    scrape_company,
 )
 
 TEAM_PAGE = """
@@ -156,7 +155,7 @@ def test_looks_like_person(local, expected):
 
 def test_unrecognised_local_stays_below_the_surfacing_threshold():
     """ "future@" and friends must not be presented as hiring contacts."""
-    confidence, kind, _ = rank("future@acme.com")
+    confidence, _, _ = rank("future@acme.com")
     assert confidence < SURFACE_THRESHOLD
 
 

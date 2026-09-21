@@ -236,7 +236,7 @@ def send_batch(
             report.speculative += int(candidate.kind == "speculative")
             consecutive_failures = 0
             log.info("sent to %s about %s", candidate.contact.email, candidate.job.title)
-        except Exception as exc:  # one bad send must not abort the rest
+        except Exception as exc:  # noqa: BLE001 - one bad send must not abort the rest
             row.status = "failed"
             row.error = f"{type(exc).__name__}: {exc}"
             report.failed += 1

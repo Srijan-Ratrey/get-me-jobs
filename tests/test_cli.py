@@ -8,7 +8,6 @@ nothing, which left a fresh clone with no config at all.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
