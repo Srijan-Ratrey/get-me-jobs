@@ -10,6 +10,7 @@ import sqlite3
 from dataclasses import dataclass
 
 import pytest
+from pydantic import ValidationError
 
 from jobhunter import db, pipeline
 from jobhunter.config import Profile, Target
@@ -140,7 +141,7 @@ async def test_an_unparseable_response_is_recorded_not_raised():
 
 
 async def test_a_verdict_cannot_carry_an_out_of_range_score():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Verdict(is_target_role=True, is_junior_appropriate=True, fit=140, reason="x")
 
 

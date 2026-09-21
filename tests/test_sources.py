@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import httpx
 import pytest
 import respx
 
@@ -427,7 +426,7 @@ def test_harvest_links_is_same_origin_and_capped():
     </body></html>"""
     links = careers_page.harvest_links(html, "https://acme.com/careers")
     assert len(links) == careers_page.MAX_DETAIL_LINKS
-    assert all(l.startswith("https://acme.com/careers/job-") for l in links)
+    assert all(link.startswith("https://acme.com/careers/job-") for link in links)
 
 
 def test_extract_repeated_structure():

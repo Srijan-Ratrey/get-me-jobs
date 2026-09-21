@@ -347,7 +347,7 @@ def append_targets(path: str | Path, targets: list[Target], *, note: str = "") -
     target_path.write_text(updated, encoding="utf-8")
     try:
         written = load_targets(target_path)
-    except Exception as exc:  # noqa: BLE001 - restore before re-raising
+    except Exception as exc:  # restore the file before re-raising
         target_path.write_text(original, encoding="utf-8")
         raise ValueError(f"{path}: append produced invalid YAML, file restored ({exc})") from exc
     if len(written) != len(existing) + len(fresh):

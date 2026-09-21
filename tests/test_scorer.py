@@ -12,12 +12,12 @@ import pytest
 
 from jobhunter.config import Profile
 from jobhunter.matching.scorer import (
+    UNKNOWN_MUST_HAVE_CREDIT,
     W_LOCATION,
     W_MUST_HAVE,
     W_NICE_TO_HAVE,
     W_SENIORITY,
     W_TITLE,
-    UNKNOWN_MUST_HAVE_CREDIT,
     min_years_required,
     score_job,
 )

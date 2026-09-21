@@ -49,6 +49,24 @@ include = ["jobhunter*"]
 # reproducible rather than depending on whose machine it runs on.
 line-length = 100
 
+[tool.ruff.lint]
+# Explicit, because the default set is narrow enough that the `# noqa: BLE001`
+# comments already in the tree were being reported as unused directives.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "BLE", "DTZ", "RUF"]
+ignore = [
+    # typer's whole API is `x: T = typer.Option(...)` in a signature default.
+    "B008",
+    # `timezone.utc` is used consistently in ~13 places; `datetime.UTC` is not
+    # better, just newer, and swapping them is churn in working code.
+    "UP017",
+    # Zero-width and non-breaking characters are load-bearing here: models.py
+    # strips them from scraped titles, sources/base.py folds U+00A0 into normal
+    # space, and test_models.py embeds real ones as fixtures.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
