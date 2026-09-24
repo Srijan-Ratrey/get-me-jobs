@@ -981,7 +981,7 @@ def run(
 ) -> None:
     """Draft and send today's applications. This is the scheduler's entry point."""
     from .models import Outreach
-    from .outreach.sender import GmailTransport, send_batch
+    from .outreach.sender import build_transport, send_batch
 
     profile = _load_profile_or_exit()
     db.init_db()
@@ -1007,7 +1007,7 @@ def run(
     transport = None
     if not dry_run:
         try:
-            transport = GmailTransport()
+            transport = build_transport()
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
             raise typer.Exit(1) from exc

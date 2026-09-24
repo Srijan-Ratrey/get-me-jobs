@@ -6,9 +6,15 @@ sending path be tested against a fake while `conftest.py`'s socket block stays
 armed — a test that can accidentally reach the network is a test that will
 eventually mail a stranger.
 
-Scope is `gmail.send` and nothing else. This process cannot read the mailbox,
-which makes the blast radius of a bug in it small and bounded. Reply detection
-needs a read scope and belongs to the follow-up tracker, not here.
+Two transports, and they are not equally contained. `GmailTransport` asks for
+`gmail.send` and nothing else, so that process cannot read the mailbox and the
+blast radius of a bug in it is small and bounded. `SmtpTransport` uses an app
+password, which is not scopeable: the same credential opens IMAP, so it can
+read and delete mail too. The app password buys a much shorter setup and costs
+that containment. Setting one selects it; see `build_transport`.
+
+Either way, reply detection is not here — it needs a read path of its own and
+belongs to the follow-up tracker.
 """
 
 from __future__ import annotations
@@ -17,9 +23,11 @@ import base64
 import logging
 import mimetypes
 import random
+import smtplib
 import time
 from dataclasses import dataclass
 from email.message import EmailMessage
+from email.utils import make_msgid, parseaddr
 from pathlib import Path
 from typing import Protocol
 
@@ -109,6 +117,61 @@ class GmailTransport:
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
         sent = self._service.users().messages().send(userId="me", body={"raw": raw}).execute()
         return str(sent.get("id", ""))
+
+
+class SmtpTransport:
+    """Gmail over SMTP with an app password. Stdlib only, no GCP project.
+
+    Cheaper to set up than the OAuth client, and the tradeoff is worth naming
+    rather than burying: an app password is *not* send-only. The same sixteen
+    characters authenticate to IMAP, so a leaked `.env` gives up read access to
+    the mailbox, which `gmail.send` never does. Prefer `GmailTransport` where
+    the setup cost is acceptable.
+
+    `connect` is injectable so the send path is testable with the suite's
+    socket block armed.
+    """
+
+    def __init__(self, *, password=None, host=None, port=None, connect=None) -> None:
+        secret = password if password is not None else settings.gmail_app_password
+        if secret is None:
+            raise RuntimeError(
+                "no app password set. Put APP_PASSWORD in .env, or set up the OAuth "
+                "client instead — see README."
+            )
+        raw = secret.get_secret_value() if hasattr(secret, "get_secret_value") else str(secret)
+        # Google shows app passwords in four space-separated groups, and that is
+        # how they get pasted. Stripping here beats an auth error nobody can read.
+        self._password = raw.replace(" ", "")
+        self._host = host or settings.gmail_smtp_host
+        self._port = port or settings.gmail_smtp_port
+        self._connect = connect or (lambda: smtplib.SMTP_SSL(self._host, self._port))
+
+    def send(self, message: EmailMessage) -> str:
+        # SMTP hands back no id of its own, so set one before sending and record
+        # that. Without it the outreach row has no handle on what went out.
+        if not message["Message-ID"]:
+            message["Message-ID"] = make_msgid()
+        account = parseaddr(message["From"])[1]
+        with self._connect() as server:
+            server.login(account, self._password)
+            refused = server.send_message(message)
+        if refused:
+            raise RuntimeError(f"SMTP refused a recipient: {sorted(refused)}")
+        return str(message["Message-ID"])
+
+
+def build_transport() -> MailTransport:
+    """Whichever transport the configuration selects.
+
+    Setting an app password *is* the choice, so there is no separate mode flag
+    that could contradict it.
+    """
+    if settings.gmail_app_password is not None:
+        log.info("sending over SMTP as %s", settings.gmail_smtp_host)
+        return SmtpTransport()
+    log.info("sending over the Gmail API with a send-only OAuth token")
+    return GmailTransport()
 
 
 def _pause() -> None:
