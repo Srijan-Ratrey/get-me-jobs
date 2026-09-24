@@ -25,6 +25,25 @@ profile:
     phone: ""             # optional
     resume_path: ""       # absolute path to the file to attach; must be readable
     links: []             # optional, e.g. ["https://github.com/you"]
+
+    # Subject-line evidence, shown after the role title. Keep it short: past
+    # ~72 characters the inbox truncates, and this is what earns the open.
+    headline: ""          # e.g. "recsys and experimentation, 6% and 8% lift at Acme"
+
+    # The numbers a recruiter screens on, and the reason a draft is worth
+    # reading. One paragraph each, naming what you built and what it moved.
+    # Without at least one, the drafter refuses: a message that only asserts
+    # competence is what every other application already says.
+    #
+    # This text is sent verbatim, so every figure in it has to be true.
+    achievements: []
+    #  - >-
+    #      At Acme I built a hybrid recommendation engine that lifted completion
+    #      by 6%, and ran A/B experiments that raised session duration by 8%.
+
+    education: ""         # e.g. "B.Tech in Data Science and AI from IIIT Naya Raipur"
+    location: ""          # e.g. "Bengaluru"
+    availability: ""      # e.g. "available immediately"
   # Matched against the job title. Partial matches count, so "Data Scientist"
   # also hits "Data Scientist II" and "Associate Data Scientist".
   titles:

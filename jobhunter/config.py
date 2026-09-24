@@ -132,6 +132,23 @@ class Applicant(BaseModel):
     # quietly mailing without it.
     resume_path: str = ""
 
+    # Evidence, and the whole reason a draft is worth reading. Without it the
+    # drafter can only assert — "that is the work I have been doing" — which is
+    # what every other application says and what a recruiter screening on
+    # outcomes skims straight past. One paragraph per entry, naming what was
+    # built and what it moved, with the numbers left in.
+    achievements: list[str] = Field(default_factory=list)
+
+    # Dropped in verbatim; nothing here is inferred. Each is optional, and the
+    # sentence they form is assembled from whichever are present.
+    education: str = ""
+    location: str = ""
+    availability: str = ""
+
+    # Subject-line evidence, seen before the mail is opened. Keep it short —
+    # it follows the role title. Empty falls back to "Application: <role>".
+    headline: str = ""
+
     def is_complete(self) -> list[str]:
         """Missing fields that would make a message dishonest or unusable."""
         missing = [f for f in ("name", "email", "resume_path") if not getattr(self, f).strip()]
