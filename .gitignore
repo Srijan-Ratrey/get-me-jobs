@@ -8,6 +8,8 @@
 # enough on its own to send mail as you. Neither belongs in a public repo.
 credentials.json
 token.json
+# `export --to-sheets` reuses that client, under a drive.file scope.
+sheets-token.json
 
 # HR contacts you research by hand. Personal data — keep it off GitHub. The
 # *.csv rule below already covers this, but name it so the intent is explicit.

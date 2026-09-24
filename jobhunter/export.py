@@ -167,3 +167,88 @@ def export(
 
     log.info("exported %d rows to %s", len(rows), target)
     return len(rows)
+
+
+# Narrowest scope that works: drive.file grants access only to files this tool
+# created, so it can neither read nor clobber anything else in the Drive.
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+SHEET_MIME = "application/vnd.google-apps.spreadsheet"
+_UPLOAD_MIME = {
+    ".csv": "text/csv",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+}
+
+
+def _drive_service():
+    try:
+        from googleapiclient.discovery import build
+    except ImportError as exc:  # pragma: no cover - exercised by the extra being absent
+        raise RuntimeError(
+            "Sheets upload needs the Google client library: uv sync --extra email"
+        ) from exc
+
+    from .config import settings
+    from .google_auth import load_credentials
+
+    creds = load_credentials(
+        DRIVE_SCOPES,
+        Path(settings.sheets_token_path),
+        Path(settings.gmail_credentials_path),
+        purpose="Sheets upload",
+    )
+    return build("drive", "v3", credentials=creds)
+
+
+def upload_to_sheets(
+    path: str | Path, *, title: str | None = None, service=None, media=None
+) -> str:
+    """Upload an exported file to Drive as a Google Sheet. Returns its URL.
+
+    Overwrites the previous upload of the same name rather than making a new
+    sheet each run, so a bookmarked link keeps working after a rescan. The
+    lookup is safe under drive.file: it can only ever match our own uploads.
+
+    `service` and `media` are injectable so the create-or-replace decision is
+    testable without the Google client installed, the way GmailTransport is.
+    """
+    target = Path(path)
+    mime = _UPLOAD_MIME.get(target.suffix.lower())
+    if mime is None:
+        raise ValueError(f"cannot upload {target.suffix!r} to Sheets; export .csv or .xlsx")
+    if not target.is_file():
+        raise FileNotFoundError(f"{target} does not exist; export it before uploading")
+
+    service = service or _drive_service()
+    name = title or target.stem
+    if media is None:
+        from googleapiclient.http import MediaFileUpload
+
+        media = MediaFileUpload(str(target), mimetype=mime, resumable=True)
+
+    escaped = name.replace("\\", "\\\\").replace("'", "\\'")
+    found = (
+        service.files()
+        .list(q=f"name = '{escaped}' and trashed = false", fields="files(id)", pageSize=1)
+        .execute()
+        .get("files", [])
+    )
+    if found:
+        file = (
+            service.files()
+            .update(fileId=found[0]["id"], media_body=media, fields="id, webViewLink")
+            .execute()
+        )
+        log.info("replaced the Sheet at %s", file.get("webViewLink"))
+    else:
+        file = (
+            service.files()
+            .create(
+                body={"name": name, "mimeType": SHEET_MIME},
+                media_body=media,
+                fields="id, webViewLink",
+            )
+            .execute()
+        )
+        log.info("created a Sheet at %s", file.get("webViewLink"))
+    return str(file.get("webViewLink", ""))

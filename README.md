@@ -29,6 +29,7 @@ uv run jobhunter score                   # rescore open jobs against profile.yam
 uv run jobhunter contacts                # resolve a hiring contact where one is published
 uv run jobhunter list --min-score 55     # ranked openings, best first
 uv run jobhunter export jobs.xlsx        # one row per job with its best contact
+uv run jobhunter export jobs.xlsx --to-sheets   # and upload it to Drive as a Google Sheet
 uv run jobhunter stats                   # what is in the database
 uv run jobhunter purge --email x@y.com   # GDPR erasure: delete + suppress rediscovery
 
@@ -40,6 +41,20 @@ uv run jobhunter outreach status         # budget used, cooldowns, recent sends
 ```
 
 Anything that writes takes `--dry-run`. Add `-v` for debug logging.
+
+**Into Google Sheets.** `export --to-sheets` uploads the file and lets Drive convert it to a
+native Sheet, so the `url` column stays clickable. It replaces the previous upload of the same
+name instead of making a new sheet each run, so the link you bookmark keeps working:
+
+```bash
+uv run jobhunter export shortlist.xlsx --min-score 55 --to-sheets
+uv run jobhunter export shortlist.xlsx --min-score 55 --to-sheets --sheet-title "Q4 shortlist"
+```
+
+One-time setup: `uv sync --extra email`, then the same `credentials.json` OAuth client the
+sender uses (step 3 below), with the Drive API enabled. The scope requested is `drive.file`,
+which sees only the files this tool uploaded — it cannot read the rest of your Drive. The token
+is kept separately in `sheets-token.json`, also gitignored.
 
 **Only new postings.** `list` and `export` both take `--since` (when *we* first saw a posting) and
 `--posted-within` (when the company published it). Both accept `7d`, `24h`, `2w`, a date, or
