@@ -26,6 +26,7 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from ..config import Profile, settings
+from ..google_auth import load_credentials
 from ..models import Outreach, utcnow
 from . import policy
 from .drafter import Draft, Refusal, draft_for, draft_speculative, preflight
@@ -90,31 +91,18 @@ class GmailTransport:
     @staticmethod
     def _build_service():
         try:
-            from google.auth.transport.requests import Request
-            from google.oauth2.credentials import Credentials
-            from google_auth_oauthlib.flow import InstalledAppFlow
             from googleapiclient.discovery import build
         except ImportError as exc:  # pragma: no cover - exercised by the extra being absent
             raise RuntimeError(
                 "Gmail support needs the 'email' extra: uv sync --extra email"
             ) from exc
 
-        token_path = Path(settings.gmail_token_path)
-        creds = None
-        if token_path.is_file():
-            creds = Credentials.from_authorized_user_file(str(token_path), GMAIL_SCOPES)
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        if not creds or not creds.valid:
-            credentials_path = Path(settings.gmail_credentials_path)
-            if not credentials_path.is_file():
-                raise RuntimeError(
-                    f"no Gmail credentials at {credentials_path}. Create an OAuth client in "
-                    "Google Cloud, download it, and see README for the setup steps."
-                )
-            flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), GMAIL_SCOPES)
-            creds = flow.run_local_server(port=0)
-            token_path.write_text(creds.to_json())
+        creds = load_credentials(
+            GMAIL_SCOPES,
+            Path(settings.gmail_token_path),
+            Path(settings.gmail_credentials_path),
+            purpose="Gmail send",
+        )
         return build("gmail", "v1", credentials=creds)
 
     def send(self, message: EmailMessage) -> str:

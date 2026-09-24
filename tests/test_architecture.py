@@ -25,6 +25,7 @@ LAYERS: dict[str, int] = {
     "models": 0,
     "http": 1,
     "db": 1,
+    "google_auth": 1,
     "sources.base": 2,
     "matching.scorer": 2,
     "matching.llm_scorer": 2,

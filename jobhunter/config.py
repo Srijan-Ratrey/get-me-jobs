@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     gmail_credentials_path: Path = Path("credentials.json")
     gmail_token_path: Path = Path("token.json")
 
+    # `export --to-sheets` reuses the OAuth client above, but keeps its own
+    # token: its scope is drive.file, which sees only what this tool uploaded.
+    sheets_token_path: Path = Path("sheets-token.json")
+
 
 class Target(BaseModel):
     """One company to watch."""

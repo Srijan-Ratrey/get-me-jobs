@@ -716,6 +716,12 @@ def export(
     location: list[str] = typer.Option(
         None, "--location", help="Only jobs here, or remote. Repeatable."
     ),
+    to_sheets: bool = typer.Option(
+        False, "--to-sheets", help="Also upload the file to Google Drive as a Sheet."
+    ),
+    sheet_title: str | None = typer.Option(
+        None, "--sheet-title", help="Name of the Sheet. Defaults to the filename."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report the row count, write nothing."),
 ) -> None:
     """Export one row per job with its best contact."""
@@ -735,6 +741,8 @@ def export(
             min_score=min_score, include_closed=include_closed, **filters
         )
         console.print(f"[yellow](dry run)[/] would write {len(rows)} rows to {path}")
+        if to_sheets:
+            console.print("[yellow](dry run)[/] would upload it to Google Drive as a Sheet")
         return
     try:
         count = export_module.export(
@@ -744,6 +752,17 @@ def export(
         console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
     console.print(f"[green]✓[/] wrote [bold]{count}[/] rows to {path}")
+
+    if to_sheets:
+        try:
+            url = export_module.upload_to_sheets(path, title=sheet_title)
+        except (RuntimeError, ValueError, FileNotFoundError) as exc:
+            # The file is already on disk, so this is a partial success, not a
+            # failed export. Say so and keep the non-zero exit for scripts.
+            console.print(f"[red]upload failed:[/] {exc}")
+            console.print(f"[dim]{path} is still on disk; drag it into Drive to convert it.[/]")
+            raise typer.Exit(1) from exc
+        console.print(f"[green]✓[/] Sheet: [link={url}]{url}[/link]")
 
 
 @app.command()

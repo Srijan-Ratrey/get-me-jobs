@@ -21,7 +21,7 @@ L3  sources.{greenhouse,lever,ashby,workable,freehire,careers_page}
     contacts.{finder,importer}       outreach.drafter
 L2  sources.base   matching.{scorer,llm_scorer}
     contacts.{scraper,patterns,verify}
-L1  http                    db
+L1  http     db             google_auth   shared OAuth for send + sheets
 L0  config                  models
 ```
 
