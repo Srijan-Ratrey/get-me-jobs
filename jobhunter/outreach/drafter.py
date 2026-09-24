@@ -31,6 +31,10 @@ log = logging.getLogger(__name__)
 # Y" sentence names something real rather than gesturing.
 MIN_SPECIFIC_SKILLS = 2
 
+# The applicant's side of the same bar. A draft with no outcomes in it falls
+# back to asserting competence, which is what every other application does.
+MIN_ACHIEVEMENTS = 1
+
 # How many skills to name in the body. Listing twelve reads like keyword
 # stuffing and signals a script louder than saying nothing would.
 MAX_SKILLS_NAMED = 3
@@ -210,12 +214,71 @@ def _location_phrase(job) -> str:
     return f" in {city}"
 
 
-def _signature(applicant: Applicant) -> str:
-    lines = [applicant.name.strip(), applicant.email.strip()]
-    if applicant.phone.strip():
-        lines.append(applicant.phone.strip())
-    lines.extend(link.strip() for link in applicant.links if link.strip())
-    return "\n".join(line for line in lines if line)
+def _signature(applicant: Applicant, *, omit: str = "") -> str:
+    """Name, then one line of contact details separated by middots.
+
+    The email address is not repeated here: it is already the From header, and
+    a signature block four lines deep reads like a letterhead. `omit` drops a
+    link the body already named, so the portfolio URL appears once. If nothing
+    is left to show, the address goes back in rather than leaving no reply path.
+    """
+    bits = [applicant.phone.strip(), *(link.strip() for link in applicant.links)]
+    bits = [_bare_url(b) for b in bits if b]
+    if omit:
+        bits = [b for b in bits if b != omit]
+    if not bits:
+        bits = [applicant.email.strip()]
+    contact = " · ".join(b for b in bits if b)
+    return f"{applicant.name.strip()}\n{contact}" if contact else applicant.name.strip()
+
+
+def _bare_url(value: str) -> str:
+    """`https://github.com/x/` -> `github.com/x`. Schemes are noise to a reader."""
+    return re.sub(r"^https?://(www\.)?", "", value).rstrip("/")
+
+
+# Gmail and Outlook both cut the subject around here. Past it the headline --
+# the evidence that earns the open -- is what disappears, so the role title
+# gives up its qualifier first.
+SUBJECT_MAX = 72
+
+
+def _subject_title(title: str) -> str:
+    """The role title, shortened only if the full one would not survive display.
+
+    "Data Scientist - Online Ads / Bidding Marketplaces" becomes "Data
+    Scientist". The qualifier is dropped rather than the headline because a
+    recruiter already knows which roles they posted; what they cannot see from
+    the inbox list is whether this one is worth opening.
+    """
+    lead = re.split(r"\s+[-–—]\s+|\s*[(\[]", title, maxsplit=1)[0].strip(" ,-–—")
+    return lead or title
+
+
+def _portfolio(applicant: Applicant) -> str:
+    """The link most worth naming in the body, if there is one.
+
+    GitHub first: for this kind of role it is the one link a reader might
+    actually open. Everything else stays in the signature.
+    """
+    for link in applicant.links:
+        if "github.com" in link.lower():
+            return _bare_url(link.strip())
+    return ""
+
+
+def _background(applicant: Applicant) -> str:
+    """Degree, base and availability as one sentence, skipping whatever is unset."""
+    where = applicant.location.strip()
+    when = applicant.availability.strip()
+    parts = [p for p in (applicant.education.strip(),) if p]
+    if where and when:
+        parts.append(f"Based in {where}, {when}")
+    elif where:
+        parts.append(f"Based in {where}")
+    elif when:
+        parts.append(when[0].upper() + when[1:])
+    return ". ".join(parts) + "." if parts else ""
 
 
 def draft_for(job: Job, contact: Contact, company: Company, profile: Profile) -> Draft | Refusal:
@@ -234,26 +297,56 @@ def draft_for(job: Job, contact: Contact, company: Company, profile: Profile) ->
             f"need {MIN_SPECIFIC_SKILLS} to write something specific"
         )
 
+    if len(applicant.achievements) < MIN_ACHIEVEMENTS:
+        # Same principle as the skills floor above, pointed at our own side of
+        # the message: an application with no outcomes in it is an assertion,
+        # and sending one is worse than sending nothing.
+        return Refusal(
+            "applicant profile lists no achievements; a message with no evidence "
+            "in it is not worth sending"
+        )
+
     named = [_present(s) for s in _worth_naming(skills)]
     title = (job.title or "").strip()
     employer = (company.name or "").strip()
     where = _location_phrase(job)
 
-    subject = f"Application: {title} — {applicant.name.strip()}"
+    headline = applicant.headline.strip()
+    if headline:
+        subject = f"{title} — {headline}"
+        if len(subject) > SUBJECT_MAX:
+            subject = f"{_subject_title(title)} — {headline}"
+    else:
+        subject = f"Application: {title} — {applicant.name.strip()}"
 
-    body = f"""Hi {_greeting(contact)},
+    # Evidence first, because that is what gets read. The opening names this
+    # posting specifically so the message cannot be a merge field, the middle
+    # is outcomes with numbers, and the ask is a question -- "are you the right
+    # person, or who is?" is far easier to answer than "please consider me",
+    # and earns a forward even when the answer is no.
+    evidence = "\n\n".join(a.strip() for a in applicant.achievements if a.strip())
+    background = _background(applicant)
+    portfolio = _portfolio(applicant)
+    resume_line = (
+        f"Resume attached, and my work is at {portfolio}." if portfolio else "Resume attached."
+    )
 
-I'd like to apply for the {title} role at {employer}{where}.
-
-The posting asks for {_humanise(named)}. That is the work I have been doing, and the detail is in the CV attached.
-
-The posting I am referring to: {job.url}
-
-If you would rather I did not follow up, reply and say so and I will not.
-
-Best,
-{_signature(applicant)}
-"""
+    paragraphs = [
+        f"Hi {_greeting(contact)},",
+        f"I came across the {title} opening at {employer}{where}, and I'd like to be "
+        f"considered for it. Your posting asks for {_humanise(named)}, which is what "
+        f"I have been doing.",
+        "Quick version of what I've done:",
+        evidence,
+        background,
+        resume_line,
+        "Would you be the right person to speak to about this, or could you point me "
+        "to whoever is?",
+        f"The posting I am referring to: {job.url}",
+        "If you would rather I did not follow up, reply and say so and I will not.",
+        f"Thanks for your time,\n{_signature(applicant, omit=portfolio)}",
+    ]
+    body = "\n\n".join(p for p in paragraphs if p) + "\n"
 
     problem = preflight(subject, body)
     if problem:

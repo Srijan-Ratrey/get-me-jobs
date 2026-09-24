@@ -54,6 +54,15 @@ def profile(resume) -> Profile:
             phone="+91 00000 00000",
             resume_path=str(resume),
             links=["https://github.com/ada"],
+            achievements=[
+                "At Babbage I built the difference engine's scheduler and cut run time by 40%.",
+                "At Analytical I shipped the first loop construct, taking "
+                "throughput from 12 to 31 operations a second.",
+            ],
+            education="Mathematics, London",
+            location="London",
+            availability="available immediately",
+            headline="scheduling and throughput, 40% faster at Babbage",
         ),
     )
 
@@ -166,7 +175,8 @@ def test_a_draft_names_what_this_posting_actually_asked_for(session, profile):
     # compliance.md requires an opt-out and honest identification.
     assert "follow up" in result.body.lower()
     assert "Ada Lovelace" in result.body
-    assert "ada@example.com" in result.body
+    # The address itself is the From header build_message sets, not body text.
+    assert "+91 00000 00000" in result.body
 
 
 def test_two_companies_do_not_get_the_same_body(session, profile):
@@ -203,7 +213,7 @@ def test_the_body_reads_like_a_person_wrote_it(session, profile):
     )
 
     assert isinstance(result, Draft)
-    assert "in Bengaluru." in result.body, "location was not cleaned up"
+    assert "in Bengaluru," in result.body, "location was not cleaned up"
     assert "bengaluru, in" not in result.body
     assert "LLM" in result.body and "llm and" not in result.body
     assert "LoRA" in result.body
@@ -218,7 +228,7 @@ def test_a_multi_office_location_names_one_city(session, profile):
     result = draft_for(job, make_contact(session, "Google", "hr@google.test"), job.company, profile)
 
     assert isinstance(result, Draft)
-    assert "in Bengaluru." in result.body
+    assert "in Bengaluru," in result.body
     assert "Telangana" not in result.body, "dumped the whole location list into a sentence"
 
 
@@ -690,3 +700,83 @@ def test_requisition_noise_is_stripped_from_named_roles(session, profile):
     assert isinstance(result, Draft)
     assert "Data Engineer" in result.body
     assert "R4633" not in result.body
+
+
+# --------------------------------------------------------------------------- #
+# The evidence-led template
+# --------------------------------------------------------------------------- #
+
+
+def test_a_draft_carries_the_applicant_s_own_numbers(session, profile):
+    """Recruiters screen on outcomes. Asserting competence is what everyone does."""
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert "cut run time by 40%" in result.body
+    assert "12 to 31 operations a second" in result.body
+    assert "Mathematics, London" in result.body
+    assert "Based in London, available immediately." in result.body
+
+
+def test_a_profile_with_no_achievements_is_refused(session, profile):
+    """An application with no evidence in it is worse than not sending one."""
+    profile.applicant.achievements = []
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Refusal)
+    assert "achievements" in result.reason
+
+
+def test_the_ask_is_a_question_not_a_plea(session, profile):
+    """ "Who should I talk to?" earns a forward; "please consider me" does not."""
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert "point me to whoever is?" in result.body
+
+
+def test_the_subject_drops_the_role_qualifier_before_the_headline(session, profile):
+    """Past ~72 chars the inbox truncates, and the evidence is what earns the open."""
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    job.title = "Data Scientist - Online Ads / Bidding Marketplaces"
+    session.flush()
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert result.subject == "Data Scientist — scheduling and throughput, 40% faster at Babbage"
+    assert len(result.subject) <= 72
+
+
+def test_a_short_title_keeps_its_full_form(session, profile):
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    job.title = "Data Scientist"
+    session.flush()
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert result.subject.startswith("Data Scientist — ")
+
+
+def test_the_portfolio_link_is_named_once(session, profile):
+    """Body and signature both listing GitHub reads like a template seam."""
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert result.body.count("github.com/ada") == 1
+    assert "my work is at github.com/ada" in result.body
+    # Schemes are noise in a signature.
+    assert "https://" not in result.body.split("Thanks for your time,")[1]
+
+
+def test_an_applicant_with_no_phone_or_links_still_leaves_a_reply_path(session, profile):
+    profile.applicant.phone = ""
+    profile.applicant.links = []
+    job = make_job(session, "Acme", description="PyTorch, RAG and NLP work.")
+    result = draft_for(job, make_contact(session, "Acme", "hr@acme.test"), job.company, profile)
+
+    assert isinstance(result, Draft)
+    assert "ada@example.com" in result.body
