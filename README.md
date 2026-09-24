@@ -208,13 +208,21 @@ than a spam operation:
 
 1. Fill in the `applicant:` block in `profile.yaml` — name, email, and a readable `resume_path`.
    The sender refuses to run without them.
-2. `uv sync --extra email`
-3. Create an OAuth client (Desktop app) in Google Cloud with the Gmail API enabled, download it
-   as `credentials.json` into the repo root. Scope requested is `gmail.send` only — this cannot
+2. Pick a transport. Setting an app password is what selects SMTP; leave it unset for OAuth.
+
+   **App password (simpler).** With 2-Step Verification on, create one under your Google
+   account's security settings and put it in `.env` as `APP_PASSWORD=...` (spaces are fine,
+   they get stripped). Nothing else to install. Note the cost: an app password is not
+   scopeable, and the same credential opens IMAP — unlike the OAuth token below, it can read
+   your mailbox. Keep `.env` gitignored, and check your Workspace admin allows app passwords.
+
+   **OAuth (better contained).** `uv sync --extra email`, then create an OAuth client
+   (Desktop app) in Google Cloud with the Gmail API enabled and download it as
+   `credentials.json` into the repo root. Scope requested is `gmail.send` only — this cannot
    read your mail. `credentials.json` and `token.json` are both gitignored.
-4. `uv run jobhunter outreach preview` and **read what it would say**.
-5. `uv run jobhunter outreach run --limit 2 --confirm-first-run`. Point the first two at your own
+3. `uv run jobhunter outreach preview` and **read what it would say**.
+4. `uv run jobhunter outreach run --limit 2 --confirm-first-run`. Point the first two at your own
    address by importing yourself as a contact; confirm the attachment arrives and the opt-out
    line is there.
-6. Schedule it: see `com.jobhunter.outreach.plist` for the launchd agent, which handles a laptop
+5. Schedule it: see `com.jobhunter.outreach.plist` for the launchd agent, which handles a laptop
    that was asleep at the appointed minute in a way cron does not.

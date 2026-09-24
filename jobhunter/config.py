@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,13 +74,28 @@ class Settings(BaseSettings):
     send_failure_circuit_breaker: int = 3
 
     # Gmail OAuth. Both are gitignored; token.json alone is enough to send mail
-    # as you. Scope is send-only — this must never be able to read the mailbox.
+    # as you. Scope is send-only — this token cannot read the mailbox. The app
+    # password below is the other option, and does not have that property.
     gmail_credentials_path: Path = Path("credentials.json")
     gmail_token_path: Path = Path("token.json")
 
     # `export --to-sheets` reuses the OAuth client above, but keeps its own
     # token: its scope is drive.file, which sees only what this tool uploaded.
     sheets_token_path: Path = Path("sheets-token.json")
+
+    # Gmail over SMTP, as an alternative to the OAuth client above: setting an
+    # app password is what selects it, so there is no third knob to disagree
+    # with. Not equivalent, and the difference is not in your favour — an app
+    # password also opens IMAP, so it can read the mailbox where the
+    # `gmail.send` scope cannot. Keep .env gitignored. See outreach/sender.py.
+    gmail_app_password: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "JOBHUNTER_GMAIL_APP_PASSWORD", "JOBHUNTER_APP_PASSWORD", "APP_PASSWORD"
+        ),
+    )
+    gmail_smtp_host: str = "smtp.gmail.com"
+    gmail_smtp_port: int = 465
 
 
 class Target(BaseModel):
