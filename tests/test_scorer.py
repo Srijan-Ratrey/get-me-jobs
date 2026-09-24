@@ -185,10 +185,68 @@ def test_exclude_keywords_may_be_multi_word_phrases():
         ("no numbers here", None),
         ("", None),
         (None, None),
+        # An age requirement is not an experience requirement. Across 20k open
+        # postings these are the two biggest spikes in the whole distribution:
+        # 1,124 matches at 18 and 312 at 21, every one of them spurious.
+        ("You must be at least 18 years of age", None),
+        ("Must be 21 years or older", None),
+        ("18 years old or above", None),
+        ("Must be 18 years of age. 3+ years of experience.", 3),
+        # Past 20 the figure is the company's history, not the reader's.
+        ("Building on more than 30 years of investing experience", None),
+        ("10+ years of experience", 10),
     ],
 )
 def test_min_years_required(text, expected):
     assert min_years_required(text) == expected
+
+
+# --------------------------------------------------------------------------- #
+# A lower band gated behind a postgraduate degree is a different candidate's
+# route, not a cheaper version of this one.
+# --------------------------------------------------------------------------- #
+
+G2_QUALIFICATIONS = (
+    "4-6 years of experience with a bachelor's degree in a quantitative field "
+    "(math, data science, economics, etc.) or a master's degree or PhD with "
+    "2-4 years of relevant experience."
+)
+
+
+def test_a_masters_gated_band_does_not_set_the_floor():
+    """The posting that made this a bug: it scored 90 for a bachelor's holder."""
+    assert min_years_required(G2_QUALIFICATIONS) == 4
+
+
+def test_the_gated_band_is_used_when_it_is_the_only_one():
+    """ "Master's preferred. 3+ years." is one requirement with a note attached.
+
+    Setting every figure aside here would leave the gate blind rather than
+    lenient, which is the worse of the two failures.
+    """
+    assert min_years_required("Master's degree preferred. 3+ years experience.") == 3
+    assert min_years_required("Masters/PhD in a quantitative discipline w/ 1 year") == 1
+
+
+def test_company_history_does_not_outrank_a_gated_requirement():
+    """Point72: 'more than 30 years' is the firm's age, and 1 year is the ask."""
+    text = (
+        "Building on more than 30 years of investing experience. "
+        "Masters/PhD in a quantitative discipline w/ 1 year of experience."
+    )
+    assert min_years_required(text) == 1
+
+
+def test_a_qualifier_after_the_figure_does_not_gate_it():
+    """Looking forward would find 'master' for both figures and discard the lot."""
+    assert min_years_required("5 years with a bachelor's, or a master's with 2 years") == 5
+
+
+def test_the_years_gate_rejects_a_posting_only_open_to_postgraduates():
+    job = make_job(title="Data Scientist", description=G2_QUALIFICATIONS)
+    score = score_job(job, JUNIOR)
+    assert score.total == 0
+    assert score.disqualified == "years_required:4"
 
 
 def test_years_gate_uses_the_smallest_figure_mentioned():

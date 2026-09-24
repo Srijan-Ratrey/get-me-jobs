@@ -82,6 +82,23 @@ _YEARS = re.compile(
     r"(\d{1,2})\s*(?:\+|\s*(?:[-–—]|to)\s*\d{1,2})?\s*(?:\+\s*)?(?:years?|yrs?|yoe)\b",
     re.IGNORECASE,
 )
+# Degrees that gate a lower experience band. Spelled out rather than matching
+# bare "MS"/"MA", which collide with ordinary words and requisition codes.
+_POSTGRAD = re.compile(
+    r"\b(master'?s?|m\.?\s?tech|m\.?\s?sc|ph\.?\s?d|doctoral|doctorate)\b",
+    re.IGNORECASE,
+)
+
+# "must be 18 years of age" is not an experience requirement. Across 20k open
+# postings this accounts for 1,124 matches at 18 and 312 at 21 -- by far the
+# two biggest spikes in the distribution, and every one of them spurious.
+_AGE_NOT_EXPERIENCE = re.compile(r"^\s*(of age|or older|or above|old\b)", re.IGNORECASE)
+
+# Above this, a figure is company history rather than anything asked of the
+# reader: "building on more than 30 years of investing experience". No real
+# posting asks for more, and the measured tail past 20 is 478 matches of
+# exactly that kind.
+MAX_PLAUSIBLE_YEARS = 20
 _REMOTE_HINT = ("remote", "work from home", "wfh", "anywhere", "distributed")
 
 
@@ -240,20 +257,64 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     return not leftover
 
 
+def _clause_before(description: str, start: int, window: int = 140) -> str:
+    """The text leading up to a match, back to the start of its own clause.
+
+    Only backwards: a figure is qualified by what precedes it. Looking forward
+    from "4-6 years of experience with a bachelor's degree ... or a master's
+    degree or PhD with 2-4 years" would find "master" for *both* figures and
+    discard the requirement entirely.
+    """
+    chunk = description[max(0, start - window) : start]
+    for separator in ("•", ";", ". ", "\n"):
+        index = chunk.rfind(separator)
+        if index != -1:
+            chunk = chunk[index + len(separator) :]
+    return chunk
+
+
 def min_years_required(description: str | None) -> int | None:
-    """The smallest experience requirement stated anywhere in a description.
+    """The smallest experience requirement a reader could actually qualify under.
 
     Deliberately the minimum, not the maximum. Postings routinely bundle several
     roles' requirements into one body, or mention a senior band further down, so
     taking the largest number would reject perfectly open junior roles. If even
     the smallest stated figure is out of range, the posting really is not junior.
+
+    But the minimum is only a real floor if its conditions are reachable. G2's
+    Data Scientist asks for "4-6 years with a bachelor's degree ... or a
+    master's degree or PhD with 2-4 years", and reading that as a 2-year role
+    scored it 90 for an applicant holding a bachelor's, who is actually looking
+    at the 4-6 band. A lower band gated behind a postgraduate degree is a
+    different candidate's route, not a cheaper version of this one.
+
+    So degree-gated figures are set aside *when an ungated one exists*. Where
+    every figure is gated there is no alternative branch to choose between --
+    "Master's preferred. 3+ years." is one requirement with a note attached --
+    and they are all used, which keeps the disqualifier from silently going
+    blind on those postings.
+
+    This assumes the reader does not hold a postgraduate degree. That is the
+    conservative direction for a checker whose failure mode is false positives,
+    and the fix if it is ever wrong is a profile flag, not a rewrite.
     """
     if not description:
         return None
-    found = [int(m.group(1)) for m in _YEARS.finditer(description)]
-    # 0 is not a constraint ("0-2 years" reads as open to freshers).
-    found = [y for y in found if 0 < y <= 40]
-    return min(found) if found else None
+
+    ungated: list[int] = []
+    gated: list[int] = []
+    for match in _YEARS.finditer(description):
+        years = int(match.group(1))
+        # 0 is not a constraint ("0-2 years" reads as open to freshers).
+        if not 0 < years <= MAX_PLAUSIBLE_YEARS:
+            continue
+        if _AGE_NOT_EXPERIENCE.match(description[match.end() :]):
+            continue
+        bucket = gated if _POSTGRAD.search(_clause_before(description, match.start())) else ungated
+        bucket.append(years)
+
+    pool = ungated or gated
+    return min(pool) if pool else None
 
 
 def score_job(job: Job, profile: Profile) -> Score:
