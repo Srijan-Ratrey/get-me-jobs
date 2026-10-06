@@ -208,7 +208,7 @@ def send_batch(
         return report
 
     threshold = profile.min_score if min_score is None else min_score
-    batch = policy.candidates(s, min_score=threshold, limit=budget)
+    batch = policy.candidates(s, min_score=threshold, limit=budget, locations=profile.locations)
 
     # Real openings fill the budget first; speculative takes only what is left.
     # That is what "one shared budget" has to mean in practice -- a speculative

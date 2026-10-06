@@ -15,6 +15,7 @@ and indistinguishable from spam to everyone else.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -22,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import settings
+from ..matching.scorer import matches_location
 from ..models import Company, Contact, Job, Outreach, Suppression, hash_email, utcnow
 
 log = logging.getLogger(__name__)
@@ -114,13 +116,40 @@ def _last_sent_to_email(s: Session, email: str):
     )
 
 
-def _last_sent_to_company(s: Session, company_id: int):
-    return s.scalar(
-        select(func.max(Outreach.sent_at))
+# Words that vary between spellings of one employer's name. Stripping too much
+# only merges two companies into one cooldown, which errs toward sending less.
+_COMPANY_NOISE = re.compile(
+    r"\b(technologies|technology|tech|inc|llc|ltd|limited|pvt|private|corp|corporation"
+    r"|solutions|software|services|group|india|careers?|co|the)\b"
+    r"|[\s_-]+\d+$"  # "Brillio 2", "weekday-1": a board's disambiguating suffix
+)
+
+
+def company_key(name: str) -> str:
+    """One key per employer, however the ATS or catalogue spelled it.
+
+    The database holds 57 such pairs among outreach candidates alone -- "Zensar"
+    and "Zensar Technologies", "JPMorganChase" and "JP Morgan Chase", "Brillio"
+    and "Brillio 2" -- and a cooldown keyed on the company row lets each
+    spelling through separately.
+    """
+    lowered = name.lower()
+    return re.sub(r"[^a-z0-9]", "", _COMPANY_NOISE.sub("", lowered)) or lowered
+
+
+def _last_sent_to_company(s: Session, company: Company):
+    """When any company row with this employer's key was last mailed."""
+    since = utcnow() - timedelta(days=settings.company_cooldown_days)
+    key = company_key(company.name)
+    rows = s.execute(
+        select(Company.name, func.max(Outreach.sent_at))
         .select_from(Outreach)
         .join(Job, Job.id == Outreach.job_id)
-        .where(Job.company_id == company_id, Outreach.status == "sent")
-    )
+        .join(Company, Company.id == Job.company_id)
+        .where(Outreach.status == "sent", Outreach.sent_at >= since)
+        .group_by(Company.id)
+    ).all()
+    return max((sent for name, sent in rows if company_key(name) == key), default=None)
 
 
 def may_send(s: Session, candidate: Candidate) -> Decision:
@@ -155,7 +184,7 @@ def may_send(s: Session, candidate: Candidate) -> Decision:
                 False, f"{contact.email} mailed {age.days}d ago; {days}d of cooldown left"
             )
 
-    last_company = _last_sent_to_company(s, company.id)
+    last_company = _last_sent_to_company(s, company)
     if last_company is not None:
         age = utcnow() - last_company
         if age < timedelta(days=settings.company_cooldown_days):
@@ -183,12 +212,17 @@ def best_contact(s: Session, company_id: int) -> Contact | None:
     ).first()
 
 
-def candidates(s: Session, *, min_score: int, limit: int) -> list[Candidate]:
+def candidates(s: Session, *, min_score: int, limit: int, locations: list[str]) -> list[Candidate]:
     """Open, in-budget jobs worth mailing about, best-scoring first.
 
     Returns at most `limit`, and only one per company: a run that mails a
     company about its three open roles is the behaviour the cooldowns exist to
     prevent, and filtering here means the caller never has to know that.
+
+    `locations` is required, not optional: location is only 10 of 100 score
+    points, so 36% of jobs above the default threshold are in places the
+    applicant cannot work -- London, Singapore, San Francisco -- and a ranking
+    alone would mail them once the reachable companies are in cooldown.
     """
     rows = s.execute(
         select(Job, Company)
@@ -198,12 +232,14 @@ def candidates(s: Session, *, min_score: int, limit: int) -> list[Candidate]:
     ).all()
 
     out: list[Candidate] = []
-    seen_companies: set[int] = set()
+    seen_companies: set[str] = set()
     seen_emails: set[str] = set()
     for job, company in rows:
         if len(out) >= limit:
             break
-        if company.id in seen_companies:
+        if company_key(company.name) in seen_companies:
+            continue
+        if not matches_location(job.location, bool(job.remote), locations):
             continue
         contact = best_contact(s, company.id)
         if contact is None:
@@ -216,7 +252,7 @@ def candidates(s: Session, *, min_score: int, limit: int) -> list[Candidate]:
         if not decision:
             log.debug("skipping %s: %s", company.name, decision.reason)
             continue
-        seen_companies.add(company.id)
+        seen_companies.add(company_key(company.name))
         seen_emails.add(contact.email)
         out.append(candidate)
     return out

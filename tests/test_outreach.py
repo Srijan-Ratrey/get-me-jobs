@@ -380,6 +380,29 @@ def test_only_one_job_per_company_per_run(session, profile, monkeypatch):
     assert report.sent == 1
 
 
+def test_two_spellings_of_one_employer_share_a_company_cooldown(session, profile, monkeypatch):
+    """Different inboxes, so the address cooldown cannot catch this one."""
+    monkeypatch.setattr(settings, "daily_send_cap", 10)
+    make_job(session, "Zensar", title="ML Engineer", description="PyTorch and RAG.")
+    make_job(session, "Zensar Technologies", title="Data Scientist", description="PyTorch and NLP.")
+    make_contact(session, "Zensar", "careers@zensar.com")
+    make_contact(session, "Zensar Technologies", "talent@zensar.com")
+
+    report = send_batch(session, profile=profile, transport=FakeTransport(), pause=False)
+    assert report.sent == 1, "one employer was mailed twice under two spellings"
+
+
+def test_jobs_outside_the_profile_locations_are_never_candidates(session, profile):
+    far = make_job(session, "Acme", description="PyTorch and RAG.", score=95)
+    far.location = "San Francisco, CA"
+    make_contact(session, "Acme", "careers@acme.com")
+    make_job(session, "Beta", description="PyTorch and RAG.", score=60)  # in Bengaluru
+    make_contact(session, "Beta", "careers@beta.com")
+
+    batch = policy.candidates(session, min_score=55, limit=10, locations=["Bengaluru", "India"])
+    assert [c.company.name for c in batch] == ["Beta"]
+
+
 # --------------------------------------------------------------------------- #
 # Suppression, closure, and erasure
 # --------------------------------------------------------------------------- #
