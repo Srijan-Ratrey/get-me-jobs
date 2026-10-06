@@ -384,7 +384,9 @@ def scan(
             progress.update(task, description=f"scanning [cyan]{name}[/]")
             progress.advance(task)
 
-        result = asyncio.run(pipeline.run_scan(targets, dry_run=dry_run, on_progress=tick))
+        result = asyncio.run(
+            pipeline.run_scan(targets, dry_run=dry_run, sweep_unseen=not sources, on_progress=tick)
+        )
 
     if run_id is not None:
         with db.session_scope() as session:

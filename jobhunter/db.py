@@ -179,6 +179,30 @@ def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int
     return len(stale)
 
 
+def close_unseen_jobs(s: Session, runs_back: int = 2) -> int:
+    """Close open jobs that no scan has seen since the Nth most recent finished run.
+
+    ``close_stale_jobs`` only runs after a successful fetch, so a board that
+    starts 404ing (company moved ATS) keeps its jobs open forever — and they go
+    on feeding the shortlist and the sender. Counting runs rather than days
+    keeps this independent of how often scans happen. Only call it from a scan
+    that covered every target, or a filtered scan will close the rest.
+    """
+    cutoff = s.scalar(
+        select(Run.started_at)
+        .where(Run.finished_at.is_not(None))
+        .order_by(Run.started_at.desc())
+        .offset(runs_back - 1)
+        .limit(1)
+    )
+    if cutoff is None:
+        return 0
+    stale = s.scalars(select(Job).where(Job.closed_at.is_(None), Job.last_seen < cutoff)).all()
+    for job in stale:
+        job.closed_at = utcnow()
+    return len(stale)
+
+
 def is_suppressed(s: Session, email: str) -> bool:
     """Has this address asked to be forgotten? Matched on hash, never plaintext."""
     return (

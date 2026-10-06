@@ -99,6 +99,31 @@ def test_close_stale_jobs_with_empty_set_closes_everything(session):
     assert db.close_stale_jobs(session, company, set()) == 2
 
 
+def test_close_unseen_jobs_closes_only_jobs_missed_by_recent_runs(session):
+    from datetime import timedelta
+
+    from jobhunter.models import Run, utcnow
+
+    company = db.upsert_company(session, Target(name="Acme"))
+    gone, _ = db.upsert_job(session, company, raw("Data Scientist"))
+    kept, _ = db.upsert_job(session, company, raw("ML Engineer"))
+    now = utcnow()
+    gone.last_seen = now - timedelta(days=20)  # board 404ing since
+    kept.last_seen = now
+
+    # One finished run is not enough history to judge by.
+    session.add(Run(started_at=now - timedelta(days=4), finished_at=now - timedelta(days=4)))
+    session.flush()
+    assert db.close_unseen_jobs(session) == 0
+
+    session.add(Run(started_at=now - timedelta(days=2), finished_at=now - timedelta(days=2)))
+    session.add(Run(started_at=now - timedelta(days=1)))  # unfinished: ignored
+    session.flush()
+    assert db.close_unseen_jobs(session) == 1
+    assert gone.closed_at is not None
+    assert kept.closed_at is None
+
+
 def test_close_stale_jobs_is_scoped_to_one_company(session):
     acme = db.upsert_company(session, Target(name="Acme"))
     globex = db.upsert_company(session, Target(name="Globex"))
