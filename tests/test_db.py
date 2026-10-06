@@ -302,6 +302,30 @@ def test_resolve_since_last_scan_uses_the_latest_run(session):
     assert cutoff == run.started_at.replace(tzinfo=None)
 
 
+def test_a_contacts_run_is_not_the_last_scan(session):
+    from jobhunter.pipeline import resolve_since
+
+    scan = db.start_run(session)
+    db.start_run(session, kind="contacts")
+    session.commit()
+
+    assert resolve_since("last-scan") == scan.started_at.replace(tzinfo=None)
+
+
+def test_persistent_failures_needs_the_same_target_failing_every_run(session):
+    def finished_scan(*failed: str, kind: str = "scan") -> None:
+        run = db.start_run(session, kind=kind)
+        db.finish_run(session, run, errors=[{"company": name} for name in failed])
+
+    finished_scan("Postman", "Flaky")
+    finished_scan("Postman")
+    assert db.persistent_failures(session) == [], "two runs is not enough history"
+
+    finished_scan("Postman", "Flaky")
+    finished_scan(kind="contacts")  # not a scan: must not break the streak
+    assert db.persistent_failures(session) == ["Postman"]
+
+
 def test_resolve_since_rejects_nonsense(session):
     from jobhunter.pipeline import resolve_since
 

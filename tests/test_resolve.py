@@ -530,3 +530,40 @@ def test_aggregator_hosts_are_not_company_domains():
     """A Wellfound profile is not the employer's site."""
     assert domain_from_url("https://wellfound.com/company/clarisights/jobs") is None
     assert domain_from_url("https://cashfree.hire.trakstar.com/") is None
+
+
+@respx.mock
+async def test_probe_never_takes_a_catalogue_search_for_a_board(
+    tmp_path, allow_robots, fixture_text
+):
+    """FreeHire answers any company name with results; that is not a board."""
+    from jobhunter.config import Target
+
+    for origin in (
+        "https://acme.com",
+        "https://boards-api.greenhouse.io",
+        "https://api.lever.co",
+        "https://api.ashbyhq.com",
+        "https://apply.workable.com",
+        "https://freehire.me",
+    ):
+        allow_robots(origin)
+    respx.get("https://acme.com/careers").respond(404)
+    respx.route(
+        host__in=(
+            "boards-api.greenhouse.io",
+            "api.lever.co",
+            "api.ashbyhq.com",
+            "apply.workable.com",
+        )
+    ).respond(404)
+    respx.get(url__startswith="https://freehire.me").respond(
+        200, text=fixture_text("freehire.json")
+    )
+
+    result = await run_resolve(
+        [Target(name="Acme", domain="acme.com", careers_url="https://acme.com/careers")],
+        companies_path=tmp_path / "companies.yaml",
+        dry_run=True,
+    )
+    assert result.resolved == []

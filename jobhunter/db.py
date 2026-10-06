@@ -56,6 +56,7 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("outreach", "error", "TEXT"),
     ("outreach", "gmail_message_id", "VARCHAR(255)"),
     ("outreach", "kind", "VARCHAR(20) DEFAULT 'application'"),
+    ("runs", "kind", "VARCHAR(20) DEFAULT 'scan'"),
 )
 
 # Constraints declared on the model bind only to tables `create_all` creates. An
@@ -190,7 +191,7 @@ def close_unseen_jobs(s: Session, runs_back: int = 2) -> int:
     """
     cutoff = s.scalar(
         select(Run.started_at)
-        .where(Run.finished_at.is_not(None))
+        .where(Run.kind == "scan", Run.finished_at.is_not(None))
         .order_by(Run.started_at.desc())
         .offset(runs_back - 1)
         .limit(1)
@@ -201,6 +202,25 @@ def close_unseen_jobs(s: Session, runs_back: int = 2) -> int:
     for job in stale:
         job.closed_at = utcnow()
     return len(stale)
+
+
+def persistent_failures(s: Session, runs: int = 3) -> list[str]:
+    """Targets that failed in every one of the last `runs` finished scans.
+
+    One failure is noise; the same 404 on consecutive scans is a board that has
+    moved, and run 15's check found three of ten had simply migrated ATS. Without
+    this they burn a request each run and are never looked at.
+    """
+    recent = s.scalars(
+        select(Run.errors)
+        .where(Run.kind == "scan", Run.finished_at.is_not(None))
+        .order_by(Run.started_at.desc())
+        .limit(runs)
+    ).all()
+    if len(recent) < runs:
+        return []
+    failing = [{e.get("company") for e in errors or []} for errors in recent]
+    return sorted(set.intersection(*failing) - {None})
 
 
 def is_suppressed(s: Session, email: str) -> bool:
@@ -297,8 +317,8 @@ def upsert_contact(
     return contact
 
 
-def start_run(s: Session) -> Run:
-    run = Run(started_at=utcnow())
+def start_run(s: Session, kind: str = "scan") -> Run:
+    run = Run(kind=kind, started_at=utcnow())
     s.add(run)
     s.flush()
     return run

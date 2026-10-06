@@ -51,7 +51,12 @@ def resolve_since(value: str | None) -> datetime | None:
         from sqlalchemy import select
 
         with db.session_scope() as session:
-            return session.scalar(select(Run.started_at).order_by(Run.started_at.desc()).limit(1))
+            return session.scalar(
+                select(Run.started_at)
+                .where(Run.kind == "scan")
+                .order_by(Run.started_at.desc())
+                .limit(1)
+            )
 
     if match := _DURATION.fullmatch(raw):
         count, unit = int(match.group(1)), match.group(2)
@@ -157,6 +162,10 @@ async def probe_ats_slugs(client: PoliteClient, target: Target) -> tuple[str, st
 
     for slug in candidate_slugs(target):
         for ats, adapter in BY_NAME.items():
+            if getattr(adapter, "is_catalogue", False):
+                # A keyword search, not a board: any company name "finds" jobs
+                # there, so a hit would record a search as the company's ATS.
+                continue
             probe = target.model_copy(update={"ats": ats, "ats_token": slug})
             try:
                 jobs = await adapter.fetch(client, probe)
