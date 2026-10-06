@@ -26,6 +26,7 @@ A FreeHire target is a saved search rather than a company:
 
 from __future__ import annotations
 
+import html
 import logging
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
@@ -180,7 +181,7 @@ def _to_raw(row: dict) -> RawJob | None:
         # An affiliate redirect, not a posting the candidate can apply through.
         return None
     url = _clean_url(row.get("url"))
-    title = normalize_text(row.get("title"))
+    title = normalize_text(html.unescape(row.get("title") or ""))
     if not url or not title:
         return None
 
@@ -192,7 +193,7 @@ def _to_raw(row: dict) -> RawJob | None:
         source=f"freehire:{source}" if source else "freehire",
         external_id=row.get("external_id") or row.get("public_slug"),
         title=title,
-        company_name=normalize_text(row.get("company")),
+        company_name=normalize_text(html.unescape(row.get("company") or "")),
         location=normalize_text(row.get("location")) or _join(row.get("cities")),
         description=html_to_text(row.get("description")),
         url=url,

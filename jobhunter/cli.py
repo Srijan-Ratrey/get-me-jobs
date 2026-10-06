@@ -879,7 +879,9 @@ def preview(
     db.init_db()
     with db.session_scope() as session:
         threshold = profile.min_score if min_score is None else min_score
-        batch = policy.candidates(session, min_score=threshold, limit=limit)
+        batch = policy.candidates(
+            session, min_score=threshold, limit=limit, locations=profile.locations
+        )
         if speculative and len(batch) < limit:
             batch = batch + policy.speculative_candidates(
                 session,
