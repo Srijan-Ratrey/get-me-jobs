@@ -84,8 +84,13 @@ def init(
 
 @app.command()
 def resolve(
-    from_csv: Path = typer.Option(
-        ..., "--from", help="CSV of companies. Needs a name column and a careers-URL column."
+    from_csv: Path | None = typer.Option(
+        None, "--from", help="CSV of companies. Needs a name column and a careers-URL column."
+    ),
+    stale: bool = typer.Option(
+        False,
+        "--stale",
+        help="Re-check tracked companies whose board failed the last 3 scans. Reports only.",
     ),
     companies: Path = typer.Option(
         COMPANIES_YAML, "--companies", help="Targets YAML to append to."
@@ -98,31 +103,47 @@ def resolve(
     ),
 ) -> None:
     """Fingerprint companies' careers pages to discover their ATS and board token."""
-    if not from_csv.exists():
-        console.print(f"[red]{from_csv} not found.[/]")
-        raise typer.Exit(1)
+    if stale:
+        # Tracked targets: re-fingerprinting finds where a dead board moved to,
+        # but rewriting entries in a hand-curated YAML is left to the user, so
+        # this mode never writes.
+        _require(companies, "it lists the companies to re-check")
+        db.init_db()
+        with db.session_scope() as session:
+            failing = set(db.persistent_failures(session))
+        todo = [t for t in load_targets(companies) if t.name in failing]
+        dry_run = True
+        console.print(f"Re-checking [bold]{len(todo)}[/] boards that failed the last 3 scans")
+        if not todo:
+            return
+    else:
+        if from_csv is None or not from_csv.exists():
+            console.print(f"[red]{from_csv or '--from or --stale'} not found.[/]")
+            raise typer.Exit(1)
 
-    try:
-        candidates, skipped = load_company_csv(from_csv)
-    except ValueError as exc:
-        console.print(f"[red]{exc}[/]")
-        raise typer.Exit(1) from exc
+        try:
+            candidates, skipped = load_company_csv(from_csv)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(1) from exc
 
-    for reason in skipped:
-        console.print(f"[yellow]skipped[/] {reason}")
+        for reason in skipped:
+            console.print(f"[yellow]skipped[/] {reason}")
 
-    already = (
-        {t.name.strip().lower() for t in load_targets(companies)} if companies.exists() else set()
-    )
-    todo = [t for t in candidates if t.name.strip().lower() not in already]
-    console.print(
-        f"{len(candidates)} in {from_csv.name} · [dim]{len(candidates) - len(todo)} already "
-        f"tracked[/] · resolving [bold]{len(todo)}[/]"
-        + (" [yellow](dry run)[/]" if dry_run else "")
-    )
-    if not todo:
-        console.print("[green]Nothing new to resolve.[/]")
-        return
+        already = (
+            {t.name.strip().lower() for t in load_targets(companies)}
+            if companies.exists()
+            else set()
+        )
+        todo = [t for t in candidates if t.name.strip().lower() not in already]
+        console.print(
+            f"{len(candidates)} in {from_csv.name} · [dim]{len(candidates) - len(todo)} already "
+            f"tracked[/] · resolving [bold]{len(todo)}[/]"
+            + (" [yellow](dry run)[/]" if dry_run else "")
+        )
+        if not todo:
+            console.print("[green]Nothing new to resolve.[/]")
+            return
 
     with Progress(
         SpinnerColumn(),
@@ -146,6 +167,25 @@ def resolve(
                 on_progress=tick,
             )
         )
+
+    if stale:
+        table = Table(title="Stale boards", header_style="bold")
+        table.add_column("Company")
+        table.add_column("Was")
+        table.add_column("Now")
+        for o in sorted(result.resolved + result.misses, key=lambda o: o.target.name):
+            was = f"{o.target.ats}/{o.target.ats_token}"
+            now = f"{o.ats}/{o.token}" if o.bucket == "resolved" else f"[dim]{o.detail}[/]"
+            if now == was:
+                # Name-keyed errors: a same-named sibling entry is the one failing.
+                now = "[dim]answers now; check for a duplicate entry[/]"
+            table.add_row(o.target.name, was, now)
+        console.print(table)
+        console.print(
+            "[dim]Update moved boards in companies.yaml by hand; remove the ones with "
+            "no new home.[/]"
+        )
+        return
 
     if result.resolved:
         table = Table(title="Resolved", header_style="bold")
@@ -415,6 +455,14 @@ def scan(
     )
     if result.errors:
         console.print("[dim]Failures are recorded in runs.errors and did not stop the scan.[/]")
+    if run_id is not None:
+        with db.session_scope() as session:
+            failing = db.persistent_failures(session)
+        if failing:
+            console.print(
+                f"[yellow]{len(failing)} boards failed the last 3 scans:[/] {', '.join(failing)}"
+                "\n[dim]Find where they moved: [bold]jobhunter resolve --stale[/][/]"
+            )
     console.print("\nNext: [bold]jobhunter score[/]")
 
 
@@ -556,6 +604,13 @@ def contacts(
             "and never issue DATA. Set a real smtp_helo_host you control."
         )
 
+    # Recorded like a scan, so the database can say whether discovery ever ran
+    # and what it found -- without this a run leaves no trace at all.
+    run_id: int | None = None
+    if not dry_run:
+        with db.session_scope() as session:
+            run_id = db.start_run(session, kind="contacts").id
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -574,6 +629,15 @@ def contacts(
                 targets, dry_run=dry_run, verify_emails=verify or None, on_progress=tick
             )
         )
+
+    if run_id is not None:
+        with db.session_scope() as session:
+            db.finish_run(
+                session,
+                session.get(Run, run_id),
+                contacts_found=result.contacts_found,
+                errors=result.errors,
+            )
 
     table = Table(title="Contacts", header_style="bold")
     table.add_column("Company")

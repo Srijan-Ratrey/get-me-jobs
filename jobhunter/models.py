@@ -188,6 +188,10 @@ class Run(Base):
     __tablename__ = "runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # "scan" or "contacts". Anything that reasons about scan history -- `--since
+    # last-scan`, closing jobs no scan has seen -- must filter on it, or a
+    # contacts run would read as a scan that found nothing.
+    kind: Mapped[str] = mapped_column(String(20), default="scan")
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     jobs_seen: Mapped[int] = mapped_column(Integer, default=0)
