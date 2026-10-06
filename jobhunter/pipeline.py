@@ -314,60 +314,79 @@ async def run_scan(
     targets: list[Target],
     *,
     dry_run: bool = False,
+    sweep_unseen: bool = False,
     on_progress: Progress = _noop,
 ) -> ScanResult:
-    """Fetch every target and persist what came back."""
+    """Fetch every target and persist what came back.
+
+    ``sweep_unseen`` closes jobs missing from several consecutive scans; pass it
+    only when ``targets`` is the full list (see ``db.close_unseen_jobs``).
+    """
     result = ScanResult()
 
+    async def scan_one(client: PoliteClient, target: Target) -> None:
+        try:
+            raws = await fetch_target(client, target)
+        except (SourceUnavailable, RobotsDisallowed) as exc:
+            # Expected, per-target, recoverable. Record and carry on.
+            log.warning("%s: %s", target.name, exc)
+            result.errors.append(
+                {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
+            )
+            result.per_company[target.name] = {"error": str(exc)}
+            return
+        except Exception as exc:  # one bad adapter must not end the run
+            log.exception("%s: unexpected adapter failure", target.name)
+            result.errors.append(
+                {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
+            )
+            result.per_company[target.name] = {"error": str(exc)}
+            return
+
+        result.jobs_seen += len(raws)
+        if dry_run:
+            result.per_company[target.name] = {"seen": len(raws), "new": 0, "closed": 0}
+            return
+
+        # Synchronous and never awaits, so concurrent fetches cannot interleave
+        # two sessions on the same SQLite file.
+        adapter = resolve(target)
+        with db.session_scope() as session:
+            if getattr(adapter, "is_catalogue", False):
+                new_count, closed = _persist_catalogue(session, target, raws)
+            else:
+                company = db.upsert_company(session, target)
+                seen_hashes: set[str] = set()
+                new_count = 0
+                for raw in raws:
+                    job, is_new = db.upsert_job(session, company, raw)
+                    seen_hashes.add(job.content_hash)
+                    new_count += int(is_new)
+                # Reached only because the fetch above succeeded, which is what
+                # makes closing the absent postings safe.
+                closed = db.close_stale_jobs(session, company, seen_hashes)
+
+        result.jobs_new += new_count
+        result.jobs_closed += closed
+        result.per_company[target.name] = {
+            "seen": len(raws),
+            "new": new_count,
+            "closed": closed,
+        }
+
     async with PoliteClient() as client:
-        for target in targets:
+
+        async def tracked(target: Target) -> None:
+            await scan_one(client, target)
             on_progress(target.name)
-            try:
-                raws = await fetch_target(client, target)
-            except (SourceUnavailable, RobotsDisallowed) as exc:
-                # Expected, per-target, recoverable. Record and carry on.
-                log.warning("%s: %s", target.name, exc)
-                result.errors.append(
-                    {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
-                )
-                result.per_company[target.name] = {"error": str(exc)}
-                continue
-            except Exception as exc:  # one bad adapter must not end the run
-                log.exception("%s: unexpected adapter failure", target.name)
-                result.errors.append(
-                    {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
-                )
-                result.per_company[target.name] = {"error": str(exc)}
-                continue
 
-            result.jobs_seen += len(raws)
-            if dry_run:
-                result.per_company[target.name] = {"seen": len(raws), "new": 0, "closed": 0}
-                continue
+        # Targets span a handful of ATS hosts; PoliteClient's per-host buckets
+        # keep each at its rate limit while the hosts overlap.
+        await asyncio.gather(*(tracked(t) for t in targets))
 
-            adapter = resolve(target)
-            with db.session_scope() as session:
-                if getattr(adapter, "is_catalogue", False):
-                    new_count, closed = _persist_catalogue(session, target, raws)
-                else:
-                    company = db.upsert_company(session, target)
-                    seen_hashes: set[str] = set()
-                    new_count = 0
-                    for raw in raws:
-                        job, is_new = db.upsert_job(session, company, raw)
-                        seen_hashes.add(job.content_hash)
-                        new_count += int(is_new)
-                    # Reached only because the fetch above succeeded, which is what
-                    # makes closing the absent postings safe.
-                    closed = db.close_stale_jobs(session, company, seen_hashes)
-
-            result.jobs_new += new_count
-            result.jobs_closed += closed
-            result.per_company[target.name] = {
-                "seen": len(raws),
-                "new": new_count,
-                "closed": closed,
-            }
+    if sweep_unseen and not dry_run:
+        with db.session_scope() as session:
+            result.jobs_closed += db.close_unseen_jobs(session)
 
     return result
 
