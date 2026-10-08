@@ -191,6 +191,20 @@ def test_append_skips_names_already_present(tmp_path):
     assert "WRONG" not in path.read_text()
 
 
+def test_append_works_on_a_file_that_already_repeats_a_name(tmp_path):
+    """A hand-edited file can list one name twice; that must not block appends."""
+    from jobhunter.config import Target
+
+    path = tmp_path / "companies.yaml"
+    path.write_text(
+        "companies:\n"
+        "  - name: Arcadia\n    ats: lever\n    ats_token: arcadia\n"
+        "  - name: Arcadia\n    ats: greenhouse\n    ats_token: arcadiacareers\n"
+    )
+    assert append_targets(path, [Target(name="Bolna", ats="ashby", ats_token="bolna")]) == 1
+    assert [t.name for t in load_targets(path)] == ["Arcadia", "Arcadia", "Bolna"]
+
+
 def test_append_quotes_scalars_that_need_it(tmp_path):
     path = tmp_path / "companies.yaml"
     path.write_text("companies:\n  - name: Existing\n")
