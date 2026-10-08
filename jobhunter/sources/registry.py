@@ -73,7 +73,7 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
     except httpx.HTTPError as exc:
         raise SourceUnavailable(f"{target.name}: careers page fetch failed: {exc}") from exc
 
-    if detected := fingerprint(html):
+    if detected := fingerprint(html) or fingerprint(target.careers_url):
         if detected.supported and detected.token:
             # Always better than scraping: hand off to the real API.
             log.info(

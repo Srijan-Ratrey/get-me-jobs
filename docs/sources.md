@@ -352,6 +352,31 @@ and only refetch details for jobs that are new.
 
 ---
 
+## Dover — NOT USABLE, robots.txt disallows it
+
+> **Do not build this adapter.** Checked 2026-10-07: `app.dover.com/robots.txt` reads
+>
+> ```
+> User-agent: *
+> Disallow: /api/
+> ```
+>
+> and `/api/` is where every piece of posting data lives. The careers pages themselves
+> (`/jobs/{company}`, `/apply/{company}/{uuid}`) are allowed but are an empty React shell — the
+> served HTML says "You need to enable JavaScript" and nothing else. A headless browser does not
+> get round this: rendering the page fetches the same disallowed `/api/` URLs, which makes it the
+> same request with more steps.
+>
+> The sitemaps (`/feed/careers_sitemap`, `/feed/jobs_sitemap`) *are* crawlable — 2,943 boards and
+> 9,505 posting URLs at the time of checking — but each entry is a URL and a `lastmod`, with no
+> title, location or description. Nothing the scorer could rank.
+>
+> The compliant route already exists: FreeHire indexes Dover itself, and its postings arrive as
+> `source = "freehire:dover"`. `careers_page.fingerprint` recognises Dover links so `resolve`
+> reports "uses dover, no adapter" instead of "no fingerprint".
+
+---
+
 ## Generic careers page crawler
 
 The fallback when a company isn't on a supported ATS, and the way you discover which ATS they
@@ -373,6 +398,7 @@ extracted from the URL — always better than scraping.
 | `*.teamtailor.com` | teamtailor | subdomain |
 | `*.bamboohr.com/careers` | bamboohr | subdomain |
 | `*.myworkdayjobs.com` | workday | *not supported — log and skip* |
+| `app.dover.com/jobs/…`, `app.dover.com/apply/…` | dover | first path segment — *not usable, see below* |
 | `*.darwinbox.in`, `*.darwinbox.com` | darwinbox | subdomain — *see below* |
 | `*.keka.com`, `*.freshteam.com`, `*.zohorecruit.com` | keka / freshteam / zoho_recruit | subdomain — no adapter |
 

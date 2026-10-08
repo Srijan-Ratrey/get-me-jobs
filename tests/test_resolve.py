@@ -567,3 +567,22 @@ async def test_probe_never_takes_a_catalogue_search_for_a_board(
         dry_run=True,
     )
     assert result.resolved == []
+
+
+@respx.mock
+async def test_a_careers_url_on_an_ats_host_is_fingerprinted_from_the_url(tmp_path, allow_robots):
+    """Dover serves a JS shell that never names its own host; the URL does."""
+    from jobhunter.config import Target
+
+    allow_robots("https://app.dover.com")
+    respx.get("https://app.dover.com/jobs/sarvify").respond(
+        200, text="<html><div id='root'></div>You need to enable JavaScript</html>"
+    )
+
+    result = await run_resolve(
+        [Target(name="Sarvify", careers_url="https://app.dover.com/jobs/sarvify")],
+        companies_path=tmp_path / "companies.yaml",
+        dry_run=True,
+        probe_slugs=False,
+    )
+    assert [(o.target.name, o.ats) for o in result.unsupported] == [("Sarvify", "dover")]

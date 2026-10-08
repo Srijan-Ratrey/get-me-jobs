@@ -65,6 +65,8 @@ _MARKERS: list[tuple[str, str, bool]] = [
     ("teamtailor.com", "teamtailor", False),
     ("bamboohr.com", "bamboohr", False),
     ("myworkdayjobs.com", "workday", False),
+    # robots.txt disallows the /api/ its pages load from; see docs/sources.md.
+    ("app.dover.com", "dover", False),
     # Common in India, no adapter yet - these are the Phase 2 backlog.
     ("keka.com", "keka", False),
     ("darwinbox.in", "darwinbox", False),
@@ -88,6 +90,7 @@ _TOKEN_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"apply\.workable\.com/([\w-]+)"),
         re.compile(r"([\w-]+)\.workable\.com"),
     ),
+    "dover": (re.compile(r"app\.dover\.com/(?:jobs|apply)/([\w-]+)"),),
 }
 
 # Never a board token: either an ATS vendor's own subdomain or a page on their
