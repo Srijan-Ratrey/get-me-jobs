@@ -358,6 +358,7 @@ async def test_workable_falls_back_to_v3_on_404(polite_client, allow_robots):
         ('<a href="https://acme.darwinbox.in/ms/candidate">', "darwinbox", None, False),
         ('<a href="https://acme.keka.com/careers">', "keka", None, False),
         ('<a href="https://jobs.smartrecruiters.com/Acme">', "smartrecruiters", None, False),
+        ('<a href="https://app.dover.com/apply/sarvify/e61e">', "dover", "sarvify", False),
     ],
 )
 def test_fingerprint_detects_ats(html, ats, token, supported):

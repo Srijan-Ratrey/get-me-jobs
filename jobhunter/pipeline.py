@@ -212,7 +212,9 @@ async def run_resolve(
             log.exception("%s: unexpected failure fetching careers page", target.name)
             return ResolveOutcome(target, "unreachable", detail=type(exc).__name__)
 
-        detected = fingerprint(html)
+        # The URL is evidence too: a careers URL that *is* an ATS page, such as a
+        # Dover board, can serve a JS shell that never names its own host.
+        detected = fingerprint(html) or fingerprint(target.careers_url)
         if detected is None:
             return ResolveOutcome(
                 target, "no_fingerprint", detail="no ATS marker in the HTML (likely JS-rendered)"
