@@ -353,7 +353,11 @@ def append_targets(path: str | Path, targets: list[Target], *, note: str = "") -
     """
     target_path = Path(path)
     original = target_path.read_text(encoding="utf-8") if target_path.exists() else ""
-    existing = {t.name.strip().lower() for t in load_targets(target_path)} if original else set()
+    # Counted as entries, not names: a hand-edited file can hold the same name
+    # twice, and comparing unique names against entries after the append would
+    # reject every write to it.
+    before = load_targets(target_path) if original else []
+    existing = {t.name.strip().lower() for t in before}
     fresh = [t for t in targets if t.name.strip().lower() not in existing]
     if not fresh:
         return 0
@@ -386,10 +390,10 @@ def append_targets(path: str | Path, targets: list[Target], *, note: str = "") -
     except Exception as exc:  # restore the file before re-raising
         target_path.write_text(original, encoding="utf-8")
         raise ValueError(f"{path}: append produced invalid YAML, file restored ({exc})") from exc
-    if len(written) != len(existing) + len(fresh):
+    if len(written) != len(before) + len(fresh):
         target_path.write_text(original, encoding="utf-8")
         raise ValueError(
-            f"{path}: expected {len(existing) + len(fresh)} companies after append, "
+            f"{path}: expected {len(before) + len(fresh)} companies after append, "
             f"found {len(written)}; file restored"
         )
     return len(fresh)
