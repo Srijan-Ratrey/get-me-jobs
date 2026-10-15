@@ -311,14 +311,58 @@ def _persist_catalogue(session, target: Target, raws: list) -> tuple[int, int]:
     these same employers.
     """
     companies: dict[str, object] = {}
+    hosts: dict[str, tuple[str, str | None]] = {}
     new_count = 0
     for raw in raws:
         name = (raw.company_name or "").strip() or target.name
+        domain = None
+        if _HOST_AS_NAME.fullmatch(name):
+            host = name.split("/", 1)[0].lower()
+            if host not in hosts:
+                hosts[host] = _employer_behind_host(session, host)
+            name, domain = hosts[host]
         if name not in companies:
-            companies[name] = db.upsert_company(session, Target(name=name))
+            companies[name] = db.upsert_company(session, Target(name=name, domain=domain))
         _, is_new = db.upsert_job(session, companies[name], raw)
         new_count += int(is_new)
     return new_count, 0
+
+
+# FreeHire sometimes gives an ATS tenant as the employer: "jpmc.fa.oraclecloud.com/CX",
+# "auxoai.zohorecruit.com", "careers.fpsinc.com". A path, or two dots, is a host;
+# "Rezo.ai" and "U.S. Bank" are names.
+_HOST_AS_NAME = re.compile(r"[\w-]+(?:\.[\w-]+){2,}(?:/\S*)?|[\w-]+\.[\w-]+/\S*")
+
+
+def _employer_behind_host(session, host: str) -> tuple[str, str | None]:
+    """A readable employer name, and domain if known, for a tenant host.
+
+    Filed under the raw host, these postings could get no contact, and one
+    employer split into several ("…oraclecloud.com/CX" and "…/CX_3002" are both
+    Zensar), each with its own cooldown.
+    """
+    from sqlalchemy import select
+
+    from .config import domain_from_url
+    from .contacts.finder import registrable_domain
+
+    # The same tenant is often named properly on another posting.
+    known = session.scalar(
+        select(Company.name)
+        .join(Job, Job.company_id == Company.id)
+        .where(Job.url.like(f"https://{host}/%"), Company.name.not_like("%.%.%"))
+        .where(Company.name.not_like("%/%"))
+        .limit(1)
+    )
+    if known:
+        return known, None
+    if domain_from_url(f"https://{host}") is not None:
+        # The employer's own host: careers.fpsinc.com is FPS Inc's site.
+        domain = registrable_domain(host)
+        return domain.split(".")[0], domain
+    if "oraclecloud.com" in host:
+        return host, None  # an opaque pod code; at least drop the /CX path
+    return host.split(".")[0], None  # tenant subdomain: auxoai.zohorecruit.com
 
 
 async def run_scan(

@@ -243,6 +243,8 @@ ATS_HOSTS = (
     "darwinbox.in",
     "darwinbox.com",
     "zohorecruit.com",
+    "zohorecruit.in",
+    "oraclecloud.com",
     "freshteam.com",
     "icims.com",
     "successfactors.com",

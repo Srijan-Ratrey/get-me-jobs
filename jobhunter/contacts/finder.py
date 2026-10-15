@@ -58,7 +58,7 @@ _HOST_IN_TEXT = re.compile(r"(?:https?://|www\.|@)([a-z0-9][a-z0-9.-]*\.[a-z]{2,
 _SECOND_LEVEL = frozenset({"co", "com", "org", "net", "ac", "gov", "edu"})
 
 
-def _registrable(host: str) -> str:
+def registrable_domain(host: str) -> str:
     parts = host.lower().strip(".").split(".")
     keep = 3 if len(parts) >= 3 and parts[-2] in _SECOND_LEVEL else 2
     return ".".join(parts[-keep:])
@@ -82,7 +82,7 @@ def infer_domain(name: str, urls: list[str], texts: list[str]) -> str | None:
     for host in hosts:
         if domain_from_url(f"https://{host}") is None:
             continue  # an ATS host, never the employer
-        domain = _registrable(host)
+        domain = registrable_domain(host)
         label = re.sub(r"[^a-z0-9]", "", domain.split(".")[0])
         if len(label) >= 3 and (label in key or key in label):
             votes[domain] += 1
