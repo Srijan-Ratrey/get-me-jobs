@@ -412,3 +412,48 @@ def test_a_row_with_no_company_name_falls_back_to_the_search_name(tmp_path):
         )
     with db.session_scope() as session:
         assert session.query(Company).filter(Company.name == "FreeHire (India ML)").count() == 1
+
+
+def test_a_tenant_host_given_as_the_employer_is_resolved_to_a_name(tmp_path):
+    """FreeHire sometimes returns "fa-etvl-...oraclecloud.com/CX_3002" as the company."""
+    from jobhunter import db
+    from jobhunter.models import Company, Job, RawJob
+    from jobhunter.pipeline import _persist_catalogue
+
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'h.db'}")
+    tenant = "fa-etvl-saasfaprod1.fa.ocs.oraclecloud.com"
+
+    def raw(company: str, url: str, n: int) -> RawJob:
+        return RawJob(
+            source="freehire:x",
+            external_id=str(n),
+            title=f"Data Scientist {n}",
+            company_name=company,
+            location="Bengaluru",
+            url=url,
+        )
+
+    with db.session_scope() as session:
+        # The same tenant, named properly on an earlier posting.
+        _persist_catalogue(session, target(), [raw("Zensar", f"https://{tenant}/job/1", 1)])
+        _persist_catalogue(
+            session,
+            target(),
+            [
+                raw(f"{tenant}/CX_3002", f"https://{tenant}/job/2", 2),
+                raw(f"{tenant}/CX", f"https://{tenant}/job/3", 3),
+                raw("auxoai.zohorecruit.com", "https://auxoai.zohorecruit.com/jobs/4", 4),
+                raw("careers.fpsinc.com", "https://careers.fpsinc.com/jobs/5", 5),
+                raw("ebxr.fa.us2.oraclecloud.com/CX", "https://ebxr.fa.us2.oraclecloud.com/j/6", 6),
+                raw("Rezo.ai", "https://rezo.ai/jobs/7", 7),
+            ],
+        )
+    with db.session_scope() as session:
+        by_job = {
+            j.external_id: session.get(Company, j.company_id) for j in session.query(Job).all()
+        }
+        assert {by_job[n].name for n in ("1", "2", "3")} == {"Zensar"}
+        assert by_job["4"].name == "auxoai"
+        assert (by_job["5"].name, by_job["5"].domain) == ("fpsinc", "fpsinc.com")
+        assert by_job["6"].name == "ebxr.fa.us2.oraclecloud.com"  # opaque pod, path dropped
+        assert by_job["7"].name == "Rezo.ai"
