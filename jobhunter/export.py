@@ -90,7 +90,9 @@ def collect_rows(
         for job, company in session.execute(query).all():
             # Applied in Python, not SQL: matching "bengaluru" against "Bangalore"
             # needs the alias table, which a LIKE cannot express.
-            if location and not matches_location(job.location, job.remote, location):
+            if location and not matches_location(
+                job.location, job.remote, location, job.description
+            ):
                 continue
             if company.id not in contacts:
                 contacts[company.id] = _best_contact(session, company.id)

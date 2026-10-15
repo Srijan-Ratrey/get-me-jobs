@@ -240,7 +240,7 @@ def candidates(s: Session, *, min_score: int, limit: int, locations: list[str]) 
             break
         if company_key(company.name) in seen_companies:
             continue
-        if not matches_location(job.location, bool(job.remote), locations):
+        if not matches_location(job.location, bool(job.remote), locations, job.description):
             continue
         contact = best_contact(s, company.id)
         if contact is None:

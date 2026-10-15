@@ -645,7 +645,11 @@ def list_jobs(
         rows = session.execute(query).all()
 
     if location:
-        rows = [(j, c) for j, c in rows if matches_location(j.location, j.remote, list(location))]
+        rows = [
+            (j, c)
+            for j, c in rows
+            if matches_location(j.location, j.remote, list(location), j.description)
+        ]
     rows = rows[:limit]
 
     if not rows:

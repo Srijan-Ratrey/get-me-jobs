@@ -209,7 +209,53 @@ _LOCATION_FILLER = frozenset(
 )
 
 
-def matches_location(location: str | None, remote: bool, wanted: list[str]) -> bool:
+# Somewhere a remote role can be tied to. A bare "US" must be upper case, so
+# "contact us only" never reads as a country.
+_ELSEWHERE = (
+    r"(?:the\s+)?(?:continental\s+)?(?:(?-i:US|U\.S\.?|USA)\b|united\s+states|canada|(?-i:UK)\b"
+    r"|united\s+kingdom|europe|(?-i:EU|EEA)\b|germany|france|spain|netherlands|poland|ireland"
+    r"|portugal|australia|brazil|mexico|latam|latin\s+america|philippines|singapore|japan"
+    r"|israel|argentina|colombia|south\s+africa|nigeria|kenya|pakistan|vietnam|indonesia"
+    r"|emea|north\s+america|americas)"
+)
+# Phrasings measured on the shortlist's region-less remote roles: "U.S. citizenship
+# required", "Remote (U.S", "based anywhere in the US", "authorized to work in the
+# U.S.", "Eligible to work in Germany", "The role is based in Spain".
+_RESTRICTED_ELSEWHERE = re.compile(
+    r"(?:must|should|need\s+to|required\s+to)\s+(?:be\s+)?(?:physically\s+)?"
+    r"(?:located|based|resid\w*|living|live)\s+(?:in|within)\s+"
+    + _ELSEWHERE
+    + r"|(?:authori[sz]ed|eligible|legally\s+(?:authori[sz]ed|able))\s+to\s+work\s+(?:in|within|for)\s+"
+    + _ELSEWHERE
+    + r"|(?-i:US|U\.S\.|USA)[\s-]+(?:only|based\s+only|citizens?(?:hip)?|based\s+(?:positions?|roles?|candidates))"
+    + r"|remote\s*(?:\(|-|–|,)?\s*(?:within|in)?\s*"
+    + _ELSEWHERE
+    + r"|anywhere\s+in\s+"
+    + _ELSEWHERE
+    + r"|(?:role|position|job)\s+is\s+based\s+in\s+"
+    + _ELSEWHERE
+    + r"|open\s+(?:only\s+)?to\s+(?:candidates|applicants|residents)\s+(?:in|of|based\s+in)\s+"
+    + _ELSEWHERE,
+    re.IGNORECASE,
+)
+
+
+def _restricted_elsewhere(description: str | None, places: set[str]) -> bool:
+    """Does the posting tie a region-less remote role to somewhere not wanted?
+
+    "Remote within the US or India" names a wanted place right after the
+    restriction, so a mention of one in the next few words cancels it.
+    """
+    for match in _RESTRICTED_ELSEWHERE.finditer(description or ""):
+        tail = description[match.end() : match.end() + 40].lower()
+        if not _names_place(tail, places):
+            return True
+    return False
+
+
+def matches_location(
+    location: str | None, remote: bool, wanted: list[str], description: str | None = None
+) -> bool:
     """Can someone in one of the wanted places actually take this job?
 
     Shares LOCATION_ALIASES with scoring so a filter for "bengaluru" also catches
@@ -220,7 +266,9 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     "Remote" is not treated as matching everywhere. "USA | Remote" and
     "Remote - EU" are remote *within a region*, and a candidate in Bengaluru
     cannot take either. A remote posting qualifies only when it names a wanted
-    region, says it is open globally, or names no region at all.
+    region, says it is open globally, or names no region at all -- and, when a
+    `description` is given, the posting does not restrict it elsewhere in prose
+    ("U.S. citizenship required", "based anywhere in the US").
 
     Note that "Remote" appearing in `wanted` is deliberately *not* a place. It
     only expresses willingness to work remotely, so it is stripped before the
@@ -229,14 +277,15 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     if not wanted:
         return True
     text = (location or "").lower()
-    if _names_place(text, _place_aliases(wanted)):
+    places = _place_aliases(wanted)
+    if _names_place(text, places):
         return True
 
     looks_remote = remote or any(hint in text for hint in _REMOTE_HINT)
     if not looks_remote:
         return False
-    if any(hint in text for hint in _GLOBALLY_OPEN):
-        return True
+    # No early return on "anywhere" or "global": "Anywhere in Latin America" is
+    # tied to a region, and the residue test below is what notices.
     # Remote but tied to somewhere else: strip the remote vocabulary and see what
     # place name is left. Anything remaining is a region, and since the aliases
     # already failed to match, it is not a region we want. Length is not a usable
@@ -254,7 +303,7 @@ def matches_location(location: str | None, remote: bool, wanted: list[str]) -> b
     ):
         residue = residue.replace(hint, " ")
     leftover = [w for w in re.findall(r"[a-z]+", residue) if w not in _LOCATION_FILLER]
-    return not leftover
+    return not leftover and not _restricted_elsewhere(description, places)
 
 
 def _clause_before(description: str, start: int, window: int = 140) -> str:
@@ -435,7 +484,7 @@ def score_job(job: Job, profile: Profile) -> Score:
     elif not profile.locations:
         components["location"] = W_LOCATION
         reasons.append("location: no preference set, full credit")
-    elif matches_location(job.location, bool(job.remote), profile.locations):
+    elif matches_location(job.location, bool(job.remote), profile.locations, job.description):
         components["location"] = W_LOCATION
         matched = sorted(p for p in places if _names_place(location, {p}))
         reasons.append(
