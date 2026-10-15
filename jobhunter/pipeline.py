@@ -416,12 +416,19 @@ async def run_contacts(
     *,
     dry_run: bool = False,
     verify_emails: bool | None = None,
+    min_score: int | None = None,
     on_progress: Progress = _noop,
 ) -> ContactsResult:
-    """Resolve a hiring contact for every company that has open jobs."""
+    """Resolve a hiring contact for every company that has open jobs.
+
+    Companies absent from companies.yaml -- every employer the FreeHire catalogue
+    files postings under -- are included too, built from their database row. A
+    missing domain is inferred from the company's own postings when one matches
+    its name, and saved, since Tier 1 can do nothing without it.
+    """
     from sqlalchemy import select
 
-    from .contacts.finder import find_contacts
+    from .contacts.finder import find_contacts, infer_domain
     from .models import Company, Suppression, hash_email
 
     result = ContactsResult()
@@ -430,14 +437,19 @@ async def run_contacts(
     # Only companies with something open: harvesting contacts for a company that
     # is not hiring has no legitimate-interest basis (docs/compliance.md).
     with db.session_scope() as session:
-        rows = session.execute(
-            select(Company.id, Company.name, Company.catch_all, Company.email_pattern)
+        query = (
+            select(
+                Company.id, Company.name, Company.catch_all, Company.email_pattern, Company.domain
+            )
             .join(Job, Job.company_id == Company.id)
             .where(Job.closed_at.is_(None))
             .distinct()
-        ).all()
+        )
+        if min_score is not None:
+            query = query.where(Job.fit_score >= min_score)
         companies = [
-            {"id": r[0], "name": r[1], "catch_all": r[2], "email_pattern": r[3]} for r in rows
+            {"id": r[0], "name": r[1], "catch_all": r[2], "email_pattern": r[3], "domain": r[4]}
+            for r in session.execute(query).all()
         ]
         job_context = {
             c["id"]: session.execute(
@@ -454,70 +466,83 @@ async def run_contacts(
     def suppressed(email: str) -> bool:
         return hash_email(email) in suppressed_hashes
 
+    async def resolve_one(client: PoliteClient, company: dict) -> None:
+        target = by_name.get(company["name"]) or Target(name=company["name"])
+        context = job_context.get(company["id"], [])
+        domain = target.domain or company["domain"]
+        if not domain:
+            domain = infer_domain(
+                company["name"], [url for _, url in context], [d for d, _ in context if d]
+            )
+            if domain and not dry_run:
+                with db.session_scope() as session:
+                    if row := session.get(Company, company["id"]):
+                        row.domain = domain
+        target = target.model_copy(update={"domain": domain})
+        result.companies_checked += 1
+
+        try:
+            found = await find_contacts(
+                client,
+                target,
+                job_texts=[(text, url) for text, url in context if text],
+                known_catch_all=company["catch_all"],
+                known_pattern=company["email_pattern"],
+                verify_emails=verify_emails,
+                is_suppressed=suppressed,
+            )
+        except Exception as exc:  # one company must not end the run
+            log.exception("%s: contact discovery failed", company["name"])
+            result.errors.append(
+                {"company": company["name"], "error": type(exc).__name__, "detail": str(exc)}
+            )
+            return
+
+        surfaced = found.surfaced()
+        if not surfaced:
+            result.companies_without_contact.append(company["name"])
+            result.per_company[company["name"]] = {"found": 0, "notes": found.notes}
+            return
+
+        if not dry_run:
+            with db.session_scope() as session:
+                row = session.get(Company, company["id"])
+                if row is not None:
+                    if found.catch_all is not None:
+                        row.catch_all = found.catch_all
+                    if found.email_pattern:
+                        row.email_pattern = found.email_pattern
+                    for candidate in surfaced:
+                        db.upsert_contact(
+                            session,
+                            row,
+                            email=candidate.email,
+                            kind=candidate.kind,
+                            confidence=candidate.confidence,
+                            discovery_method=candidate.discovery_method,
+                            source_url=candidate.source_url,
+                            first_name=candidate.first_name,
+                            last_name=candidate.last_name,
+                            role_title=candidate.role_title,
+                        )
+        result.contacts_found += len(surfaced)
+        result.per_company[company["name"]] = {
+            "found": len(surfaced),
+            "best": surfaced[0].email,
+            "confidence": surfaced[0].confidence,
+            "method": surfaced[0].discovery_method,
+        }
+
     async with PoliteClient() as client:
-        for company in companies:
-            target = by_name.get(company["name"])
-            if target is None:
-                continue
-            result.companies_checked += 1
+
+        async def tracked(company: dict) -> None:
+            await resolve_one(client, company)
             on_progress(company["name"])
 
-            job_texts = [
-                (description, url)
-                for description, url in job_context.get(company["id"], [])
-                if description
-            ]
-            try:
-                found = await find_contacts(
-                    client,
-                    target,
-                    job_texts=job_texts,
-                    known_catch_all=company["catch_all"],
-                    known_pattern=company["email_pattern"],
-                    verify_emails=verify_emails,
-                    is_suppressed=suppressed,
-                )
-            except Exception as exc:  # one company must not end the run
-                log.exception("%s: contact discovery failed", company["name"])
-                result.errors.append(
-                    {"company": company["name"], "error": type(exc).__name__, "detail": str(exc)}
-                )
-                continue
-
-            surfaced = found.surfaced()
-            if not surfaced:
-                result.companies_without_contact.append(company["name"])
-                result.per_company[company["name"]] = {"found": 0, "notes": found.notes}
-                continue
-
-            if not dry_run:
-                with db.session_scope() as session:
-                    row = session.get(Company, company["id"])
-                    if row is not None:
-                        if found.catch_all is not None:
-                            row.catch_all = found.catch_all
-                        if found.email_pattern:
-                            row.email_pattern = found.email_pattern
-                        for candidate in surfaced:
-                            db.upsert_contact(
-                                session,
-                                row,
-                                email=candidate.email,
-                                kind=candidate.kind,
-                                confidence=candidate.confidence,
-                                discovery_method=candidate.discovery_method,
-                                source_url=candidate.source_url,
-                                first_name=candidate.first_name,
-                                last_name=candidate.last_name,
-                                role_title=candidate.role_title,
-                            )
-            result.contacts_found += len(surfaced)
-            result.per_company[company["name"]] = {
-                "found": len(surfaced),
-                "best": surfaced[0].email,
-                "confidence": surfaced[0].confidence,
-                "method": surfaced[0].discovery_method,
-            }
+        # Each company is its own host, so PoliteClient's per-host buckets keep
+        # every site at its rate limit while different sites overlap. SMTP
+        # probing (opt-in) is synchronous and so still runs one at a time.
+        await asyncio.gather(*(tracked(c) for c in companies))
 
     return result
 

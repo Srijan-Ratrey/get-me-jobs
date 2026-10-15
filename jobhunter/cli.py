@@ -592,6 +592,9 @@ def contacts(
         False, "--verify", help="Enable SMTP verification (off by default; see docs/compliance.md)."
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Resolve but write nothing."),
+    min_score: int | None = typer.Option(
+        None, "--min-score", help="Only companies with an open job scoring at least this."
+    ),
 ) -> None:
     """Resolve a hiring contact for companies with open jobs."""
     _require(companies, "it lists the companies to watch")
@@ -618,7 +621,8 @@ def contacts(
         TextColumn("{task.completed}/{task.total}"),
         console=console,
     ) as progress:
-        task = progress.add_task("resolving", total=len(targets))
+        # The company list comes from the database, so its size is not known here.
+        task = progress.add_task("resolving", total=None)
 
         def tick(name: str) -> None:
             progress.update(task, description=f"resolving [cyan]{name}[/]")
@@ -626,7 +630,11 @@ def contacts(
 
         result = asyncio.run(
             pipeline.run_contacts(
-                targets, dry_run=dry_run, verify_emails=verify or None, on_progress=tick
+                targets,
+                dry_run=dry_run,
+                verify_emails=verify or None,
+                min_score=min_score,
+                on_progress=tick,
             )
         )
 

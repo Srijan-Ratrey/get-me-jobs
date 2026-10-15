@@ -466,3 +466,74 @@ async def test_suppressed_pattern_guesses_are_never_probed(
         )
 
     assert not any(p.startswith("anna") for p in probed), f"probed a suppressed address: {probed}"
+
+
+# --------------------------------------------------------------------------- #
+# Domain inference and catalogue employers
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "name,urls,texts,expected",
+    [
+        ("Cisco", ["https://careers.cisco.com/job/1"], [], "cisco.com"),
+        (
+            "FunnelStory",
+            ["https://jobs.ashbyhq.com/fs/1"],
+            ["See https://funnelstory.ai"],
+            "funnelstory.ai",
+        ),
+        ("Bureau", [], ["Write to careers@bureau.id. Node.js, e.g. React."], "bureau.id"),
+        # Another hiring platform's host is never the employer's domain.
+        ("Zensar", ["https://fa-etvl-saasfaprod1.fa.ocs.oraclecloud.com/x"], [], None),
+        ("Acme", ["https://boards.greenhouse.io/acme/jobs/1"], [], None),
+        ("Acme", [], ["Apply via https://www.naukri.com/acme"], None),
+    ],
+)
+def test_infer_domain_only_accepts_hosts_named_after_the_company(name, urls, texts, expected):
+    from jobhunter.contacts.finder import infer_domain
+
+    assert infer_domain(name, urls, texts) == expected
+
+
+@respx.mock
+async def test_contacts_reach_employers_known_only_from_the_catalogue(
+    tmp_path, monkeypatch, allow_robots
+):
+    """A FreeHire employer has no companies.yaml entry and no domain on file."""
+    from jobhunter import db
+    from jobhunter.config import settings
+    from jobhunter.models import Company, Contact
+    from jobhunter.pipeline import run_contacts
+
+    monkeypatch.setattr(settings, "cache_dir", tmp_path / "cache")
+    monkeypatch.setattr(settings, "requests_per_second", 1000.0)
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
+    from jobhunter.models import RawJob
+
+    with db.session_scope() as s:
+        company = db.upsert_company(s, Target(name="Acme Analytics"))
+        db.upsert_job(
+            s,
+            company,
+            RawJob(
+                source="freehire:greenhouse",
+                external_id="1",
+                title="Data Scientist",
+                url="https://boards.greenhouse.io/acme/jobs/1",
+                description="About us: https://acme.io/about",
+            ),
+        )
+
+    allow_robots("https://acme.io")
+    respx.get("https://acme.io/careers").respond(200, text="<p>Write to careers@acme.io</p>")
+    respx.get(url__startswith="https://acme.io/").respond(404)
+
+    result = await run_contacts([], min_score=None)
+
+    assert result.contacts_found == 1
+    with db.session_scope() as s:
+        assert s.query(Company).filter_by(name="Acme Analytics").one().domain == "acme.io"
+        contact = s.query(Contact).one()
+        assert contact.email == "careers@acme.io"
+        assert contact.source_url == "https://acme.io/careers"

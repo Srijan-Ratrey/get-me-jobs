@@ -15,7 +15,6 @@ and indistinguishable from spam to everyone else.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -24,7 +23,16 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..matching.scorer import matches_location
-from ..models import Company, Contact, Job, Outreach, Suppression, hash_email, utcnow
+from ..models import (
+    Company,
+    Contact,
+    Job,
+    Outreach,
+    Suppression,
+    company_key,
+    hash_email,
+    utcnow,
+)
 
 log = logging.getLogger(__name__)
 
@@ -114,27 +122,6 @@ def _last_sent_to_email(s: Session, email: str):
         .join(Contact, Contact.id == Outreach.contact_id)
         .where(Contact.email == email, Outreach.status == "sent")
     )
-
-
-# Words that vary between spellings of one employer's name. Stripping too much
-# only merges two companies into one cooldown, which errs toward sending less.
-_COMPANY_NOISE = re.compile(
-    r"\b(technologies|technology|tech|inc|llc|ltd|limited|pvt|private|corp|corporation"
-    r"|solutions|software|services|group|india|careers?|co|the)\b"
-    r"|[\s_-]+\d+$"  # "Brillio 2", "weekday-1": a board's disambiguating suffix
-)
-
-
-def company_key(name: str) -> str:
-    """One key per employer, however the ATS or catalogue spelled it.
-
-    The database holds 57 such pairs among outreach candidates alone -- "Zensar"
-    and "Zensar Technologies", "JPMorganChase" and "JP Morgan Chase", "Brillio"
-    and "Brillio 2" -- and a cooldown keyed on the company row lets each
-    spelling through separately.
-    """
-    lowered = name.lower()
-    return re.sub(r"[^a-z0-9]", "", _COMPANY_NOISE.sub("", lowered)) or lowered
 
 
 def _last_sent_to_company(s: Session, company: Company):
