@@ -183,17 +183,31 @@ def may_send(s: Session, candidate: Candidate) -> Decision:
     return Decision(True)
 
 
+# Below this a scraped address is not evidently a hiring inbox. The 0.80 tier and
+# up is careers@/hr@/apply@ or a named person beside a recruiting title; under it
+# sit hello@/contact@ and named people with no hiring context. The first
+# discovery run over the shortlist found `usat_pharmacovigilance@baxter.com` and
+# `shared-poland@topsoe.com` at 0.60 -- fine to show in an export, never to mail
+# an application to.
+MIN_SEND_CONFIDENCE = 0.80
+
+
 def best_contact(s: Session, company_id: int) -> Contact | None:
-    """The address to use for a company.
+    """The address to use for a company, or None if none is fit to mail.
 
     Role addresses win over named individuals — hard rule 5, and the reason is
     not only deliverability: `careers@` is generally not personal data, so
     preferring it is the cheapest possible GDPR minimisation. Confidence breaks
-    the tie within a kind.
+    the tie within a kind. Hand-imported addresses pass whatever their score:
+    choosing one is the research the confidence floor stands in for.
     """
     return s.scalars(
         select(Contact)
-        .where(Contact.company_id == company_id, Contact.suppressed.is_(False))
+        .where(
+            Contact.company_id == company_id,
+            Contact.suppressed.is_(False),
+            (Contact.confidence >= MIN_SEND_CONFIDENCE) | (Contact.discovery_method == "manual"),
+        )
         .order_by((Contact.kind == "role").desc(), Contact.confidence.desc(), Contact.id)
         .limit(1)
     ).first()
