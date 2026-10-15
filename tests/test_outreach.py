@@ -803,3 +803,23 @@ def test_an_applicant_with_no_phone_or_links_still_leaves_a_reply_path(session, 
 
     assert isinstance(result, Draft)
     assert "ada@example.com" in result.body
+
+
+def test_an_address_that_is_not_evidently_for_hiring_is_never_mailed(session, profile):
+    """From the first live discovery run: Baxter's contact page yielded only these."""
+    make_job(session, "Baxter", description="PyTorch and RAG.")
+    for email, kind, confidence in [
+        ("usat_pharmacovigilance@baxter.com", "person", 0.6),
+        ("contact@baxter.com", "role", 0.55),
+    ]:
+        scraped = make_contact(session, "Baxter", email, kind=kind, confidence=confidence)
+        scraped.discovery_method = "scraped:text"
+    session.flush()
+    assert policy.candidates(session, min_score=55, limit=10, locations=[]) == []
+
+    # The same score is fine when the user chose the address by hand.
+    imported = make_contact(session, "Baxter", "priya.hr@baxter.com", kind="person", confidence=0.6)
+    imported.discovery_method = "manual"
+    session.flush()
+    batch = policy.candidates(session, min_score=55, limit=10, locations=[])
+    assert [c.contact.email for c in batch] == ["priya.hr@baxter.com"]
