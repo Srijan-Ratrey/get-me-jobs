@@ -8,11 +8,14 @@ and bounces damage the sending reputation you are trying to spend.
 from __future__ import annotations
 
 import logging
+import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from ..config import Target, settings
+from ..config import Target, domain_from_url, settings
 from ..http import PoliteClient
+from ..models import company_key
 from . import patterns, verify
 from .scraper import Candidate, scrape_company
 
@@ -47,6 +50,43 @@ def _domain_for(target: Target, job_urls: list[str]) -> str | None:
     if target.domain:
         return target.domain.lower().strip().removeprefix("www.")
     return None
+
+
+# A host named in a posting: a link or an address. The prefix is required so that
+# "Node.js" or "e.g." in running text never reads as a domain.
+_HOST_IN_TEXT = re.compile(r"(?:https?://|www\.|@)([a-z0-9][a-z0-9.-]*\.[a-z]{2,})", re.I)
+_SECOND_LEVEL = frozenset({"co", "com", "org", "net", "ac", "gov", "edu"})
+
+
+def _registrable(host: str) -> str:
+    parts = host.lower().strip(".").split(".")
+    keep = 3 if len(parts) >= 3 and parts[-2] in _SECOND_LEVEL else 2
+    return ".".join(parts[-keep:])
+
+
+def infer_domain(name: str, urls: list[str], texts: list[str]) -> str | None:
+    """The company's own domain, if its postings name one that matches its name.
+
+    Taking any host from a job URL would point discovery at an ATS or at another
+    hiring platform -- across the shortlist that meant oraclecloud.com,
+    zohorecruit.in and t.me. Requiring the host's name to match the company's
+    (cisco.com for Cisco, funnelstory.ai for FunnelStory) keeps exactly the
+    domains a person would accept at a glance, and leaves the rest with none.
+    """
+    key = company_key(name)
+    if len(key) < 3:
+        return None
+    hosts = [h for t in texts for h in _HOST_IN_TEXT.findall(t or "")]
+    hosts += [u.split("://", 1)[-1].split("/", 1)[0] for u in urls if u]
+    votes: Counter[str] = Counter()
+    for host in hosts:
+        if domain_from_url(f"https://{host}") is None:
+            continue  # an ATS host, never the employer
+        domain = _registrable(host)
+        label = re.sub(r"[^a-z0-9]", "", domain.split(".")[0])
+        if len(label) >= 3 and (label in key or key in label):
+            votes[domain] += 1
+    return votes.most_common(1)[0][0] if votes else None
 
 
 async def find_contacts(

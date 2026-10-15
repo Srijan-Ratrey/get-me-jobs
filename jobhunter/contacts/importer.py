@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import Target, _normalise_header, _pick_column
-from ..models import Company, Contact, Suppression, hash_email
+from ..models import Company, Contact, Suppression, company_key, hash_email
 from .scraper import rank
 
 log = logging.getLogger(__name__)
@@ -38,89 +38,6 @@ _ROLE_HEADERS = ("role", "title", "roletitle", "designation", "position", "jobti
 _SOURCE_HEADERS = ("sourceurl", "source", "url", "link", "where", "profile", "foundat")
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
-
-# Suffixes stripped when matching a spreadsheet's company name against the
-# database. "Zensar Technologies" in a sheet and "Zensar" in the DB are one
-# employer, and failing to join them creates a second contact row that the
-# per-contact cooldown then has to catch after the fact.
-#
-# Split into two lists because the failure modes are not symmetric. Attaching a
-# contact to the wrong employer means mailing strangers, so over-merging is far
-# worse than under-merging, and the rules are deliberately lopsided.
-
-# Long and unambiguous: safe to strip even when run together with the name, as
-# ATS slugs do ("Citigroup", "Aeratechnology"). Nothing short enough to appear
-# inside an ordinary word belongs here.
-_GLUED_SUFFIXES = (
-    "technologies",
-    "technology",
-    "solutions",
-    "consulting",
-    "international",
-    "corporation",
-    "enterprises",
-    "industries",
-    "holdings",
-    "services",
-    "systems",
-    "limited",
-    "private",
-    "group",
-)
-
-# Short and ambiguous: only ever stripped as a separate word. Stripping these by
-# characters turns "Cisco" into "cis" and "Telecom" into "tele", which is how a
-# join key starts merging unrelated employers.
-_WORD_SUFFIXES = frozenset(
-    {
-        "co",
-        "com",
-        "inc",
-        "llc",
-        "ltd",
-        "plc",
-        "pvt",
-        "corp",
-        "company",
-        "global",
-        "india",
-        "labs",
-        "gmbh",
-        "sa",
-        "ag",
-        "bv",
-        "nv",
-        "oy",
-        "ab",
-    }
-)
-
-_MIN_KEY = 3
-
-
-def company_key(name: str) -> str:
-    """Normalised join key for a company name. Conservative by design.
-
-    Over-merging attaches an HR contact to an employer they do not work for and
-    then mails them about it, so every rule here errs toward leaving two names
-    apart rather than guessing they are one.
-    """
-    tokens = [t for t in re.split(r"[^a-z0-9]+", (name or "").lower()) if t]
-    if not tokens:
-        return ""
-    # Drop trailing corporate words, but never the whole name: a company really
-    # called "Group" or "Co" has to survive as itself.
-    while len(tokens) > 1 and tokens[-1] in _WORD_SUFFIXES:
-        tokens.pop()
-
-    s = "".join(tokens)
-    changed = True
-    while changed and len(s) > _MIN_KEY:
-        changed = False
-        for suffix in _GLUED_SUFFIXES:
-            if s.endswith(suffix) and len(s) - len(suffix) >= _MIN_KEY:
-                s, changed = s[: -len(suffix)], True
-    return s
 
 
 @dataclass
