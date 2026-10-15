@@ -19,7 +19,7 @@ L5  harvest   export   outreach.sender
 L4  sources.registry        outreach.policy
 L3  sources.{greenhouse,lever,ashby,workable,freehire,careers_page}
     contacts.{finder,importer}       outreach.drafter
-L2  sources.base   matching.{scorer,llm_scorer}
+L2  sources.base   matching.scorer
     contacts.{scraper,patterns,verify}
 L1  http     db             google_auth   shared OAuth for send + sheets
 L0  config                  models
@@ -69,7 +69,6 @@ data/*.jsonl ──► harvest ──► candidate ATS tokens          db.upsert
 | `db` | 1 | engine/session, upserts, stale closing, suppression, additive migrations | one engine per process (module global `_engine`) |
 | `sources/base` | 2 | `JobSource` Protocol + HTML/date helpers | yes |
 | `matching/scorer` | 2 | `score_job(job, profile)` → score + reasons | yes — pure function |
-| `matching/llm_scorer` | 2 | optional relevance pass; **provider undecided, parked** | yes |
 | `contacts/scraper` | 2 | Tier 1, published addresses | yes |
 | `contacts/patterns` | 2 | Tier 2, name → candidate addresses | yes |
 | `contacts/verify` | 2 | Tier 3, MX + catch-all + RCPT | yes |
