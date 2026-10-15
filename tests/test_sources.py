@@ -520,3 +520,26 @@ def test_fingerprint_token_extraction_rejects_boilerplate(html, expected_token):
     detected = careers_page.fingerprint(html)
     assert detected is not None
     assert detected.token == expected_token
+
+
+def test_a_navigation_menu_is_never_read_as_a_job_list():
+    """Issue #11: Disney, PayPal and Wipro pages came back as their own menus."""
+    nav = "".join(
+        f'<li><a href="/careers/{slug}">{text}</a></li>'
+        for slug, text in [
+            ("search", "Search Jobs"),
+            ("saved", "Saved Jobs"),
+            ("areas", "View All Career Areas"),
+            ("recruit", "How We Recruit"),
+            ("de", "Deutsch (Deutschland)"),
+        ]
+    )
+    roles = "".join(
+        f'<li><a href="/careers/jobs/{n}">{text}</a></li>'
+        for n, text in enumerate(["Data Scientist", "ML Engineer", "Product Analyst"])
+    )
+    html = f"<nav><ul>{nav}</ul></nav><section><ul>{roles}</ul></section>"
+
+    jobs = careers_page.extract_repeated(html, "https://acme.com/careers")
+    assert [j.title for j in jobs] == ["Data Scientist", "ML Engineer", "Product Analyst"]
+    assert careers_page.extract_repeated(f"<ul>{nav}</ul>", "https://acme.com/careers") == []
