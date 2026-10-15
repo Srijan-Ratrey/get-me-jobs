@@ -46,12 +46,10 @@ def init_db(db_url: str | None = None):
 # This is not a migration framework and should not grow into one. It exists
 # because the alternative — asking someone to delete a database holding
 # thousands of postings and their first-seen dates, which are not recoverable by
-# rescanning — is a genuinely bad trade for two nullable columns. If this list
+# rescanning — is a genuinely bad trade for a few nullable columns. If this list
 # ever needs a data transformation rather than an ALTER, that is the signal to
 # adopt Alembic instead.
 _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
-    ("jobs", "llm_score", "INTEGER"),
-    ("jobs", "llm_verdict", "JSON"),
     ("outreach", "sent_at", "DATETIME"),
     ("outreach", "error", "TEXT"),
     ("outreach", "gmail_message_id", "VARCHAR(255)"),

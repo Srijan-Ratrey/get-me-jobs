@@ -28,7 +28,6 @@ LAYERS: dict[str, int] = {
     "google_auth": 1,
     "sources.base": 2,
     "matching.scorer": 2,
-    "matching.llm_scorer": 2,
     "contacts.scraper": 2,
     "contacts.patterns": 2,
     "contacts.verify": 2,
