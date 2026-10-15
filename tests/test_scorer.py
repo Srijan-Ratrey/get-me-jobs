@@ -18,6 +18,7 @@ from jobhunter.matching.scorer import (
     W_NICE_TO_HAVE,
     W_SENIORITY,
     W_TITLE,
+    matches_location,
     min_years_required,
     score_job,
 )
@@ -608,3 +609,45 @@ def test_a_shipped_profile_still_scores_a_perfect_job_at_one_hundred(filename):
         ),
     )
     assert score_job(job, profile).total == 100
+
+
+# --------------------------------------------------------------------------- #
+# Remote roles tied to a region in prose, not in the location field
+# --------------------------------------------------------------------------- #
+
+WANTED = ["Bengaluru", "India", "Remote"]
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Location Remote (U.S. preferred)",  # Fetch
+        "This position can be based anywhere in the US.",  # OpenSesame
+        "Eligibility: U.S. citizenship required.",  # RapidFort
+        "you are authorized to work in the U.S. after an offer",  # Talkiatry
+        "Eligible to work in Germany.",  # Orcrist
+        "The role is based in Spain. Way of Working: Remote / Hybrid",  # Clarity AI
+        "Remote workforce primarily (U.S. based only)",  # GuidePoint
+        "Paris / Hybrid / Remote (Europe)",  # Twin
+    ],
+)
+def test_a_remote_role_restricted_in_the_description_is_not_reachable(description):
+    assert matches_location("Remote", True, WANTED) is True
+    assert matches_location("Remote", True, WANTED, description) is False
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Fully remote. Remote within the US or India.",  # a wanted place follows
+        "Questions? Email us only after applying.",  # lower-case "us" is not a country
+        "We hire across 30 countries, fully remote.",
+    ],
+)
+def test_an_open_remote_role_is_still_reachable(description):
+    assert matches_location("Remote", True, WANTED, description) is True
+
+
+def test_anywhere_in_a_region_is_tied_to_that_region():
+    assert matches_location("Anywhere in Latin America", True, WANTED) is False
+    assert matches_location("Global (Remote)", True, WANTED) is True
