@@ -34,6 +34,19 @@ MAX_DETAIL_LINKS = 50
 JOB_LINK = re.compile(r"/(jobs?|careers?|positions?|openings?|vacanc\w*)/", re.IGNORECASE)
 JOB_LINK_LOOSE = re.compile(r"job|career|position|opening|vacanc", re.IGNORECASE)
 
+# A posting title names a role; navigation does not. Without this the crawler
+# returned "Search Jobs", "Read More", "How We Recruit" and a language menu as
+# postings from Disney, PayPal and Wipro (issue #11). Only the unstructured tiers
+# need it -- a JSON-LD JobPosting already says what it is.
+ROLE_WORD = re.compile(
+    r"\b(engineer|developer|scientist|analyst|manager|designer|intern|internship|specialist"
+    r"|lead|associate|executive|consultant|architect|officer|director|administrator"
+    r"|coordinator|representative|technician|assistant|head|accountant|writer|editor"
+    r"|recruiter|programmer|researcher|tester|operator|advisor|strategist|trainee|fellow"
+    r"|principal|controller|counsel|nurse|teacher|instructor|agent|sre|devops|qa|vp)s?\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class Fingerprint:
@@ -267,8 +280,9 @@ def extract_repeated(html: str, base_url: str) -> list[RawJob]:
         candidate: list[RawJob] = []
         for anchor in anchors:
             href = (anchor.attributes.get("href") or "").strip()
-            title = (anchor.text(strip=True) or "").strip()
-            if not href or not title or len(title) < 3:
+            # Joined with spaces: cards nest team, city and title in separate tags.
+            title = " ".join((anchor.text(separator=" ", strip=True) or "").split())
+            if not href or not title or not ROLE_WORD.search(title):
                 continue
             absolute = urljoin(base_url, href)
             candidate.append(
@@ -280,7 +294,9 @@ def extract_repeated(html: str, base_url: str) -> list[RawJob]:
                     url=absolute,
                 )
             )
-        if len(candidate) > len(best):
+        # A container that is mostly navigation is a menu, not a job list, even
+        # if a role-like word slips into one of its links.
+        if len(candidate) > len(best) and len(candidate) * 2 >= len(anchors):
             best = candidate
     return best
 
@@ -334,6 +350,8 @@ class CareersPageSource:
     ) -> list[RawJob]:
         """Last resort: fetch each candidate page and parse it individually."""
         jobs: list[RawJob] = []
+        headings: list[RawJob] = []
+        examined = 0
         for link in links:
             try:
                 page = await client.get(link)
@@ -345,9 +363,10 @@ class CareersPageSource:
                 continue
             tree = LexborHTMLParser(page)
             heading = tree.css_first("h1")
-            title = (heading.text(strip=True) if heading else "") or ""
-            if title:
-                jobs.append(
+            title = (heading.text(separator=" ", strip=True) if heading else "") or ""
+            examined += 1
+            if title and ROLE_WORD.search(title):
+                headings.append(
                     RawJob(
                         source=self.name,
                         external_id=urlparse(link).path,
@@ -358,4 +377,9 @@ class CareersPageSource:
                         else None,
                     )
                 )
+        # Fifty crawled pages with one role-like heading ("Our Engineers Save
+        # Lives") is a marketing site, not a job list: keep headings only when
+        # most of the pages looked like postings.
+        if headings and len(headings) * 2 >= examined:
+            jobs.extend(headings)
         return jobs
