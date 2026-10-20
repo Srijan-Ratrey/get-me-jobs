@@ -11,14 +11,6 @@ from jobhunter.config import Target
 from jobhunter.models import Contact, Job, RawJob
 
 
-@pytest.fixture
-def session(tmp_path, monkeypatch):
-    """A throwaway SQLite file per test."""
-    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
-    with db.session_scope() as s:
-        yield s
-
-
 def raw(title: str, location: str = "Bengaluru", **kw) -> RawJob:
     return RawJob(
         source=kw.pop("source", "greenhouse"),

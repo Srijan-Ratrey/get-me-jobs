@@ -79,7 +79,7 @@ def parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(value.strip())  # 3.11+ accepts a trailing "Z"
     except ValueError:
         log.debug("unparseable timestamp %r", value)
         return None
@@ -99,9 +99,4 @@ def parse_epoch_ms(value: int | float | None) -> datetime | None:
 
 def join_locations(*values: str | None) -> str | None:
     """Join distinct location strings, preserving order."""
-    seen: list[str] = []
-    for v in values:
-        v = (v or "").strip()
-        if v and v not in seen:
-            seen.append(v)
-    return " | ".join(seen) or None
+    return " | ".join(dict.fromkeys(v.strip() for v in values if v and v.strip())) or None

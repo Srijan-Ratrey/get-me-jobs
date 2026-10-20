@@ -217,10 +217,7 @@ def _normalise_header(value: str) -> str:
 
 def _pick_column(headers: dict[str, str], candidates: Sequence[str]) -> str | None:
     """First header whose normalised form matches a candidate, in candidate order."""
-    for candidate in candidates:
-        if candidate in headers:
-            return headers[candidate]
-    return None
+    return next((headers[c] for c in candidates if c in headers), None)
 
 
 # Hosts that belong to an ATS vendor rather than to an employer. Deliberately

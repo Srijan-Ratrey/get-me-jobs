@@ -379,11 +379,7 @@ def speculative_candidates(
         # over a wider set let the sentence "those postings ask for X" attribute
         # a skill to a posting that never mentioned it -- untrue, in a message to
         # a real person, about their own adverts.
-        skills: list[str] = []
-        for job in openings:
-            for skill in matched_skills(job, profile):
-                if skill not in skills:
-                    skills.append(skill)
+        skills = list(dict.fromkeys(s for job in openings for s in matched_skills(job, profile)))
         if len(skills) < MIN_SPECIFIC_SKILLS:
             log.debug("company %s: no technical signal in its postings", company_id)
             continue

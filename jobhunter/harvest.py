@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -298,11 +299,8 @@ async def run_harvest(
         else set()
     )
 
-    owns_client = client is None
-    client = client or PoliteClient()
-    if owns_client:
-        await client.__aenter__()
-    try:
+    # A caller's client is used as is; otherwise this run opens and closes its own.
+    async with nullcontext(client) if client else PoliteClient() as client:
 
         async def sweep(ats: str, board_tokens: list[str]) -> None:
             for token in board_tokens[:limit]:
@@ -320,9 +318,6 @@ async def run_harvest(
                     on_progress(probe)
 
         await asyncio.gather(*(sweep(ats, t) for ats, t in tokens.items() if ats in _ENDPOINTS))
-    finally:
-        if owns_client:
-            await client.__aexit__(None, None, None)
 
     hits = [
         p

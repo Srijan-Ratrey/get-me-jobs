@@ -20,7 +20,7 @@ from selectolax.lexbor import LexborHTMLParser
 from ..config import Target
 from ..http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from ..models import RawJob
-from .base import normalize_text, parse_iso
+from .base import html_to_text, normalize_text, parse_iso
 
 log = logging.getLogger(__name__)
 
@@ -233,9 +233,8 @@ def extract_jsonld(html: str, base_url: str) -> list[RawJob]:
                 else urlparse(str(url)).path or str(title),
                 title=str(title).strip(),
                 location=_jsonld_location(item),
-                description=normalize_text(
-                    re.sub(r"<[^>]+>", " ", str(item.get("description") or "")) or None
-                ),
+                # JSON-LD descriptions are often entity-escaped HTML ("&lt;p&gt;").
+                description=html_to_text(item.get("description"), unescape_first=True),
                 url=urljoin(base_url, str(url)),
                 posted_at=parse_iso(item.get("datePosted")),
                 company_name=str(organisation) if organisation else None,

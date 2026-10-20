@@ -56,6 +56,31 @@ def _require(path: Path, what: str) -> None:
 # --------------------------------------------------------------------------- #
 
 
+def _open_run(kind: str, dry_run: bool) -> int | None:
+    """Record a run before it starts, so --since last-scan never hides its jobs."""
+    if dry_run:
+        return None
+    with db.session_scope() as session:
+        return db.start_run(session, kind=kind).id
+
+
+def _close_run(run_id: int | None, **counts) -> None:
+    if run_id is not None:
+        with db.session_scope() as session:
+            db.finish_run(session, session.get(Run, run_id), **counts)
+
+
+def _progress() -> Progress:
+    """The one progress bar every long-running command shows."""
+    return Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        console=console,
+    )
+
+
 @app.command()
 def init(
     force: bool = typer.Option(False, "--force", help="Overwrite existing YAML files."),
@@ -144,13 +169,7 @@ def resolve(
             console.print("[green]Nothing new to resolve.[/]")
             return
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        console=console,
-    ) as progress:
+    with _progress() as progress:
         task = progress.add_task("fingerprinting", total=len(todo))
 
         def tick(name: str) -> None:
@@ -296,13 +315,7 @@ def harvest(
         f"progress resumes from {state}.[/]"
     )
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        console=console,
-    ) as progress:
+    with _progress() as progress:
         task = progress.add_task("probing", total=total)
         matching: list[str] = []
 
@@ -405,18 +418,9 @@ def scan(
     # lands milliseconds after the last job insert, and `--since last-scan` then
     # matches nothing — silently reporting "no new jobs" for a scan that found
     # hundreds.
-    run_id: int | None = None
-    if not dry_run:
-        with db.session_scope() as session:
-            run_id = db.start_run(session).id
+    run_id = _open_run("scan", dry_run)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        console=console,
-    ) as progress:
+    with _progress() as progress:
         task = progress.add_task("scanning", total=len(targets))
 
         def tick(name: str) -> None:
@@ -427,15 +431,7 @@ def scan(
             pipeline.run_scan(targets, dry_run=dry_run, sweep_unseen=not sources, on_progress=tick)
         )
 
-    if run_id is not None:
-        with db.session_scope() as session:
-            db.finish_run(
-                session,
-                session.get(Run, run_id),
-                jobs_seen=result.jobs_seen,
-                jobs_new=result.jobs_new,
-                errors=result.errors,
-            )
+    _close_run(run_id, jobs_seen=result.jobs_seen, jobs_new=result.jobs_new, errors=result.errors)
 
     table = Table(title="Scan results", header_style="bold")
     table.add_column("Company")
@@ -515,18 +511,9 @@ def contacts(
 
     # Recorded like a scan, so the database can say whether discovery ever ran
     # and what it found -- without this a run leaves no trace at all.
-    run_id: int | None = None
-    if not dry_run:
-        with db.session_scope() as session:
-            run_id = db.start_run(session, kind="contacts").id
+    run_id = _open_run("contacts", dry_run)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        console=console,
-    ) as progress:
+    with _progress() as progress:
         # The company list comes from the database, so its size is not known here.
         task = progress.add_task("resolving", total=None)
 
@@ -544,14 +531,7 @@ def contacts(
             )
         )
 
-    if run_id is not None:
-        with db.session_scope() as session:
-            db.finish_run(
-                session,
-                session.get(Run, run_id),
-                contacts_found=result.contacts_found,
-                errors=result.errors,
-            )
+    _close_run(run_id, contacts_found=result.contacts_found, errors=result.errors)
 
     table = Table(title="Contacts", header_style="bold")
     table.add_column("Company")
@@ -1008,7 +988,7 @@ def run(
         if dry_run:
             session.rollback()
 
-    for reason in (report.reasons or [])[:20]:
+    for reason in report.reasons[:20]:
         console.print(f"[dim]·[/] {reason}")
     console.print(
         f"[bold]{report.drafted}[/] drafted · [green]{report.sent}[/] sent · "

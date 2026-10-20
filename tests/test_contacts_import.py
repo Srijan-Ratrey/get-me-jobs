@@ -20,13 +20,6 @@ from jobhunter.contacts.importer import (
 from jobhunter.models import Company, Contact, Suppression, hash_email
 
 
-@pytest.fixture
-def session(tmp_path):
-    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
-    with db.session_scope() as s:
-        yield s
-
-
 def write_csv(tmp_path, text: str):
     path = tmp_path / "hr.csv"
     path.write_text(text)

@@ -416,11 +416,7 @@ def draft_speculative(
         # lawful basis for writing. Refusing here is not caution, it is the rule.
         return Refusal(f"{company.name} has no open postings to write about")
 
-    skills: list[str] = []
-    for job in evidence:
-        for skill in matched_skills(job, profile):
-            if skill not in skills:
-                skills.append(skill)
+    skills = list(dict.fromkeys(s for job in evidence for s in matched_skills(job, profile)))
     if len(skills) < MIN_SPECIFIC_SKILLS:
         return Refusal(
             f"{company.name}'s open postings mention only {len(skills)} profile skill(s); "

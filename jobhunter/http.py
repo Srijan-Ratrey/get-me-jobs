@@ -137,11 +137,11 @@ class PoliteClient:
         if self._cache_ttl <= 0:
             return None
         path = self._cache_path(url)
-        if not path.exists() or time.time() - path.stat().st_mtime > self._cache_ttl:
-            return None
         try:
+            if time.time() - path.stat().st_mtime > self._cache_ttl:
+                return None
             return json.loads(path.read_text())["body"]
-        except (json.JSONDecodeError, KeyError, OSError):
+        except (json.JSONDecodeError, KeyError, OSError):  # missing file is OSError too
             return None
 
     def _cache_write(self, url: str, body: str) -> None:
@@ -234,8 +234,6 @@ class PoliteClient:
         try:
             when = parsedate_to_datetime(raw)
         except (TypeError, ValueError):
-            return None
-        if when is None:
             return None
         if when.tzinfo is None:
             when = when.replace(tzinfo=timezone.utc)

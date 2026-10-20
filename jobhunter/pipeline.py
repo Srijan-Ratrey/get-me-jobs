@@ -8,8 +8,10 @@ never a reason to abandon the other targets.
 from __future__ import annotations
 
 import asyncio
+import bisect
 import logging
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -92,17 +94,11 @@ class ResolveResult:
         return self.unsupported + self.no_fingerprint + self.unreachable
 
     def by_ats(self) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for outcome in self.resolved:
-            counts[outcome.ats or "?"] = counts.get(outcome.ats or "?", 0) + 1
-        return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+        return dict(Counter(o.ats or "?" for o in self.resolved).most_common())
 
     def unsupported_by_ats(self) -> dict[str, int]:
         """Which missing adapter would unlock the most companies."""
-        counts: dict[str, int] = {}
-        for outcome in self.unsupported:
-            counts[outcome.ats or "?"] = counts.get(outcome.ats or "?", 0) + 1
-        return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+        return dict(Counter(o.ats or "?" for o in self.unsupported).most_common())
 
 
 # Subdomain labels that name a function, not a company. `careers.ansys.com` must
@@ -122,25 +118,21 @@ def candidate_slugs(target: Target, *, limit: int = 2) -> list[str]:
     gives "inmobi", the actual Greenhouse token, whereas "Bosch Global Software
     Technologies" squashes into something no ATS would use.
     """
-    guesses: list[str] = []
-    if target.domain:
+    name = target.name.lower()
+    guesses = [
         # Skip functional prefixes so careers.ansys.com resolves to "ansys".
-        for label in target.domain.lower().split("."):
-            if label and label not in _GENERIC_LABELS:
-                guesses.append(label)
-                break
-    squashed = re.sub(r"[^a-z0-9]", "", target.name.lower())
-    if squashed:
-        guesses.append(squashed)
-    hyphenated = re.sub(r"[^a-z0-9]+", "-", target.name.lower()).strip("-")
-    if hyphenated:
-        guesses.append(hyphenated)
-
-    ordered: list[str] = []
-    for guess in guesses:
-        if guess not in ordered and guess not in _GENERIC_LABELS and len(guess) > 2:
-            ordered.append(guess)
-    return ordered[:limit]
+        next(
+            (
+                label
+                for label in (target.domain or "").lower().split(".")
+                if label and label not in _GENERIC_LABELS
+            ),
+            "",
+        ),
+        re.sub(r"[^a-z0-9]", "", name),
+        re.sub(r"[^a-z0-9]+", "-", name).strip("-"),
+    ]
+    return [g for g in dict.fromkeys(guesses) if g not in _GENERIC_LABELS and len(g) > 2][:limit]
 
 
 async def probe_ats_slugs(client: PoliteClient, target: Target) -> tuple[str, str, int] | None:
@@ -279,6 +271,11 @@ async def run_resolve(
     return result
 
 
+def _error(company: str, exc: Exception) -> dict:
+    """One runs.errors entry."""
+    return {"company": company, "error": type(exc).__name__, "detail": str(exc)}
+
+
 @dataclass
 class ScanResult:
     jobs_seen: int = 0
@@ -374,19 +371,12 @@ async def run_scan(
     async def scan_one(client: PoliteClient, target: Target) -> None:
         try:
             raws = await fetch_target(client, target)
-        except (SourceUnavailable, RobotsDisallowed) as exc:
-            # Expected, per-target, recoverable. Record and carry on.
-            log.warning("%s: %s", target.name, exc)
-            result.errors.append(
-                {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
-            )
-            result.per_company[target.name] = {"error": str(exc)}
-            return
         except Exception as exc:  # one bad adapter must not end the run
-            log.exception("%s: unexpected adapter failure", target.name)
-            result.errors.append(
-                {"company": target.name, "error": type(exc).__name__, "detail": str(exc)}
-            )
+            if isinstance(exc, (SourceUnavailable, RobotsDisallowed)):
+                log.warning("%s: %s", target.name, exc)  # expected, per-target
+            else:
+                log.exception("%s: unexpected adapter failure", target.name)
+            result.errors.append(_error(target.name, exc))
             result.per_company[target.name] = {"error": str(exc)}
             return
 
@@ -529,9 +519,7 @@ async def run_contacts(
             )
         except Exception as exc:  # one company must not end the run
             log.exception("%s: contact discovery failed", company["name"])
-            result.errors.append(
-                {"company": company["name"], "error": type(exc).__name__, "detail": str(exc)}
-            )
+            result.errors.append(_error(company["name"], exc))
             return
 
         surfaced = found.surfaced()
@@ -583,13 +571,18 @@ async def run_contacts(
     return result
 
 
+# Score bands for the summary: a score at or above each floor falls in the next band.
+_BAND_FLOORS = (1, 50, 70, 90)
+_BANDS = ("0", "1-49", "50-69", "70-89", "90+")
+
+
 def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
     """Rescore every open job. Returns a summary, including the disqualified tally."""
     from sqlalchemy import select
 
     scored = 0
     disqualified = 0
-    buckets = {"90+": 0, "70-89": 0, "50-69": 0, "1-49": 0, "0": 0}
+    buckets = dict.fromkeys(reversed(_BANDS), 0)  # printed best band first
 
     with db.session_scope() as session:
         jobs = session.scalars(select(Job).where(Job.closed_at.is_(None))).all()
@@ -601,18 +594,6 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
             if not dry_run:
                 job.fit_score = score.total
                 job.fit_reasons = score.as_fit_reasons()
-            total = score.total
-            key = (
-                "90+"
-                if total >= 90
-                else "70-89"
-                if total >= 70
-                else "50-69"
-                if total >= 50
-                else "1-49"
-                if total >= 1
-                else "0"
-            )
-            buckets[key] += 1
+            buckets[_BANDS[bisect.bisect_right(_BAND_FLOORS, score.total)]] += 1
 
     return {"scored": scored, "disqualified": disqualified, "buckets": buckets}
