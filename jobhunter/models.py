@@ -16,22 +16,37 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 def utcnow() -> datetime:
-    """Current UTC time, timezone-aware.
-
-    Be aware of the asymmetry this creates: SQLite's DateTime column drops the
-    offset on write, so a value is aware in memory and **naive** once read back.
-    Both are UTC, so nothing is lost — but comparing a freshly-created `utcnow()`
-    against a column loaded from the DB raises TypeError, and building a query
-    filter from an aware datetime silently matches nothing. Filters belong in
-    naive UTC; see ``pipeline.resolve_since``.
-    """
+    """Current UTC time, timezone-aware. Every timestamp column is a UTCDateTime."""
     return datetime.now(timezone.utc)
+
+
+class UTCDateTime(TypeDecorator):
+    """A DateTime that is UTC-aware in Python and naive UTC in SQLite.
+
+    SQLite drops the offset on write, so a plain DateTime came back naive while
+    `utcnow()` is aware, and `utcnow() - row.sent_at` raised TypeError -- which
+    is how the outreach cooldown crashed on the second run. Normalising here, in
+    the one place every column passes through, leaves the stored text exactly as
+    before and makes the two sides always comparable. Naive input is taken as UTC.
+    """
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is not None:
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+
+    def process_result_value(self, value, dialect):
+        return value.replace(tzinfo=timezone.utc) if value is not None else None
 
 
 def hash_email(email: str) -> str:
@@ -147,7 +162,7 @@ class Company(Base):
     # Domain-level property, cached so we do not re-probe every run.
     catch_all: Mapped[bool | None] = mapped_column(Boolean)
     email_pattern: Mapped[str | None] = mapped_column(String(50))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="company")
     contacts: Mapped[list[Contact]] = relationship(back_populates="company")
@@ -168,13 +183,13 @@ class Job(Base):
     remote: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str] = mapped_column(String(1000))
-    posted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
 
     # Lifecycle: rows are never deleted. A posting disappearing is itself signal.
-    first_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    last_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
     fit_score: Mapped[int | None] = mapped_column(Integer, index=True)
     fit_reasons: Mapped[dict | None] = mapped_column(JSON)
@@ -200,9 +215,9 @@ class Contact(Base):
     discovery_method: Mapped[str] = mapped_column(String(50))  # scraped | pattern | inferred
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
     verify_status: Mapped[str] = mapped_column(String(20), default="unknown")
-    verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    verified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     suppressed: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     company: Mapped[Company] = relationship(back_populates="contacts")
 
@@ -244,8 +259,8 @@ class Outreach(Base):
     # table -- which db.py says is the signal to adopt Alembic, not to hand-roll.
     # It is also the more honest record: the message does name that posting.
     kind: Mapped[str] = mapped_column(String(20), default="application")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     gmail_message_id: Mapped[str | None] = mapped_column(String(255), default=None)
 
@@ -262,7 +277,7 @@ class Suppression(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class Run(Base):
@@ -273,8 +288,8 @@ class Run(Base):
     # last-scan`, closing jobs no scan has seen -- must filter on it, or a
     # contacts run would read as a scan that found nothing.
     kind: Mapped[str] = mapped_column(String(20), default="scan")
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     jobs_seen: Mapped[int] = mapped_column(Integer, default=0)
     jobs_new: Mapped[int] = mapped_column(Integer, default=0)
     contacts_found: Mapped[int] = mapped_column(Integer, default=0)

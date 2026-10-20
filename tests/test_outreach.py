@@ -823,3 +823,62 @@ def test_an_address_that_is_not_evidently_for_hiring_is_never_mailed(session, pr
     session.flush()
     batch = policy.candidates(session, min_score=55, limit=10, locations=[])
     assert [c.contact.email for c in batch] == ["priya.hr@baxter.com"]
+
+
+def test_a_cooldown_is_judged_against_a_send_from_an_earlier_run(session, profile):
+    """Regression: `utcnow() - sent_at` raised TypeError once sent_at came back from
+    SQLite naive. The other cooldown tests reuse one job, so they stop at "already
+    mailed" before ever reaching the subtraction."""
+    first = make_job(session, "Acme", title="ML Engineer")
+    second = make_job(session, "Acme", title="Data Scientist")
+    contact = make_contact(session, "Acme", "careers@acme.com")
+    session.add(
+        Outreach(
+            job_id=first.id,
+            contact_id=contact.id,
+            subject="s",
+            body="b",
+            status="sent",
+            sent_at=utcnow() - timedelta(days=2),
+        )
+    )
+    session.commit()
+    session.expire_all()  # what a later run sees: every value read back from SQLite
+
+    decision = policy.may_send(
+        session, policy.Candidate(job=second, contact=contact, company=second.company)
+    )
+    assert not decision
+    assert "cooldown" in decision.reason
+
+
+def test_a_name_with_a_comma_still_gives_a_valid_from_address(profile):
+    """Unquoted, "Lovelace, Ada <ada@...>" parses as no address at all, and the SMTP
+    transport then logs in as ''."""
+    from email.utils import parseaddr
+
+    profile.applicant.name = "Lovelace, Ada"
+    message = build_message(to="hr@acme.com", subject="s", body="b", profile=profile)
+    assert parseaddr(message["From"]) == ("Lovelace, Ada", "ada@example.com")
+
+
+def test_the_export_lists_only_contacts_outreach_would_mail(session, profile):
+    from jobhunter.export import collect_rows
+
+    make_job(session, "Baxter", description="PyTorch and RAG.")
+    weak = make_contact(session, "Baxter", "usat_pharmacovigilance@baxter.com", confidence=0.6)
+    weak.kind, weak.discovery_method = "person", "scraped:text"
+    session.commit()
+    assert [r["contact_email"] for r in collect_rows()] == [None]
+
+
+def test_export_limit_counts_rows_after_the_location_filter(session, profile):
+    from jobhunter.export import collect_rows
+
+    for n in range(3):
+        far = make_job(session, f"Far{n}", title="ML Engineer", score=95)
+        far.location = "San Francisco"
+        make_job(session, f"Near{n}", title="Data Scientist", score=60)
+    session.commit()
+    rows = collect_rows(limit=2, location=["Bengaluru"])
+    assert len(rows) == 2 and all(r["location"] == "Bengaluru" for r in rows)

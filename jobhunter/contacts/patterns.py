@@ -13,7 +13,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from ..config import settings
+from ..config import host_of, settings
 
 log = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ def generate(
     if not name:
         log.debug("cannot generate patterns from %r", full_name)
         return []
-    domain = domain.lower().strip().removeprefix("www.")
+    domain = host_of(domain) or domain
 
     if known_pattern:
         local = render(known_pattern, name)

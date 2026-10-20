@@ -6,11 +6,11 @@ import logging
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from . import db
 from .matching.scorer import matches_location
 from .models import Company, Contact, Job
+from .outreach.policy import best_contact
 
 log = logging.getLogger(__name__)
 
@@ -34,16 +34,6 @@ COLUMNS = [
     "why",
     "source",
 ]
-
-
-def _best_contact(session: Session, company_id: int) -> Contact | None:
-    """Highest-confidence non-suppressed contact for a company."""
-    return session.scalars(
-        select(Contact)
-        .where(Contact.company_id == company_id, Contact.suppressed.is_(False))
-        .order_by(Contact.confidence.desc())
-        .limit(1)
-    ).first()
 
 
 def _why(job: Job) -> str:
@@ -83,8 +73,6 @@ def collect_rows(
             query = query.where(Job.first_seen >= since)
         if posted_within is not None:
             query = query.where(Job.posted_at >= posted_within)
-        if limit:
-            query = query.limit(limit)
 
         contacts: dict[int, Contact | None] = {}
         for job, company in session.execute(query).all():
@@ -95,7 +83,9 @@ def collect_rows(
             ):
                 continue
             if company.id not in contacts:
-                contacts[company.id] = _best_contact(session, company.id)
+                # The same choice outreach makes, so the sheet never lists an
+                # address that would not actually be mailed.
+                contacts[company.id] = best_contact(session, company.id)
             contact = contacts[company.id]
             name = " ".join(
                 p
@@ -127,6 +117,9 @@ def collect_rows(
                     "source": job.source,
                 }
             )
+            # After the location filter, so --limit N with --location still gives N.
+            if limit and len(rows) >= limit:
+                break
     return rows
 
 

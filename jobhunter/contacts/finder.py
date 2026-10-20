@@ -13,7 +13,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from ..config import Target, domain_from_url, settings
+from ..config import Target, domain_from_url, host_of, settings
 from ..http import PoliteClient
 from ..models import company_key
 from . import patterns, verify
@@ -38,18 +38,6 @@ class FindResult:
     def surfaced(self) -> list[Candidate]:
         """Only Tier-1 hits and verified Tier-2 hits are actionable."""
         return [c for c in self.candidates if c.confidence >= SURFACE_THRESHOLD]
-
-
-def _domain_for(target: Target, job_urls: list[str]) -> str | None:
-    """Prefer the configured domain; fall back to nothing rather than guessing.
-
-    Deriving the domain from a job URL would yield the ATS's domain
-    (jobs.lever.co), which is not the company and must never be probed as if it
-    were.
-    """
-    if target.domain:
-        return target.domain.lower().strip().removeprefix("www.")
-    return None
 
 
 # A host named in a posting: a link or an address. The prefix is required so that
@@ -77,10 +65,10 @@ def infer_domain(name: str, urls: list[str], texts: list[str]) -> str | None:
     if len(key) < 3:
         return None
     hosts = [h for t in texts for h in _HOST_IN_TEXT.findall(t or "")]
-    hosts += [u.split("://", 1)[-1].split("/", 1)[0] for u in urls if u]
+    hosts += [host_of(u) for u in urls]
     votes: Counter[str] = Counter()
     for host in hosts:
-        if domain_from_url(f"https://{host}") is None:
+        if not host or domain_from_url(host) is None:
             continue  # an ATS host, never the employer
         domain = registrable_domain(host)
         label = re.sub(r"[^a-z0-9]", "", domain.split(".")[0])
@@ -108,7 +96,9 @@ async def find_contacts(
     source_url) pairs found on a team page or in a posting — never invented.
     """
     result = FindResult(catch_all=known_catch_all, email_pattern=known_pattern)
-    domain = _domain_for(target, [])
+    # Only the configured domain: one derived from a job URL would be the ATS's
+    # (jobs.lever.co), which must never be probed as if it were the company.
+    domain = host_of(target.domain)
     if not domain:
         result.notes.append("no domain configured; cannot scrape or verify")
         return result

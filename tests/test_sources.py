@@ -543,3 +543,25 @@ def test_a_navigation_menu_is_never_read_as_a_job_list():
     jobs = careers_page.extract_repeated(html, "https://acme.com/careers")
     assert [j.title for j in jobs] == ["Data Scientist", "ML Engineer", "Product Analyst"]
     assert careers_page.extract_repeated(f"<ul>{nav}</ul>", "https://acme.com/careers") == []
+
+
+def test_ashby_secondary_locations_may_be_bare_strings():
+    """The shape drifted between {"location": ...} and a string; one board crashed the scan."""
+    job = {
+        "id": "1",
+        "title": "ML Engineer",
+        "jobUrl": "https://jobs.ashbyhq.com/acme/1",
+        "location": "Bengaluru",
+        "secondaryLocations": ["Pune", {"location": "Delhi"}],
+    }
+    assert ashby.AshbySource()._to_raw(job).location == "Bengaluru | Pune | Delhi"
+
+
+def test_every_fingerprinted_ats_host_is_known_as_not_a_company_domain():
+    """The two lists drifted once: Dover was fingerprinted but not in ATS_HOSTS, so
+    domain_from_url returned app.dover.com as if it were the employer's domain."""
+    from jobhunter.config import domain_from_url
+
+    for marker, _ats, _supported in careers_page._MARKERS:
+        if "." in marker:
+            assert domain_from_url(f"https://{marker}/x") is None, marker

@@ -777,10 +777,6 @@ def stats() -> None:
     console.print(table)
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command(name="import-contacts")
 def import_contacts_cmd(
     path: Path = typer.Argument(..., metavar="<csv>", help="CSV of HR contacts you researched."),
@@ -1021,3 +1017,7 @@ def run(
     )
     if dry_run:
         console.print("[dim]Dry run — nothing sent, nothing written.[/]")
+
+
+if __name__ == "__main__":
+    app()

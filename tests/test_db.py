@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timezone
+
 import pytest
 
 from jobhunter import db
@@ -276,16 +278,18 @@ def test_resolve_since_durations_and_dates(session):
 
     assert resolve_since(None) is None
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     week = resolve_since("7d")
     assert week is not None and abs((now - week) - timedelta(days=7)).total_seconds() < 5
     assert abs((now - resolve_since("24h")) - timedelta(hours=24)).total_seconds() < 5
     assert abs((now - resolve_since("2w")) - timedelta(weeks=2)).total_seconds() < 5
 
-    # SQLite stores these columns naive, so the cutoff must be naive too or the
-    # comparison silently matches nothing.
+    # Always UTC, so a cutoff compares cleanly with any column, loaded or not.
     for value in ("7d", "2026-07-30", "2026-07-30T12:00:00+05:30"):
-        assert resolve_since(value).tzinfo is None
+        assert resolve_since(value).tzinfo is timezone.utc
+    assert resolve_since("2026-07-30T12:00:00+05:30") == datetime(
+        2026, 7, 30, 6, 30, tzinfo=timezone.utc
+    )
 
 
 def test_resolve_since_last_scan_uses_the_latest_run(session):
@@ -296,10 +300,8 @@ def test_resolve_since_last_scan_uses_the_latest_run(session):
     session.commit()
 
     cutoff = resolve_since("last-scan")
-    # Naive, because that is how SQLite handed it back — and a naive cutoff is
-    # what the column can actually be compared against.
-    assert cutoff is not None and cutoff.tzinfo is None
-    assert cutoff == run.started_at.replace(tzinfo=None)
+    assert cutoff is not None and cutoff.tzinfo is timezone.utc
+    assert cutoff == run.started_at
 
 
 def test_a_contacts_run_is_not_the_last_scan(session):
@@ -309,7 +311,7 @@ def test_a_contacts_run_is_not_the_last_scan(session):
     db.start_run(session, kind="contacts")
     session.commit()
 
-    assert resolve_since("last-scan") == scan.started_at.replace(tzinfo=None)
+    assert resolve_since("last-scan") == scan.started_at
 
 
 def test_persistent_failures_needs_the_same_target_failing_every_run(session):
@@ -341,12 +343,10 @@ def test_since_filter_selects_only_newer_jobs(session):
     company = db.upsert_company(session, Target(name="Acme"))
     old, _ = db.upsert_job(session, company, raw("Old Role"))
     db.upsert_job(session, company, raw("New Role"))
-    # Naive on purpose: first_seen is stored naive, which is why the cutoff
-    # below strips tzinfo too.
-    old.first_seen = datetime(2020, 1, 1)  # noqa: DTZ001
+    old.first_seen = datetime(2020, 1, 1, tzinfo=timezone.utc)
     session.commit()
 
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=1)
     titles = {r["title"] for r in collect_rows(since=cutoff)}
     assert titles == {"New Role"}
     assert len(collect_rows()) == 2
@@ -370,6 +370,6 @@ def test_run_starts_before_the_jobs_it_records(session):
 
     cutoff = resolve_since("last-scan")
     assert cutoff is not None
-    assert cutoff <= job.first_seen.replace(tzinfo=None), (
+    assert cutoff <= job.first_seen, (
         "the run must start before the jobs it reports, or --since last-scan hides them"
     )

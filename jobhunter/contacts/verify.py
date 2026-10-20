@@ -90,7 +90,7 @@ def probe_recipients(mx_host: str, recipients: list[str]) -> dict[str, int]:
     politer and less likely to be read as a dictionary attack.
     """
     codes: dict[str, int] = {}
-    server = smtplib.SMTP(timeout=settings.smtp_timeout)
+    server = smtplib.SMTP(local_hostname=settings.smtp_helo_host, timeout=settings.smtp_timeout)
     try:
         server.connect(mx_host, 25)
         server.ehlo_or_helo_if_needed()

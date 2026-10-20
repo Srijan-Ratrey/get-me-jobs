@@ -27,7 +27,7 @@ import smtplib
 import time
 from dataclasses import dataclass
 from email.message import EmailMessage
-from email.utils import make_msgid, parseaddr
+from email.utils import formataddr, make_msgid, parseaddr
 from pathlib import Path
 from typing import Protocol
 
@@ -75,7 +75,7 @@ def build_message(*, to: str, subject: str, body: str, profile: Profile) -> Emai
     applicant = profile.applicant
     message = EmailMessage()
     message["To"] = to
-    message["From"] = f"{applicant.name} <{applicant.email}>"
+    message["From"] = formataddr((applicant.name, applicant.email))
     message["Subject"] = subject
     message.set_content(body)
 

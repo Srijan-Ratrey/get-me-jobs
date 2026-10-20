@@ -126,7 +126,10 @@ def _words(text: str) -> set[str]:
 
 def _contains_word(haystack: str, needle: str) -> bool:
     """Whole-word containment, so "lead" does not match "leadership"."""
-    return re.search(rf"(?<!\w){re.escape(needle.lower())}(?!\w)", haystack.lower()) is not None
+    # A space in the needle matches any whitespace: html_to_text puts inline tags
+    # on their own lines, so "<b>machine</b> learning" arrives as "machine\nlearning".
+    pattern = r"\s+".join(re.escape(word) for word in needle.lower().split())
+    return re.search(rf"(?<!\w){pattern}(?!\w)", haystack.lower()) is not None
 
 
 def _satisfied_by(haystack: str, requirement: str) -> str | None:

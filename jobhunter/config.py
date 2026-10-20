@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -238,6 +239,7 @@ ATS_HOSTS = (
     "teamtailor.com",
     "bamboohr.com",
     "myworkdayjobs.com",
+    "dover.com",
     "workday.com",
     "keka.com",
     "darwinbox.in",
@@ -259,8 +261,16 @@ ATS_HOSTS = (
     "angel.co",
     "ycombinator.com",
     "trakstar.com",
-    "lever.co",
 )
+
+
+def host_of(url_or_host: str | None) -> str | None:
+    """Lower-case host of a URL or a bare host: no scheme, credentials, port,
+    path, query, trailing dot or leading "www.". The one place this is done, so
+    a port or query string can never end up stored as a company domain."""
+    text = (url_or_host or "").strip()
+    host = urlparse(text if "://" in text else f"//{text}").hostname if text else None
+    return host.rstrip(".").removeprefix("www.") or None if host else None
 
 
 def domain_from_url(url: str | None) -> str | None:
@@ -272,11 +282,7 @@ def domain_from_url(url: str | None) -> str | None:
     ``apply.workable.com/careers`` looking for the employer's hiring address,
     and no domain at all is better than the wrong one.
     """
-    if not url:
-        return None
-    host = urlparse(url.strip()).netloc.lower()
-    host = host.split("@")[-1].split(":")[0]  # strip credentials and port
-    host = host.removeprefix("www.")
+    host = host_of(url)
     if not host:
         return None
     if any(host == ats or host.endswith(f".{ats}") for ats in ATS_HOSTS):
@@ -402,13 +408,19 @@ def append_targets(path: str | Path, targets: list[Target], *, note: str = "") -
 
 
 def _yaml_scalar(value: str) -> str:
-    """Quote a scalar only when it needs it, so the file stays readable."""
+    """Quote a scalar only when YAML would not read it back as the same string.
+
+    Testing the round trip rather than listing special characters also catches
+    values YAML retypes -- a board token `123`, `yes` or `2024-01-01` would come
+    back as an int, a bool or a date. JSON's quoting is valid YAML.
+    """
     text = str(value)
-    if text != text.strip() or not text:
-        return repr(text)
-    if re.search(r"[:#\[\]{},&*?|>%@`\"']|^-", text):
-        return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    return text
+    try:
+        if yaml.safe_load(text) == text:
+            return text
+    except yaml.YAMLError:
+        pass
+    return json.dumps(text, ensure_ascii=False)
 
 
 settings = Settings()
