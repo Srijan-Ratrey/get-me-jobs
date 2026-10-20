@@ -11,7 +11,7 @@ import html as html_module
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from selectolax.lexbor import LexborHTMLParser
 
@@ -25,7 +25,6 @@ _BLANK_RUN = re.compile(r"\n{3,}")
 _SPACES = re.compile(r"[ \t ]+")
 
 
-@runtime_checkable
 class JobSource(Protocol):
     """One ATS or crawl strategy. Adding a new source should be ~40 lines."""
 

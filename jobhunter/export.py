@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import csv
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import select
 
 from . import db
@@ -123,6 +127,12 @@ def collect_rows(
     return rows
 
 
+def _naive_utc(value):
+    if isinstance(value, datetime) and value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def export(
     path: str | Path,
     *,
@@ -133,9 +143,10 @@ def export(
     location: list[str] | None = None,
 ) -> int:
     """Write CSV or XLSX depending on the suffix. Returns the row count."""
-    import pandas as pd
-
     target = Path(path)
+    suffix = target.suffix.lower()
+    if suffix not in (".csv", ".xlsx", ".xlsm"):
+        raise ValueError(f"unsupported export format {suffix!r}; use .csv or .xlsx")
     rows = collect_rows(
         min_score=min_score,
         include_closed=include_closed,
@@ -143,22 +154,25 @@ def export(
         posted_within=posted_within,
         location=location,
     )
-    frame = pd.DataFrame(rows, columns=COLUMNS)
+    # Naive UTC throughout: Excel refuses timezone-aware datetimes, and the CSV
+    # keeps the same "2026-10-15 05:53:48" text it always had.
+    table = [[_naive_utc(row[c]) for c in COLUMNS] for row in rows]
 
-    # Excel refuses timezone-aware datetimes; drop to naive UTC for the sheet.
-    for column in ("posted_at", "first_seen"):
-        if column in frame and not frame[column].isna().all():
-            frame[column] = pd.to_datetime(frame[column], utc=True, errors="coerce").dt.tz_localize(
-                None
-            )
-
-    suffix = target.suffix.lower()
-    if suffix in (".xlsx", ".xlsm"):
-        frame.to_excel(target, index=False, sheet_name="jobs")
-    elif suffix == ".csv":
-        frame.to_csv(target, index=False)
+    if suffix == ".csv":
+        with target.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(COLUMNS)
+            writer.writerows(table)
     else:
-        raise ValueError(f"unsupported export format {suffix!r}; use .csv or .xlsx")
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "jobs"
+        sheet.append(COLUMNS)
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
+        for values in table:
+            sheet.append(values)
+        workbook.save(target)
 
     log.info("exported %d rows to %s", len(rows), target)
     return len(rows)

@@ -402,7 +402,9 @@ extracted from the URL — always better than scraping.
 | `*.darwinbox.in`, `*.darwinbox.com` | darwinbox | subdomain — *see below* |
 | `*.keka.com`, `*.freshteam.com`, `*.zohorecruit.com` | keka / freshteam / zoho_recruit | subdomain — no adapter |
 
-Log every unrecognised fingerprint. That log is your backlog of which adapter to write next.
+Every unsupported fingerprint is reported: `resolve` tallies them ("missing adapters would unlock", also in
+`unresolved-companies.md`) and `scan` records "uses X, which has no adapter" in `runs.errors`. That tally
+is the backlog of which adapter to write next.
 
 ### Darwinbox — NOT USABLE, the application is withheld from identified bots
 

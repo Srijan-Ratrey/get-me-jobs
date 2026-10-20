@@ -35,10 +35,6 @@ BY_NAME: dict[str, JobSource] = {a.name: a for a in ADAPTERS}
 
 CAREERS_PAGE = CareersPageSource()
 
-# Fingerprints seen this process that we have no adapter for. This is the
-# backlog of which adapter to write next, which is worth more than a log line.
-UNKNOWN_ATS: list[dict[str, str | None]] = []
-
 
 def resolve(target: Target) -> JobSource | None:
     """Pick the adapter for a target by its declared `ats`."""
@@ -55,7 +51,6 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
 
     if target.ats:
         # An explicit but unsupported ATS is a configuration answer, not a crawl.
-        UNKNOWN_ATS.append({"company": target.name, "ats": target.ats, "token": target.ats_token})
         raise SourceUnavailable(
             f"{target.name}: no adapter for ats={target.ats!r}. "
             "See docs/sources.md for which sources are supported."
@@ -85,14 +80,6 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
             handoff = target.model_copy(update={"ats": detected.ats, "ats_token": detected.token})
             if adapter := resolve(handoff):
                 return await adapter.fetch(client, handoff)
-        UNKNOWN_ATS.append(
-            {
-                "company": target.name,
-                "ats": detected.ats,
-                "token": detected.token,
-                "marker": detected.marker,
-            }
-        )
         if not detected.supported:
             raise SourceUnavailable(
                 f"{target.name}: uses {detected.ats}, which has no adapter "
@@ -103,7 +90,5 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
             target.name,
             detected.ats,
         )
-    else:
-        UNKNOWN_ATS.append({"company": target.name, "ats": None, "token": None})
 
     return await CAREERS_PAGE.parse(client, target, html, target.careers_url)
