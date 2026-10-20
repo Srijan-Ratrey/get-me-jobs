@@ -167,7 +167,7 @@ Gmail API integration for send + reply detection.
 | Problem | Mitigation |
 |---|---|
 | Careers page is a React SPA — static fetch returns an empty shell | Detect low text-to-markup ratio, retry with Playwright |
-| Company uses an ATS you haven't written an adapter for | Careers-page crawler as fallback; log unknown ATS fingerprints so you know what to build next |
+| Company uses an ATS you haven't written an adapter for | Careers-page crawler as fallback; `resolve` tallies unsupported fingerprints so you know what to build next |
 | SMTP probes get your IP blocklisted | Hard rate limit, long backoff, and treat verification as optional enrichment the pipeline works without |
 | Catch-all domains make verification useless | Detect and label `risky` rather than reporting false confidence |
 | Same job counted 3× across sources | `content_hash` dedup on normalized title + company + location |
