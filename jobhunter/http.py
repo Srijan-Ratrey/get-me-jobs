@@ -229,7 +229,7 @@ class PoliteClient:
         raw = (resp.headers.get("Retry-After") or "").strip()
         if not raw:
             return None
-        if raw.isdigit():
+        if raw.isascii() and raw.isdigit():
             return min(float(raw), MAX_RETRY_AFTER_SECONDS)
         try:
             when = parsedate_to_datetime(raw)

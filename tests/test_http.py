@@ -301,3 +301,11 @@ async def test_get_json_wraps_garbage_in_source_unavailable(tmp_path, allow_robo
     async with PoliteClient(cache_dir=tmp_path, cache_ttl=0, requests_per_second=1000) as client:
         with pytest.raises(SourceUnavailable, match="did not return JSON"):
             await client.get_json(f"{ORIGIN}/not-json")
+
+
+def test_a_non_ascii_digit_in_retry_after_is_ignored_not_raised():
+    # Header bytes are decoded as latin-1, so a 0xB2 byte arrives as "²", which
+    # str.isdigit() accepts and float() rejects.
+    resp = httpx.Response(429, headers=[(b"Retry-After", "²".encode("latin-1"))])
+    assert resp.headers["Retry-After"] == "²"
+    assert PoliteClient._retry_after_seconds(resp) is None

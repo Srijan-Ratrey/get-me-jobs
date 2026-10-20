@@ -537,3 +537,29 @@ async def test_contacts_reach_employers_known_only_from_the_catalogue(
         contact = s.query(Contact).one()
         assert contact.email == "careers@acme.io"
         assert contact.source_url == "https://acme.io/careers"
+
+
+def test_an_inferred_domain_never_keeps_a_port_or_query():
+    from jobhunter.contacts.finder import infer_domain
+
+    assert infer_domain("Acme", ["https://careers.acme.com:8443/x"], []) == "acme.com"
+    assert infer_domain("Acme", ["https://acme.com?ref=1"], []) == "acme.com"
+
+
+def test_smtp_verification_announces_the_configured_helo_name(monkeypatch):
+    """smtp_helo_host was documented and never used: the probe announced the
+    machine's own hostname instead."""
+    from jobhunter.config import settings
+
+    seen = {}
+
+    class Recorder:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+            raise OSError("stop before connecting")
+
+    monkeypatch.setattr(verify.smtplib, "SMTP", Recorder)
+    monkeypatch.setattr(settings, "smtp_helo_host", "probe.example.org")
+    with pytest.raises(OSError):
+        verify.probe_recipients("mx.acme.com", ["a@acme.com"])
+    assert seen["local_hostname"] == "probe.example.org"

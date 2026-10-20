@@ -40,7 +40,11 @@ class AshbySource:
         ]
 
     def _to_raw(self, job: dict) -> RawJob:
-        secondary = [(loc or {}).get("location") for loc in job.get("secondaryLocations") or []]
+        # The shape has drifted between {"location": ...} and a bare string.
+        secondary = [
+            loc.get("location") if isinstance(loc, dict) else loc
+            for loc in job.get("secondaryLocations") or []
+        ]
         return RawJob(
             source=self.name,
             external_id=job["id"],

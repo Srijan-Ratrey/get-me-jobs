@@ -14,6 +14,7 @@ from urllib.parse import unquote, urljoin, urlparse
 import httpx
 from selectolax.lexbor import LexborHTMLParser
 
+from ..config import host_of
 from ..http import PoliteClient, RobotsDisallowed
 
 log = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ def _domain_matches(email_domain: str, company_domain: str | None) -> bool:
     if not company_domain:
         return True
     email_domain = email_domain.lower().strip(".")
-    company_domain = company_domain.lower().strip(".").removeprefix("www.")
+    company_domain = host_of(company_domain) or company_domain
     return email_domain == company_domain or email_domain.endswith(f".{company_domain}")
 
 

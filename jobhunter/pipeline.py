@@ -37,12 +37,7 @@ _DURATION = re.compile(r"(\d+)\s*([hdw])")
 
 
 def resolve_since(value: str | None) -> datetime | None:
-    """Turn a --since value into a cutoff. Accepts `7d`, `24h`, `2w`, `last-scan`, a date.
-
-    Returns a **naive** UTC datetime, because SQLite's DateTime column drops the
-    offset on write: comparing a stored naive value against an aware one silently
-    matches nothing, which looks exactly like "no new jobs".
-    """
+    """Turn a --since value into a UTC cutoff. Accepts `7d`, `24h`, `2w`, `last-scan`, a date."""
     if not value:
         return None
     raw = value.strip().lower()
@@ -60,12 +55,8 @@ def resolve_since(value: str | None) -> datetime | None:
 
     if match := _DURATION.fullmatch(raw):
         count, unit = int(match.group(1)), match.group(2)
-        delta = {
-            "h": timedelta(hours=count),
-            "d": timedelta(days=count),
-            "w": timedelta(weeks=count),
-        }
-        return datetime.now(timezone.utc).replace(tzinfo=None) - delta[unit]
+        unit_name = {"h": "hours", "d": "days", "w": "weeks"}[unit]
+        return datetime.now(timezone.utc) - timedelta(**{unit_name: count})
 
     try:
         parsed = datetime.fromisoformat(raw)
@@ -73,7 +64,8 @@ def resolve_since(value: str | None) -> datetime | None:
         raise ValueError(
             f"cannot parse {value!r}; use a duration (7d, 24h, 2w), 'last-scan', or a date"
         ) from exc
-    return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
+    # A bare date means UTC, like every timestamp the database holds.
+    return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 @dataclass

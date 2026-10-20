@@ -600,3 +600,17 @@ async def test_a_careers_url_on_an_ats_host_is_fingerprinted_from_the_url(tmp_pa
         probe_slugs=False,
     )
     assert [(o.target.name, o.ats) for o in result.unsupported] == [("Sarvify", "dover")]
+
+
+@pytest.mark.parametrize(
+    "token", ["123", "yes", "true", "null", "2024-01-01", "a'b", "x: y", "-lead"]
+)
+def test_append_quotes_anything_yaml_would_retype(tmp_path, token):
+    """A numeric or boolean-looking board token came back as an int or bool, and the
+    append was refused."""
+    from jobhunter.config import Target
+
+    path = tmp_path / "companies.yaml"
+    path.write_text("companies:\n  - name: Existing\n")
+    append_targets(path, [Target(name=f"Co {token}", ats="lever", ats_token=token)])
+    assert load_targets(path)[-1].ats_token == token

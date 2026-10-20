@@ -651,3 +651,11 @@ def test_an_open_remote_role_is_still_reachable(description):
 def test_anywhere_in_a_region_is_tied_to_that_region():
     assert matches_location("Anywhere in Latin America", True, WANTED) is False
     assert matches_location("Global (Remote)", True, WANTED) is True
+
+
+def test_a_keyword_matches_across_a_line_break():
+    """html_to_text puts inline tags on their own lines: "<b>machine</b> learning"."""
+    from jobhunter.matching.scorer import _contains_word
+
+    assert _contains_word("We use\nmachine\nlearning daily", "machine learning")
+    assert not _contains_word("machine-learning", "machine learning")
