@@ -14,7 +14,6 @@ import respx
 
 from jobhunter import harvest
 from jobhunter.config import Profile, load_targets
-from jobhunter.http import PoliteClient
 
 PROFILE = Profile(
     titles=["Data Scientist", "Machine Learning Engineer", "ML Engineer", "AI Engineer"],
@@ -27,8 +26,8 @@ AB = "https://api.ashbyhq.com/posting-api/job-board/{t}"
 
 
 @pytest.fixture
-def client(tmp_path):
-    return PoliteClient(cache_dir=tmp_path / "cache", cache_ttl=0, requests_per_second=1000)
+def client(polite_client):
+    return polite_client()
 
 
 def allow_robots(*origins: str) -> None:

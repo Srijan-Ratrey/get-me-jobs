@@ -13,7 +13,7 @@ import pytest
 import respx
 
 from jobhunter.config import Target
-from jobhunter.http import PoliteClient, SourceUnavailable
+from jobhunter.http import SourceUnavailable
 from jobhunter.sources.freehire import FreeHireSource, _clean_url, _posted_at
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "freehire.json").read_text())
@@ -21,8 +21,8 @@ SEARCH = "https://freehire.me/api/v1/jobs/search"
 
 
 @pytest.fixture
-def client(tmp_path):
-    return PoliteClient(cache_dir=tmp_path / "cache", cache_ttl=0, requests_per_second=1000)
+def client(polite_client):
+    return polite_client()
 
 
 def allow_robots() -> None:

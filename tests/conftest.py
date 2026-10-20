@@ -65,6 +65,16 @@ def fixture_json():
 
 
 @pytest.fixture
+def session(tmp_path):
+    """A session on a throwaway SQLite file, one per test."""
+    from jobhunter import db
+
+    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
+    with db.session_scope() as s:
+        yield s
+
+
+@pytest.fixture
 def polite_client(tmp_path):
     """A PoliteClient wired for tests: no cache, no waiting, no backoff.
 

@@ -69,12 +69,10 @@ def resolve_mx(domain: str) -> list[str]:
     except Exception as exc:  # noqa: BLE001 - dnspython raises a wide family
         log.debug("MX lookup failed for %s: %s", domain, exc)
     else:
-        records = sorted(
-            ((int(r.preference), str(r.exchange).rstrip(".")) for r in answers),
-            key=lambda pair: pair[0],
-        )
-        if records:
-            return [host for _, host in records]
+        if hosts := [
+            str(r.exchange).rstrip(".") for r in sorted(answers, key=lambda r: int(r.preference))
+        ]:
+            return hosts
     # No MX but an A record still accepts mail per RFC 5321 §5.1.
     try:
         dns.resolver.resolve(domain, "A")

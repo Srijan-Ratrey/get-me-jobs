@@ -25,7 +25,7 @@ import mimetypes
 import random
 import smtplib
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid, parseaddr
 from pathlib import Path
@@ -58,11 +58,7 @@ class SendReport:
     skipped: int = 0
     failed: int = 0
     speculative: int = 0
-    reasons: list[str] | None = None
-
-    def __post_init__(self) -> None:
-        if self.reasons is None:
-            self.reasons = []
+    reasons: list[str] = field(default_factory=list)
 
 
 def build_message(*, to: str, subject: str, body: str, profile: Profile) -> EmailMessage:

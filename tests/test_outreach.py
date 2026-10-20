@@ -29,13 +29,6 @@ from jobhunter.outreach.sender import build_message, send_batch
 
 
 @pytest.fixture
-def session(tmp_path):
-    db.init_db(f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
-    with db.session_scope() as s:
-        yield s
-
-
-@pytest.fixture
 def resume(tmp_path):
     path = tmp_path / "resume.pdf"
     path.write_bytes(b"%PDF-1.4 not really a pdf")
