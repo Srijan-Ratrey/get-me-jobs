@@ -150,6 +150,12 @@ class Applicant(BaseModel):
     # it follows the role title. Empty falls back to "Application: <role>".
     headline: str = ""
 
+    # Answers `jobhunter apply` may type into application forms: a regex matched
+    # against the field's label, and the text to enter. Only what you would
+    # answer the same way everywhere ("notice period": "Immediately"); anything
+    # not listed is left empty and highlighted for you to answer by hand.
+    answers: dict[str, str] = Field(default_factory=dict)
+
     def is_complete(self) -> list[str]:
         """Missing fields that would make a message dishonest or unusable."""
         missing = [f for f in ("name", "email", "resume_path") if not getattr(self, f).strip()]

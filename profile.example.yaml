@@ -30,6 +30,13 @@ profile:
     # ~72 characters the inbox truncates, and this is what earns the open.
     headline: ""          # e.g. "recsys and experimentation, 6% and 8% lift at Acme"
 
+    # Typed into application forms by `jobhunter apply`. A regex matched against
+    # a field's label, then the answer. Only answers that are true for every
+    # employer; anything unlisted (salary, offers) is left for you to fill in.
+    answers: {}
+    #   "notice period|available to start|start date": "Immediately"
+    #   "years of .*experience": "1"
+
     # The numbers a recruiter screens on, and the reason a draft is worth
     # reading. One paragraph each, naming what you built and what it moved.
     # Without at least one, the drafter refuses: a message that only asserts

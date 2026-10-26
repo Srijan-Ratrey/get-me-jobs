@@ -43,6 +43,7 @@ LAYERS: dict[str, int] = {
     "sources.registry": 4,
     "outreach.policy": 4,
     "outreach.sender": 5,
+    "apply": 5,
     "harvest": 5,
     "export": 5,
     "pipeline": 6,

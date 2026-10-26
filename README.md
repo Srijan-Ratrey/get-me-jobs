@@ -184,6 +184,23 @@ sandbox-exec -p '(version 1)(allow default)(deny network*)' .venv/bin/pytest -q
 Adapter tests assert field-by-field against real captured board responses in `tests/fixtures/`, so
 a passing parser is one that works on production data.
 
+## Filling application forms
+
+`jobhunter apply` opens your best-matching Greenhouse, Lever and Ashby jobs one at a time in a
+visible browser. It fills your name, email, phone, links and location, attaches your CV, types any
+`answers:` from profile.yaml, and outlines in red whatever is still required. **You** review it,
+answer the rest (salary, CAPTCHA, surveys) and press Submit. The tool never does.
+
+```bash
+uv sync --extra spa && uv run playwright install chromium   # once; free, runs locally
+uv run jobhunter apply --dry-run      # see today's queue
+uv run jobhunter apply                # up to 10, one per employer per 14 days
+```
+
+After each form you answer in the terminal: `s` submitted, `k` skip for good, `n` ask again later,
+`q` quit. A job you submit or skip is never offered again. Workday and Oracle aren't supported:
+they need an account per employer.
+
 ## Sending applications
 
 `jobhunter outreach run` drafts and sends applications unattended, from a scheduler. Read
