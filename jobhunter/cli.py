@@ -798,6 +798,71 @@ def import_contacts_cmd(
         console.print("\nNext: [bold]jobhunter outreach preview[/] to read what would go out.")
 
 
+@app.command()
+def apply(
+    limit: int = typer.Option(10, "--limit", help="At most this many forms this session."),
+    min_score: int | None = typer.Option(
+        None, "--min-score", help="Override profile.yaml's min_score."
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show the queue; open no browser."),
+) -> None:
+    """Fill application forms in a visible browser. You review and press Submit."""
+    from . import apply as apply_module
+
+    profile = _load_profile_or_exit()
+    db.init_db()
+    with db.session_scope() as session:
+        jobs = apply_module.queue(session, profile, limit=limit, min_score=min_score)
+    if not jobs:
+        console.print(
+            "[yellow]Nothing to fill.[/] Either today's cap of "
+            f"{apply_module.DAILY_APPLY_CAP} is used, or no open Greenhouse, Lever or Ashby "
+            "job is left that you have not already submitted or skipped."
+        )
+        return
+
+    table = Table(title="Application queue", header_style="bold")
+    for column in ("Score", "Company", "Role"):
+        table.add_column(column)
+    for job in jobs:
+        table.add_row(str(job.score), job.company, job.title)
+    console.print(table)
+    if dry_run:
+        return
+
+    choices = {"s": "submitted", "k": "skipped", "n": "next", "q": "quit"}
+
+    def decide(job, filled: int, left: int) -> str:
+        console.print(
+            f"\n[bold]{job.company}[/] — {job.title}\n"
+            f"  filled [green]{filled}[/] fields · [red]{left}[/] required still empty "
+            "(outlined in red). Review everything, answer the rest, then press Submit "
+            "in the browser yourself."
+        )
+        answer = (
+            typer.prompt(
+                "  [s]ubmitted · s[k]ip for good · [n]ext, ask again later · [q]uit",
+                default="n",
+            )
+            .strip()
+            .lower()[:1]
+        )
+        return choices.get(answer, "next")
+
+    def on_record(job, status: str) -> None:
+        with db.session_scope() as session:
+            apply_module.record(session, job.job_id, status)
+
+    try:
+        apply_module.run(profile, jobs, decide, on_record)
+    except ImportError:
+        console.print(
+            "[red]Playwright is not installed.[/] Run: "
+            "[bold]uv sync --extra spa && uv run playwright install chromium[/]"
+        )
+        raise typer.Exit(1) from None
+
+
 outreach_app = typer.Typer(
     add_completion=False,
     help="Draft and send job applications. Read docs/compliance.md before enabling the cron.",

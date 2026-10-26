@@ -222,6 +222,22 @@ class Contact(Base):
     company: Mapped[Company] = relationship(back_populates="contacts")
 
 
+class Application(Base):
+    """A job handled through `jobhunter apply`: submitted by the user, or skipped.
+
+    Recorded only on the user's word, after they have pressed Submit themselves;
+    the tool never submits. Any row, either status, keeps the job out of the
+    queue for good.
+    """
+
+    __tablename__ = "applications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(20))  # submitted | skipped
+    decided_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class Outreach(Base):
     """One application email: drafted, then sent by `jobhunter outreach send`.
 

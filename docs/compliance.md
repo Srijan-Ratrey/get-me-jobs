@@ -179,6 +179,27 @@ doesn't work anyway.
 
 ---
 
+## Assisted applying (`jobhunter apply`)
+
+`apply` fills application forms on Greenhouse, Lever and Ashby in a **visible** browser, one job at a
+time, and then stops. It is a form-filler working for the person at the keyboard, in the same category
+as a password manager's autofill, and it is not a crawler or a bot that applies. So it holds to these
+rules:
+
+- **It never submits.** The person reads the filled form, answers what was left, and presses Submit
+  themselves. The application is recorded as submitted only on their word.
+- **It never touches a CAPTCHA, hCaptcha or demographic survey.** Those stay with the person. Solving
+  or bypassing a challenge built to stop automation is prohibited here.
+- **It types only what is true and configured.** That means `applicant` fields and the `answers:`
+  map in profile.yaml. Anything else (salary, offers, research questions) is left empty and outlined
+  in red. It never guesses.
+- **It is capped like the sender.** `DAILY_APPLY_CAP` is 10 submissions in 24 hours and
+  `COMPANY_COOLDOWN` is one employer per 14 days. Both are code constants, not settings.
+- **robots.txt:** Greenhouse and Lever allow these pages. Ashby disallows `/api/`, which its
+  application page calls as it renders. Those rules govern crawlers. A page opened because a person
+  chose that job and is watching it load is a user agent, not a crawl. That is the line that rules
+  Dover out for discovery and still lets a person apply to a Dover job by hand.
+
 ## SMTP verification ethics
 
 RCPT probing is a grey area. It's widely done and technically just an unfinished SMTP
