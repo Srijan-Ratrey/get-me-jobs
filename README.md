@@ -198,7 +198,13 @@ uv run jobhunter apply                # up to 10, one per employer per 14 days
 ```
 
 After each form you answer in the terminal: `s` submitted, `k` skip for good, `n` ask again later,
-`q` quit. A job you submit or skip is never offered again. Workday and Oracle aren't supported:
+`q` quit. A job you submit or skip is never offered again.
+
+Every extra question a form asks ("Current CTC", "Expected CTC", "Why us?") is remembered with the
+answer you typed, so the next form asking it is pre-filled. Only single-line answers are reused;
+long ones like a cover letter belong to one company and are kept for reference only.
+`uv run jobhunter questions` lists them, and `--unanswered` shows the ones still waiting for an
+answer, which are good candidates for `answers:` in profile.yaml. Workday and Oracle aren't supported:
 they need an account per employer.
 
 ## Sending applications
