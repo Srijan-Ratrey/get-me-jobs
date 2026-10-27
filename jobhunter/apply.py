@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from .config import Profile, host_of
 from .matching.scorer import matches_location
-from .models import Application, Company, Job, company_key, utcnow
+from .models import Application, Company, FormQuestion, Job, company_key, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +125,49 @@ def record(s: Session, job_id: int, status: str) -> None:
     s.flush()
 
 
+def stored_answers(s: Session) -> dict[str, str]:
+    """Answers worth typing again: single-line ones only (never a cover letter)."""
+    rows = s.execute(
+        select(FormQuestion.label, FormQuestion.answer).where(
+            FormQuestion.answer.is_not(None), FormQuestion.multiline.is_(False)
+        )
+    )
+    return dict(rows.all())
+
+
+def remember(
+    s: Session,
+    profile: Profile,
+    url: str,
+    answered: dict[str, tuple[str, bool]],
+    unanswered: list[str],
+) -> int:
+    """Store the form's extra questions and any answers typed. Returns how many.
+
+    Questions profile.yaml already answers (name, email, `answers:`) are not
+    extra and are left out. An empty value never erases an answer you gave on
+    an earlier form.
+    """
+    rules = field_rules(profile)
+    seen = {clean_label(label) for label in unanswered} | set(answered)
+    stored = 0
+    for label in sorted(seen):
+        if not label or answer_for(label, rules):
+            continue
+        row = s.scalar(select(FormQuestion).where(FormQuestion.label == label))
+        if row is None:
+            row = FormQuestion(label=label, times_seen=0)
+            s.add(row)
+        row.times_seen += 1
+        row.last_seen, row.last_url = utcnow(), url
+        value, multiline = answered.get(label, ("", False))
+        if value.strip():
+            row.answer, row.multiline = value.strip(), multiline
+        stored += 1
+    s.flush()
+    return stored
+
+
 # --------------------------------------------------------------------------- #
 # Matching form labels to profile values -- pure, so it is tested offline
 # --------------------------------------------------------------------------- #
@@ -171,24 +214,83 @@ def answer_for(label: str, rules: list[tuple[re.Pattern[str], str]]) -> str | No
 # The browser -- thin on purpose; everything decidable is above
 # --------------------------------------------------------------------------- #
 
-_LABEL_JS = """e => e.getAttribute('aria-label') || (e.labels && e.labels[0] && e.labels[0].innerText)
+_TEXT_FIELDS = "input[type=text], input[type=email], input[type=tel], input[type=url], input:not([type]), textarea"
+_LABEL_OF = """e => e.getAttribute('aria-label') || (e.labels && e.labels[0] && e.labels[0].innerText)
     || e.placeholder || e.name || ''"""
 
-# Outline every required field still empty, and say how many there are.
-_HIGHLIGHT_JS = """() => {
-  let left = 0;
+# Outline every required field still empty, and return their labels.
+_HIGHLIGHT_JS = (
+    """() => {
+  const labelOf = """
+    + _LABEL_OF
+    + """;
+  const left = [];
   for (const e of document.querySelectorAll('input[required], textarea[required], select[required], [aria-required="true"]')) {
     const visible = e.offsetParent !== null && e.type !== 'hidden';
     const empty = e.type === 'file' ? !(e.files && e.files.length) : !e.value;
-    if (visible && empty) { e.style.outline = '3px solid #e5484d'; left++; }
+    if (visible && empty) { e.style.outline = '3px solid #e5484d'; left.push(labelOf(e)); }
   }
   return left;
 }"""
+)
+
+# Every text field the person changes is reported as they leave it, so answers
+# survive pressing Submit, which replaces the form before the terminal is asked.
+_RECORDER_JS = (
+    """document.addEventListener('change', e => {
+  const el = e.target;
+  if (!el.matches || !el.matches('"""
+    + _TEXT_FIELDS
+    + """')) return;
+  window.__jobhunterRecord(("""
+    + _LABEL_OF
+    + """)(el), el.value, el.tagName === 'TEXTAREA');
+}, true);"""
+)
+_READ_FORM_JS = (
+    """() => [...document.querySelectorAll('"""
+    + _TEXT_FIELDS
+    + """')]
+  .filter(e => e.offsetParent !== null)
+  .map(e => [("""
+    + _LABEL_OF
+    + """)(e), e.value, e.tagName === 'TEXTAREA'])"""
+)
 
 
-def fill_form(page, profile: Profile) -> tuple[int, int]:
-    """Fill what the profile answers; returns (fields filled, required fields left)."""
+def attach_recorder(page) -> dict[str, tuple[str, bool]]:
+    """Collect {label: (value, multiline)} for every field the person edits."""
+    answers: dict[str, tuple[str, bool]] = {}
+
+    def record_change(label: str, value: str, multiline: bool) -> None:
+        if label := clean_label(label):
+            answers[label] = (value, multiline)
+
+    page.expose_function("__jobhunterRecord", record_change)
+    page.add_init_script(_RECORDER_JS)
+    return answers
+
+
+def read_form(page) -> dict[str, tuple[str, bool]]:
+    """The form's current values, if it is still on screen (not after Submit)."""
+    try:
+        rows = page.evaluate(_READ_FORM_JS)
+    except Exception:  # noqa: BLE001 - the page may have navigated or closed
+        return {}
+    return {
+        clean_label(label): (value, multi) for label, value, multi in rows if clean_label(label)
+    }
+
+
+def fill_form(
+    page, profile: Profile, stored: dict[str, str] | None = None
+) -> tuple[int, list[str]]:
+    """Fill what the profile or an earlier form answers.
+
+    Returns (fields filled, labels of required fields still empty).
+    """
     rules = field_rules(profile)
+    stored = stored or {}
     filled = 0
     resume = page.locator(
         "input[type=file][id*=resume i], input[type=file][name*=resume i], input[type=file]"
@@ -196,15 +298,13 @@ def fill_form(page, profile: Profile) -> tuple[int, int]:
     if resume.count() and Path(profile.applicant.resume_path).is_file():
         resume.first.set_input_files(profile.applicant.resume_path)
         filled += 1
-    fields = page.locator(
-        "input[type=text], input[type=email], input[type=tel], input[type=url], "
-        "input:not([type]), textarea"
-    )
+    fields = page.locator(_TEXT_FIELDS)
     for i in range(fields.count()):
         field = fields.nth(i)
         if not field.is_visible() or field.input_value():
             continue
-        if value := answer_for(field.evaluate(_LABEL_JS), rules):
+        label = field.evaluate(_LABEL_OF)
+        if value := answer_for(label, rules) or stored.get(clean_label(label)):
             field.fill(value)
             filled += 1
     return filled, page.evaluate(_HIGHLIGHT_JS)
@@ -215,26 +315,34 @@ def run(
     jobs: list[QueuedJob],
     decide: Callable[[QueuedJob, int, int], str],
     on_record: Callable[[QueuedJob, str], None],
+    on_form: Callable[[QueuedJob, dict[str, tuple[str, bool]], list[str]], None],
+    stored: dict[str, str] | None = None,
 ) -> None:
     """Open each form in a visible browser, fill it, and hand over to the user.
 
     `decide` returns "submitted", "skipped", "next" or "quit"; the first two are
-    passed to `on_record`. Imported lazily: Playwright is the optional `spa` extra.
+    passed to `on_record`. `on_form` gets every answer typed on the form and the
+    required questions left empty, whatever was decided. Imported lazily:
+    Playwright is the optional `spa` extra.
     """
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
+        typed = attach_recorder(page)
         try:
             for job in jobs:
+                typed.clear()
                 page.goto(job.url, wait_until="domcontentloaded")
                 try:
                     page.wait_for_load_state("networkidle", timeout=15_000)  # Ashby renders late
                 except Exception:  # noqa: BLE001 - a busy page is still worth filling
                     log.debug("%s: page never went idle", job.url)
-                filled, left = fill_form(page, profile)
-                outcome = decide(job, filled, left)
+                filled, unanswered = fill_form(page, profile, stored)
+                outcome = decide(job, filled, len(unanswered))
+                page.wait_for_timeout(200)  # deliver change events queued while we waited
+                on_form(job, {**read_form(page), **typed}, unanswered)
                 if outcome == "quit":
                     break
                 if outcome in ("submitted", "skipped"):

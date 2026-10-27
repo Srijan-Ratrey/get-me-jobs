@@ -813,6 +813,7 @@ def apply(
     db.init_db()
     with db.session_scope() as session:
         jobs = apply_module.queue(session, profile, limit=limit, min_score=min_score)
+        stored = apply_module.stored_answers(session)
     if not jobs:
         console.print(
             "[yellow]Nothing to fill.[/] Either today's cap of "
@@ -853,14 +854,56 @@ def apply(
         with db.session_scope() as session:
             apply_module.record(session, job.job_id, status)
 
+    def on_form(job, answered, unanswered) -> None:
+        with db.session_scope() as session:
+            kept = apply_module.remember(session, profile, job.url, answered, unanswered)
+        if kept:
+            console.print(f"  [dim]remembered {kept} question(s) — see `jobhunter questions`[/]")
+
     try:
-        apply_module.run(profile, jobs, decide, on_record)
+        apply_module.run(profile, jobs, decide, on_record, on_form, stored)
     except ImportError:
         console.print(
             "[red]Playwright is not installed.[/] Run: "
             "[bold]uv sync --extra spa && uv run playwright install chromium[/]"
         )
         raise typer.Exit(1) from None
+
+
+@app.command()
+def questions(
+    unanswered: bool = typer.Option(
+        False, "--unanswered", help="Only questions you have never answered."
+    ),
+) -> None:
+    """Extra questions met on application forms, and the answers you gave."""
+    from sqlalchemy import select
+
+    from .models import FormQuestion
+
+    db.init_db()
+    with db.session_scope() as session:
+        query = select(FormQuestion).order_by(FormQuestion.times_seen.desc(), FormQuestion.label)
+        if unanswered:
+            query = query.where(FormQuestion.answer.is_(None))
+        rows = session.scalars(query).all()
+        table = Table(title="Application questions", header_style="bold")
+        table.add_column("Seen", justify="right")
+        table.add_column("Question")
+        table.add_column("Your answer")
+        for row in rows:
+            answer = row.answer or "[red]— not answered yet[/]"
+            if row.answer and row.multiline:
+                answer = "[dim](long answer, never reused)[/] " + row.answer[:60]
+            table.add_row(str(row.times_seen), row.label, answer[:80])
+    if not rows:
+        console.print("[dim]None yet: `jobhunter apply` records them as you fill forms.[/]")
+        return
+    console.print(table)
+    console.print(
+        "[dim]Single-line answers are typed into the same question on later forms. "
+        "To use one everywhere it is phrased differently, add it to `answers:` in profile.yaml.[/]"
+    )
 
 
 outreach_app = typer.Typer(

@@ -238,6 +238,25 @@ class Application(Base):
     decided_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class FormQuestion(Base):
+    """A question met on an application form, and the answer last typed for it.
+
+    Filled by `jobhunter apply` as you answer forms, so a question asked by many
+    employers ("Current CTC", "Expected CTC") is typed once. Only single-line
+    answers are ever reused: a cover letter or a "why us" belongs to one company.
+    """
+
+    __tablename__ = "form_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column(String(500), unique=True)  # apply.clean_label form
+    answer: Mapped[str | None] = mapped_column(Text)
+    multiline: Mapped[bool] = mapped_column(Boolean, default=False)
+    times_seen: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_url: Mapped[str | None] = mapped_column(String(1000))
+
+
 class Outreach(Base):
     """One application email: drafted, then sent by `jobhunter outreach send`.
 

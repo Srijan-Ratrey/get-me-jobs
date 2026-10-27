@@ -13,7 +13,7 @@ import pytest
 
 from jobhunter import apply, db
 from jobhunter.config import Applicant, Profile, Target
-from jobhunter.models import Application, Job, RawJob, utcnow
+from jobhunter.models import Application, FormQuestion, Job, RawJob, utcnow
 
 
 @pytest.fixture
@@ -193,5 +193,75 @@ def test_fill_form_fills_what_it_knows_and_leaves_the_rest(profile):
         assert page.input_value("#question_1") == "Immediately"
         assert page.input_value("#question_2") == "", "salary must be left to the person"
         assert page.evaluate("document.querySelector('#resume').files.length") == 1
-        assert (filled, left) == (7, 1)
+        assert (filled, left) == (7, ["What are your salary expectations around the role?"])
+        browser.close()
+
+
+# --------------------------------------------------------------------------- #
+# Remembering extra questions
+# --------------------------------------------------------------------------- #
+
+
+def test_typed_answers_are_remembered_and_reused_single_line_only(session, profile):
+    kept = apply.remember(
+        session,
+        profile,
+        "https://job-boards.greenhouse.io/acme/jobs/1",
+        answered={
+            "current ctc": ("12 LPA", False),
+            "why do you want to join acme?": ("Because Acme...", True),
+            "email": ("ada@example.com", False),  # profile already answers it
+        },
+        unanswered=["Expected CTC*"],
+    )
+    assert kept == 3
+    rows = {q.label: q for q in session.query(FormQuestion).all()}
+    assert set(rows) == {"current ctc", "why do you want to join acme?", "expected ctc"}
+    assert rows["expected ctc"].answer is None
+    assert apply.stored_answers(session) == {"current ctc": "12 LPA"}, (
+        "a cover-letter style answer is never reused"
+    )
+
+
+def test_seeing_a_question_again_counts_it_and_never_erases_an_answer(session, profile):
+    url = "https://jobs.lever.co/acme/1/apply"
+    apply.remember(session, profile, url, {"current ctc": ("12 LPA", False)}, [])
+    apply.remember(session, profile, url, {"current ctc": ("", False)}, ["Current CTC*"])
+    row = session.query(FormQuestion).one()
+    assert (row.times_seen, row.answer) == (2, "12 LPA")
+
+
+def _browser():
+    sync_api = pytest.importorskip("playwright.sync_api")
+    return sync_api.sync_playwright()
+
+
+def test_a_remembered_answer_is_typed_into_the_same_question_later(profile):
+    with _browser() as p:
+        try:
+            browser = p.chromium.launch(headless=True)
+        except Exception as exc:  # noqa: BLE001 - browser binary not downloaded
+            pytest.skip(f"chromium unavailable: {exc}")
+        page = browser.new_page()
+        page.set_content('<input id="ctc" aria-label="Current CTC" required>')
+        filled, left = apply.fill_form(page, profile, {"current ctc": "12 LPA"})
+        assert page.input_value("#ctc") == "12 LPA"
+        assert (filled, left) == (1, [])
+        browser.close()
+
+
+def test_what_the_person_types_is_captured_as_they_leave_the_field(profile):
+    with _browser() as p:
+        try:
+            browser = p.chromium.launch(headless=True)
+        except Exception as exc:  # noqa: BLE001 - browser binary not downloaded
+            pytest.skip(f"chromium unavailable: {exc}")
+        page = browser.new_page()
+        typed = apply.attach_recorder(page)
+        page.goto("data:text/html,<input id=q aria-label='Expected CTC*'><input id=other>")
+        page.fill("#q", "15 LPA")
+        page.click("#other")  # leaving the field fires change
+        page.wait_for_timeout(100)
+        assert typed == {"expected ctc": ("15 LPA", False)}
+        assert apply.read_form(page)["expected ctc"] == ("15 LPA", False)
         browser.close()
