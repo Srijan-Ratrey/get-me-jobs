@@ -185,7 +185,7 @@ def field_rules(profile: Profile) -> list[tuple[re.Pattern[str], str]]:
     """Label pattern -> value, most specific first. Empty values are dropped."""
     a = profile.applicant
     first, _, last = a.name.strip().partition(" ")
-    rules = [(pattern, answer) for pattern, answer in a.answers.items()]  # user's own first
+    rules = list(a.answers.items())  # user's own first
     rules += [
         (r"^first name|^given name", first),
         (r"^last name|^surname|^family name", last),
@@ -218,44 +218,33 @@ _TEXT_FIELDS = "input[type=text], input[type=email], input[type=tel], input[type
 _LABEL_OF = """e => e.getAttribute('aria-label') || (e.labels && e.labels[0] && e.labels[0].innerText)
     || e.placeholder || e.name || ''"""
 
+
+def _js(src: str) -> str:
+    """Splice the shared selector and label expression into a page script."""
+    return src.replace("TEXT_FIELDS", _TEXT_FIELDS).replace("LABEL_OF", f"({_LABEL_OF})")
+
+
 # Outline every required field still empty, and return their labels.
-_HIGHLIGHT_JS = (
-    """() => {
-  const labelOf = """
-    + _LABEL_OF
-    + """;
+_HIGHLIGHT_JS = _js("""() => {
   const left = [];
   for (const e of document.querySelectorAll('input[required], textarea[required], select[required], [aria-required="true"]')) {
     const visible = e.offsetParent !== null && e.type !== 'hidden';
     const empty = e.type === 'file' ? !(e.files && e.files.length) : !e.value;
-    if (visible && empty) { e.style.outline = '3px solid #e5484d'; left.push(labelOf(e)); }
+    if (visible && empty) { e.style.outline = '3px solid #e5484d'; left.push(LABEL_OF(e)); }
   }
   return left;
-}"""
-)
+}""")
 
 # Every text field the person changes is reported as they leave it, so answers
 # survive pressing Submit, which replaces the form before the terminal is asked.
-_RECORDER_JS = (
-    """document.addEventListener('change', e => {
+_RECORDER_JS = _js("""document.addEventListener('change', e => {
   const el = e.target;
-  if (!el.matches || !el.matches('"""
-    + _TEXT_FIELDS
-    + """')) return;
-  window.__jobhunterRecord(("""
-    + _LABEL_OF
-    + """)(el), el.value, el.tagName === 'TEXTAREA');
-}, true);"""
-)
-_READ_FORM_JS = (
-    """() => [...document.querySelectorAll('"""
-    + _TEXT_FIELDS
-    + """')]
+  if (!el.matches || !el.matches('TEXT_FIELDS')) return;
+  window.__jobhunterRecord(LABEL_OF(el), el.value, el.tagName === 'TEXTAREA');
+}, true);""")
+_READ_FORM_JS = _js("""() => [...document.querySelectorAll('TEXT_FIELDS')]
   .filter(e => e.offsetParent !== null)
-  .map(e => [("""
-    + _LABEL_OF
-    + """)(e), e.value, e.tagName === 'TEXTAREA'])"""
-)
+  .map(e => [LABEL_OF(e), e.value, e.tagName === 'TEXTAREA'])""")
 
 
 def attach_recorder(page) -> dict[str, tuple[str, bool]]:
@@ -277,9 +266,7 @@ def read_form(page) -> dict[str, tuple[str, bool]]:
         rows = page.evaluate(_READ_FORM_JS)
     except Exception:  # noqa: BLE001 - the page may have navigated or closed
         return {}
-    return {
-        clean_label(label): (value, multi) for label, value, multi in rows if clean_label(label)
-    }
+    return {key: (value, multi) for label, value, multi in rows if (key := clean_label(label))}
 
 
 def fill_form(
