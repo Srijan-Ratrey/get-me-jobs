@@ -116,6 +116,7 @@ uv run jobhunter resolve --from list.csv   # discover each company's ATS from it
 uv run jobhunter harvest --limit 300 --dry-run  # probe published ATS token lists for India hiring
 uv run jobhunter scan            # fetch jobs from all targets
 uv run jobhunter score           # rescore jobs against profile.yaml
+uv run jobhunter audit           # what each hard rule zeroed, and what it cost
 uv run jobhunter contacts        # resolve contacts for companies with open jobs
 uv run jobhunter list --min-score 55 --since last-scan --why
 uv run jobhunter export out.xlsx --posted-within 30d

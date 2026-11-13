@@ -22,7 +22,7 @@ import httpx
 from . import db
 from .config import Profile, Target
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
-from .matching.scorer import score_job
+from .matching.scorer import RuleAudit, audit_rules, score_job
 from .models import Company, Job, Run
 from .sources.registry import fetch_target, resolve
 
@@ -597,3 +597,15 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
             buckets[_BANDS[bisect.bisect_right(_BAND_FLOORS, score.total)]] += 1
 
     return {"scored": scored, "disqualified": disqualified, "buckets": buckets}
+
+
+def run_filter_audit(profile: Profile, *, examples: int = 3) -> list[RuleAudit]:
+    """Price every hard rule against the open jobs. Read-only."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import joinedload
+
+    with db.session_scope() as session:
+        jobs = session.scalars(
+            select(Job).options(joinedload(Job.company)).where(Job.closed_at.is_(None))
+        ).all()
+        return audit_rules(jobs, profile, examples=examples)

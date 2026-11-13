@@ -481,10 +481,52 @@ def score(
     console.print(table)
     console.print(
         f"[bold]{summary['scored']}[/] scored · "
-        f"[yellow]{summary['disqualified']}[/] hard-zeroed (excluded title or too many years)"
+        f"[yellow]{summary['disqualified']}[/] hard-zeroed "
+        "(excluded title, too many years, a language or a clearance; see `jobhunter audit`)"
     )
 
     console.print(f"\nNext: [bold]jobhunter list --min-score {profile.min_score}[/]")
+
+
+@app.command()
+def audit(
+    profile_path: Path = typer.Option(PROFILE_YAML, "--profile", help="Profile YAML."),
+    examples: int = typer.Option(3, "--examples", help="Best zeroed postings to show per rule."),
+) -> None:
+    """What each hard rule zeroed, and what it cost. Writes nothing.
+
+    Every zeroed posting is re-scored with the hard rules off. "Would pass" is
+    how many of them would otherwise reach min_score: those are what a rule
+    actually keeps out of your shortlist, and the ones worth reading.
+    """
+    _require(profile_path, "it defines the rules being audited")
+    profile = load_profile(profile_path)
+    db.init_db()
+    audits = pipeline.run_filter_audit(profile, examples=examples)
+
+    table = Table(title="Hard rules, by what they cost", header_style="bold")
+    table.add_column("Rule")
+    table.add_column("Zeroed", justify="right")
+    table.add_column(f"Would pass (≥{profile.min_score})", justify="right")
+    table.add_column("Best of what it zeroed")
+    for a in audits:
+        best = "\n".join(
+            f"{score:>3}  {title[:48]} — {company[:24]}" for score, title, company in a.examples
+        )
+        table.add_row(a.rule, str(a.zeroed), str(a.would_pass), best)
+    console.print(table)
+
+    fired = {a.rule for a in audits}
+    idle = [k for k in profile.exclude_keywords if f"exclude_keyword:{k}" not in fired]
+    if idle:
+        console.print(
+            f"[dim]Exclude keywords that decided nothing (unmatched, or always beaten by an "
+            f"earlier one): {', '.join(idle)}[/]"
+        )
+    console.print(
+        f"[bold]{sum(a.zeroed for a in audits)}[/] zeroed · "
+        f"[yellow]{sum(a.would_pass for a in audits)}[/] of them would otherwise pass"
+    )
 
 
 @app.command()

@@ -7,8 +7,10 @@ exists to avoid, and a score you cannot decompose is a score you cannot tune.
 
 from __future__ import annotations
 
+import heapq
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from ..config import Profile
@@ -100,6 +102,87 @@ _AGE_NOT_EXPERIENCE = re.compile(r"^\s*(of age|or older|or above|old\b)", re.IGN
 # exactly that kind.
 MAX_PLAUSIBLE_YEARS = 20
 _REMOTE_HINT = ("remote", "work from home", "wfh", "anywhere", "distributed")
+
+
+# Languages a posting might require. English is absent on purpose: every
+# posting this tool reads is in English, so requiring it rules nobody out.
+_LANGUAGES = frozenset(
+    """german french spanish japanese mandarin chinese cantonese korean dutch italian
+    portuguese arabic russian polish swedish norwegian danish finnish turkish hebrew thai
+    vietnamese indonesian bahasa czech hungarian romanian greek ukrainian hindi kannada
+    tamil telugu marathi bengali malayalam gujarati punjabi urdu odia""".split()
+)
+_LANGUAGE_NAME = re.compile(r"\b(" + "|".join(sorted(_LANGUAGES)) + r")\b", re.IGNORECASE)
+# Most of these names are also adjectives ("German automotive clients", "the
+# Japanese market"), so a name only counts with a fluency word right beside it.
+_FLUENCY = re.compile(
+    r"fluen\w*|proficien\w*|\bnative\b|mother\s+tongue|\bspeak\w*|\bspoken\b|\bwritten\b"
+    r"|\bverbal\b|business[- ]level|\b[BC][12]\b|\blanguage\b",
+    re.IGNORECASE,
+)
+_FLUENCY_WINDOW = 40
+# "Fluency in French is a plus" is a preference, not a requirement.
+_OPTIONAL = re.compile(
+    r"\bplus\b|\bbonus\b|preferred|nice[- ]to[- ]have|advantage|desirable|not\s+required"
+    r"|optional|beneficial|\ban\s+asset\b|\bideally\b",
+    re.IGNORECASE,
+)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n|;|•")
+
+# Measured on 3,419 open postings mentioning "clearance": the security sense is
+# always qualified ("TS/SCI security clearance", "Top Secret clearance") or a
+# field header ("Clearance Level: Secret"), which is what keeps "customs
+# clearance" and "creepage and clearance" out.
+_CLEARANCE = re.compile(
+    r"\b(?:security|secret|top[- ]secret|ts|ts/sci|sci|dod|government|public\s+trust|federal"
+    r"|active|interim|nv[12]|baseline|dv|sc)\s+clearances?\b"
+    r"|^\s*clearance(?:\s+level)?\s*:"
+    r"|\b(?:hold|holds|obtain|maintain|possess)\s+(?:an?\s+)?(?:active\s+)?(?:u\.?s\.?\s+)?clearance\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def required_language(text: str | None, spoken: list[str]) -> str | None:
+    """A language the posting requires that is not in ``spoken``, or None.
+
+    Judged one sentence at a time. A sentence counts when a language name sits
+    within a few words of a fluency word and nothing in it softens the ask. A
+    sentence naming several languages ("English and either German, French or
+    Spanish") passes when any of them is spoken, since it offers a choice.
+    """
+    if not text or not _LANGUAGE_NAME.search(text):
+        return None
+    known = {s.strip().lower() for s in spoken}
+    for sentence in _SENTENCE.split(text):
+        if _OPTIONAL.search(sentence):
+            continue
+        named = set()
+        for match in _LANGUAGE_NAME.finditer(sentence):
+            near = sentence[max(0, match.start() - _FLUENCY_WINDOW) : match.end() + _FLUENCY_WINDOW]
+            if _FLUENCY.search(near):
+                named.add(match.group(1).lower())
+        if named and not named & known:
+            return sorted(named)[0]
+    return None
+
+
+_REQUIRED = re.compile(r"\bmust\b|\brequired\b|\bmandatory\b", re.IGNORECASE)
+
+
+def requires_clearance(text: str | None) -> bool:
+    """Does the posting require a security clearance, rather than merely welcome one?
+
+    15 of the 424 postings this rule first caught said "clearance preferred" or
+    "is a strong plus". A softened sentence still counts when it also says
+    must or required: "MUST possess Active TS/SCI clearance (Poly preferred)".
+    """
+    if not text or not _CLEARANCE.search(text):
+        return False
+    return any(
+        _CLEARANCE.search(sentence)
+        and (not _OPTIONAL.search(sentence) or _REQUIRED.search(sentence))
+        for sentence in _SENTENCE.split(text)
+    )
 
 
 @dataclass
@@ -369,40 +452,68 @@ def min_years_required(description: str | None) -> int | None:
     return min(pool) if pool else None
 
 
-def score_job(job: Job, profile: Profile) -> Score:
-    """Score one job against the profile. Always returns a decomposable Score."""
+def _zero(reason: str, disqualified: str) -> Score:
+    return Score(
+        total=0,
+        components={k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")},
+        reasons=[f"excluded: {reason}"],
+        disqualified=disqualified,
+    )
+
+
+def title_excluded(title: str | None, keywords: list[str]) -> str | None:
+    """The exclude keyword the title contains, whole-word, or None.
+
+    Public because the description-fetching adapters ask it too: a posting
+    this zeroes on its title scores 0 whatever its description says, so
+    fetching that description is a wasted request.
+    """
+    return next((k for k in keywords if _contains_word(title or "", k)), None)
+
+
+def _disqualifier(job: Job, profile: Profile) -> Score | None:
+    """The first hard rule the job breaks, as a zero Score, or None."""
     title = (job.title or "").lower()
     description = job.description or ""
-    haystack = f"{title}\n{description}".lower()
-
-    # ---- hard disqualifiers, checked before anything else ---------------- #
 
     # Title only. Against the description this would zero good junior postings
     # that merely mention working with senior engineers.
-    for keyword in profile.exclude_keywords:
-        if _contains_word(title, keyword):
-            return Score(
-                total=0,
-                components={
-                    k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")
-                },
-                reasons=[f"excluded: title contains {keyword!r}"],
-                disqualified=f"exclude_keyword:{keyword}",
-            )
+    if keyword := title_excluded(title, profile.exclude_keywords):
+        return _zero(f"title contains {keyword!r}", f"exclude_keyword:{keyword}")
 
     if profile.max_years_experience is not None:
         required = min_years_required(description)
         if required is not None and required > profile.max_years_experience:
-            return Score(
-                total=0,
-                components={
-                    k: 0 for k in ("title", "must_have", "nice_to_have", "location", "seniority")
-                },
-                reasons=[
-                    f"excluded: needs {required}+ years, cap is {profile.max_years_experience}"
-                ],
-                disqualified=f"years_required:{required}",
+            return _zero(
+                f"needs {required}+ years, cap is {profile.max_years_experience}",
+                f"years_required:{required}",
             )
+
+    posting = f"{job.title or ''}\n{description}"
+    if profile.languages and (language := required_language(posting, profile.languages)):
+        return _zero(
+            f"requires {language.title()}, which profile.languages does not list",
+            f"language:{language}",
+        )
+
+    if not profile.eligible_for_clearance and requires_clearance(description):
+        return _zero("requires a security clearance", "clearance")
+    return None
+
+
+def score_job(job: Job, profile: Profile, *, gates: bool = True) -> Score:
+    """Score one job against the profile. Always returns a decomposable Score.
+
+    ``gates=False`` skips the hard disqualifiers, scoring the posting as if
+    none of them existed. Only the filter audit wants that: it is how a rule's
+    cost is measured.
+    """
+    if gates and (zero := _disqualifier(job, profile)):
+        return zero
+
+    title = (job.title or "").lower()
+    description = job.description or ""
+    haystack = f"{title}\n{description}".lower()
 
     components: dict[str, int] = {}
     reasons: list[str] = []
@@ -517,3 +628,45 @@ def score_job(job: Job, profile: Profile) -> Score:
 
     total = sum(components.values())
     return Score(total=total, components=components, reasons=reasons)
+
+
+@dataclass
+class RuleAudit:
+    """What one hard rule zeroed, and what those postings would have scored without it."""
+
+    rule: str
+    zeroed: int = 0
+    # Postings this rule alone kept out of the shortlist: without the hard
+    # rules they reach the profile's min_score.
+    would_pass: int = 0
+    # (score without the rules, title, company) for the best of what it zeroed.
+    examples: list[tuple[int, str, str]] = field(default_factory=list)
+
+
+def audit_rules(jobs: Iterable[Job], profile: Profile, *, examples: int = 3) -> list[RuleAudit]:
+    """Replay every hard rule over the jobs and price each one.
+
+    A hard zero leaves no trace separating "correctly excluded" from "excluded
+    by a parsing bug": the "must be 18 years of age" bug zeroed 1,124 postings
+    and was found only by looking at what a rule had thrown away. Re-scoring
+    each zeroed posting with the rules off says which rules cost anything. One
+    that zeroes 10,000 sales roles which would have scored 12 is free; one
+    that zeroes 40 roles which would have scored 75 is worth reading.
+
+    A job is charged to the first rule it breaks, the one that decided it.
+    """
+    audits: dict[str, RuleAudit] = {}
+    candidates: dict[str, list[tuple[int, str, str]]] = {}
+    for job in jobs:
+        zero = _disqualifier(job, profile)
+        if zero is None:
+            continue
+        shadow = score_job(job, profile, gates=False).total
+        audit = audits.setdefault(zero.disqualified, RuleAudit(zero.disqualified))
+        audit.zeroed += 1
+        audit.would_pass += shadow >= profile.min_score
+        company = job.company.name if job.company else ""
+        candidates.setdefault(zero.disqualified, []).append((shadow, job.title, company))
+    for rule, audit in audits.items():
+        audit.examples = heapq.nlargest(examples, candidates[rule])
+    return sorted(audits.values(), key=lambda a: (-a.would_pass, -a.zeroed))

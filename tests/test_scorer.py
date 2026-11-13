@@ -18,8 +18,11 @@ from jobhunter.matching.scorer import (
     W_NICE_TO_HAVE,
     W_SENIORITY,
     W_TITLE,
+    audit_rules,
     matches_location,
     min_years_required,
+    required_language,
+    requires_clearance,
     score_job,
 )
 from jobhunter.models import Job
@@ -659,3 +662,110 @@ def test_a_keyword_matches_across_a_line_break():
 
     assert _contains_word("We use\nmachine\nlearning daily", "machine learning")
     assert not _contains_word("machine-learning", "machine learning")
+
+
+# --------------------------------------------------------------------------- #
+# Language and clearance gates. Sentences are verbatim from open postings.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Fluent in German and English, with the credibility to engage", "german"),
+        ("Full professional proficiency in Japanese is mandatory", "japanese"),
+        ("- Native Kannada with strong professional English proficiency", "kannada"),
+        ("Coding Specialist (Fluent in Hindi) - Freelance AI Trainer Project", "hindi"),
+        # A choice among languages, none of them spoken.
+        (
+            "- Fluent in written and spoken English and either German, French, Spanish or Italian",
+            "french",
+        ),
+        # Softened: a preference, not a requirement.
+        ("Outstanding English skills, knowledge of Spanish is a plus (not required)", None),
+        ("Native English and (Bonus) Fluency in French, German, Spanish or Italian", None),
+        # The name as an adjective, with no fluency word beside it.
+        ("Experience selling to German automotive manufacturers is required", None),
+        ("You will own our expansion into the Japanese market", None),
+        ("Fluent English required", None),
+        (None, None),
+    ],
+)
+def test_required_language(text, expected):
+    assert required_language(text, ["English"]) == expected
+
+
+def test_a_spoken_language_satisfies_the_requirement():
+    assert (
+        required_language(
+            "- Native Kannada with strong professional English", ["English", "Kannada"]
+        )
+        is None
+    )
+    # Case-insensitive on the profile side too.
+    assert required_language("Fluent in Hindi", ["hindi"]) is None
+
+
+def test_language_gate_is_off_until_languages_are_set():
+    job = make_job(description="Fluent in German and English is required.")
+    assert score_job(job, JUNIOR).disqualified is None
+    gated = JUNIOR.model_copy(update={"languages": ["English"]})
+    assert score_job(job, gated).disqualified == "language:german"
+    assert score_job(job, gated).total == 0
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Active TS/SCI security clearance.", True),
+        ("Clearance Level: Secret, Must Have Clearance to Start", True),
+        (
+            "MUST possess Active TS/SCI clearance (Poly preferred) is required prior to starting.",
+            True,
+        ),
+        ("Ability to obtain and maintain a US Top Secret clearance", True),
+        # Softened.
+        ("Government security clearance (preferred)", False),
+        ("Existing Secret/TS clearance or eligibility is a significant plus.", False),
+        # Not the security sense.
+        ("documentation, customs clearance, Incoterms application", False),
+        ("Understand creepage and clearance definitions for PCB layout", False),
+        (None, False),
+    ],
+)
+def test_requires_clearance(text, expected):
+    assert requires_clearance(text) is expected
+
+
+def test_clearance_gate_and_its_opt_out():
+    job = make_job(description="Requires an active Secret clearance.")
+    assert score_job(job, JUNIOR).disqualified == "clearance"
+    eligible = JUNIOR.model_copy(update={"eligible_for_clearance": True})
+    assert score_job(job, eligible).disqualified is None
+
+
+def test_score_without_gates_ignores_every_hard_rule():
+    job = make_job(
+        title="Senior Data Scientist", description="Python. 8+ years. Active TS/SCI clearance."
+    )
+    assert score_job(job, JUNIOR).total == 0
+    assert score_job(job, JUNIOR, gates=False).total > 0
+
+
+def test_audit_charges_each_zero_to_the_rule_that_decided_it():
+    from jobhunter.models import Company
+
+    acme = Company(name="Acme")
+    jobs = [
+        make_job(title="Senior Data Scientist", company=acme),  # good fit, zeroed by "senior"
+        make_job(title="Senior Account Executive", description="Quota.", company=acme),  # poor fit
+        make_job(title="Data Scientist", description="Python, 6+ years.", company=acme),
+        make_job(title="Data Scientist", company=acme),  # passes every rule
+    ]
+    audits = {a.rule: a for a in audit_rules(jobs, JUNIOR)}
+
+    assert set(audits) == {"exclude_keyword:senior", "years_required:6"}
+    senior = audits["exclude_keyword:senior"]
+    assert senior.zeroed == 2 and senior.would_pass == 1
+    assert senior.examples[0][1:] == ("Senior Data Scientist", "Acme")
+    assert audits["years_required:6"].would_pass == 1
