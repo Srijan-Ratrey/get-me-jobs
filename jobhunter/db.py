@@ -165,12 +165,19 @@ def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int
     Only call this for a company whose fetch **succeeded**. With an empty
     ``seen_hashes`` every open job matches, so calling it after a failed fetch
     would report a whole board as filled because of one transient outage.
+
+    FreeHire rows are left alone. A company's board says nothing about what
+    the catalogue found for it on Naukri or on another of its boards, and
+    closing those only for the next FreeHire run to reopen them made the final
+    state depend on which fetch finished last. They close through
+    ``close_unseen_jobs`` once FreeHire stops listing them.
     """
     stale = s.scalars(
         select(Job).where(
             Job.company_id == company.id,
             Job.closed_at.is_(None),
             Job.content_hash.notin_(seen_hashes or {""}),
+            Job.source.notlike("freehire:%"),
         )
     ).all()
     for job in stale:

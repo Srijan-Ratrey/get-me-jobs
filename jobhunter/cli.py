@@ -428,7 +428,13 @@ def scan(
             progress.advance(task)
 
         result = asyncio.run(
-            pipeline.run_scan(targets, dry_run=dry_run, sweep_unseen=not sources, on_progress=tick)
+            pipeline.run_scan(
+                targets,
+                dry_run=dry_run,
+                sweep_unseen=not sources,
+                profile=load_profile(PROFILE_YAML) if PROFILE_YAML.exists() else None,
+                on_progress=tick,
+            )
         )
 
     _close_run(run_id, jobs_seen=result.jobs_seen, jobs_new=result.jobs_new, errors=result.errors)

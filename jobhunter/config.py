@@ -104,7 +104,7 @@ class Target(BaseModel):
 
     name: str
     domain: str | None = None
-    ats: str | None = None  # greenhouse | lever | ashby | workable | smartrecruiters
+    ats: str | None = None  # an adapter name; see sources/registry.py
     ats_token: str | None = None
     careers_url: str | None = None
     contact_pages: list[str] = Field(default_factory=list)

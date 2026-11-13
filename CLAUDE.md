@@ -44,6 +44,8 @@ jobhunter/
   sources/
     base.py           JobSource protocol + HTML/date helpers
     greenhouse.py lever.py ashby.py workable.py
+    workday.py oracle.py successfactors.py zoho_recruit.py   addressed by board URL
+    freehire.py       One search across ~300 ATSs
     careers_page.py   Generic crawler + ATS fingerprint detection
     registry.py       Target -> adapter dispatch, fingerprint handoff
   contacts/

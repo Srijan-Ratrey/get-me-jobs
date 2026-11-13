@@ -377,6 +377,51 @@ and only refetch details for jobs that are new.
 
 ---
 
+## Workday, Oracle, SuccessFactors, Zoho Recruit
+
+Added 2026-11-13, after FreeHire showed where India postings actually sit (see the FreeHire
+section). These four are addressed by **board URL**, in `ats_token` or `careers_url`, not by a
+slug. Each was checked live with our honest User-Agent before its parser was written; fixtures are
+trimmed captures.
+
+Three of them list postings without descriptions, so each description costs one more request.
+At one request per second per host, a 1,779-posting Workday board would take half an hour. Two
+controls keep that bounded, both under the target's `search:`:
+
+- `locations` — fetch details only for postings whose listed location could pass the scorer's
+  gate. **Defaults to `profile.yaml`'s `locations`** (`run_scan` injects it), which is exactly
+  the gate, so it drops nothing that could score. Note `matches_location(..., ["India"])` does
+  not match a bare "Bangalore": list the cities too, as the shipped profile does.
+- `exclude_titles` — skip the description of a posting whose title contains one of these words.
+  **Defaults to `profile.yaml`'s `exclude_keywords`**: the scorer zeroes those on title alone, so
+  their descriptions are never read. The posting itself is still returned.
+- `max_details` (default 50) — past it, postings are still returned, without a description.
+  Leaving them out would make stale-closing mark live jobs closed.
+
+| ATS | Listing | Detail | Notes |
+|---|---|---|---|
+| workday | `POST https://<tenant>.wdN.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs` `{"appliedFacets":{},"limit":20,"offset":N,"searchText":""}` | `GET …/wday/cxs/<tenant>/<site><externalPath>` → `jobPostingInfo` | `limit` max 20. Only the first page reports `total`. Some tenants replay page one past offset 2000, so a page with nothing new ends the walk. "N Locations" in the listing names no place: the detail decides. `startDate` is the post date; the listing only has "Posted 5 Days Ago". |
+| oracle | `GET https://<host>/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=<site>,limit=25,sortBy=POSTING_DATES_DESC,offset=N` | `…/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id="<id>",siteNumber=<site>` | Without `expand` the list is empty. Description is three fields: `ExternalDescriptionStr`, `ExternalResponsibilitiesStr`, `ExternalQualificationsStr`. |
+| successfactors | `GET <origin>/tile-search-results/?q=&locationsearch=<place>&startrow=N` (HTML) | the posting page; schema.org microdata (`itemprop="title"`, `description`, `streetAddress`, `datePosted`) | Location filtering is **server-side**, one search per place; "Remote" is never searched (it returns remote roles worldwide). Page size varies by tenant, so `startrow` advances by tiles returned. |
+| zoho_recruit | `GET <origin>/jobs/Careers` | none | Every record, description included, is JSON in a hidden `<input>`. Skip `Publish: false`. robots.txt allows `/jobs/` and disallows the rest. |
+
+**robots.txt and Workday.** No tenant's robots.txt mentions `/wday/cxs/`, but many disallow
+individual boards by their public path: Citi `Disallow: /2/`, PwC `/CRM_Experienced_Careers_Site/`,
+Caterpillar `/CaterpillarCareers/`. The adapter checks `https://<host>/<site>/` (trailing slash:
+`Disallow: /2/` does not cover `/2`) before touching the API, and refuses if it is disallowed.
+
+**Oracle WAFs.** Some tenants refuse identified bots at the edge: `jpmc.fa.oraclecloud.com`
+answers our User-Agent with "W4S-402: Blocked by WAF4SaaS", robots.txt included, which PoliteClient
+reads as disallow-all. That is the right outcome; there is no compliant way around it.
+
+### Keka — blocked by how we read robots.txt, not by Keka
+
+Every tenant serves `User-agent: * / Disallow: / / Allow: /careers`. Keka's intent is plainly to
+allow `/careers`, and the API its page loads (`/careers/api/embedjobs/default/active/<id>`) is
+under it. RFC 9309 says the longest match wins, which would allow it; stdlib `RobotFileParser`
+takes the first match, which disallows everything, and `http.py` deliberately keeps that stricter
+reading. Supporting Keka means deciding to change that, not writing an adapter.
+
 ## Generic careers page crawler
 
 The fallback when a company isn't on a supported ATS, and the way you discover which ATS they
@@ -397,10 +442,13 @@ extracted from the URL — always better than scraping.
 | `*.jobs.personio.de`, `.personio.com` | personio | subdomain (XML feed at `/xml`) |
 | `*.teamtailor.com` | teamtailor | subdomain |
 | `*.bamboohr.com/careers` | bamboohr | subdomain |
-| `*.myworkdayjobs.com` | workday | *not supported — log and skip* |
+| `*.wdN.myworkdayjobs.com/<site>` | workday | the board URL is the token |
+| `*.oraclecloud.com/hcmUI/CandidateExperience/<lang>/sites/<site>` | oracle | the board URL is the token |
+| `rmkcdn.successfactors.com` (the page's own CDN) | successfactors | none: the careers URL is the board |
 | `app.dover.com/jobs/…`, `app.dover.com/apply/…` | dover | first path segment — *not usable, see below* |
 | `*.darwinbox.in`, `*.darwinbox.com` | darwinbox | subdomain — *see below* |
-| `*.keka.com`, `*.freshteam.com`, `*.zohorecruit.com` | keka / freshteam / zoho_recruit | subdomain — no adapter |
+| `*.zohorecruit.<tld>` | zoho_recruit | the tenant origin is the token |
+| `*.keka.com`, `*.freshteam.com` | keka / freshteam | subdomain — no adapter (Keka: see below) |
 
 Every unsupported fingerprint is reported: `resolve` tallies them ("missing adapters would unlock", also in
 `unresolved-companies.md`) and `scan` records "uses X, which has no adapter" in `runs.errors`. That tally

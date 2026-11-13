@@ -128,6 +128,19 @@ def test_close_stale_jobs_is_scoped_to_one_company(session):
     assert other.closed_at is None
 
 
+def test_a_board_does_not_close_what_freehire_found_elsewhere(session):
+    """FreeHire would reopen it next run; the final state was a race."""
+    acme = db.upsert_company(session, Target(name="Acme"))
+    direct, _ = db.upsert_job(session, acme, raw("Data Scientist"))
+    elsewhere, _ = db.upsert_job(
+        session, acme, raw("ML Engineer", source="freehire:naukri", url="https://naukri/1")
+    )
+
+    assert db.close_stale_jobs(session, acme, set()) == 1
+    assert direct.closed_at is not None
+    assert elsewhere.closed_at is None
+
+
 # --------------------------------------------------------------------------- #
 # Contacts, provenance, suppression
 # --------------------------------------------------------------------------- #

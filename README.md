@@ -155,7 +155,10 @@ targeting, so they stay on your machine rather than in the repository.
 companies.yaml ──> source adapters ──> normalise + dedup ──> SQLite
                    greenhouse lever      canonical title,      │
                    ashby workable        content hash          │
-                   careers_page                                │
+                   workday oracle                              │
+                   successfactors                              │
+                   zoho_recruit                                │
+                   freehire careers_page                       │
                                           ┌────────────────────┴───────┐
                                           v                            v
                                     scorer (profile)            contact finder

@@ -77,14 +77,19 @@ _MARKERS: list[tuple[str, str, bool]] = [
     ("personio.com", "personio", False),
     ("teamtailor.com", "teamtailor", False),
     ("bamboohr.com", "bamboohr", False),
-    ("myworkdayjobs.com", "workday", False),
+    ("myworkdayjobs.com", "workday", True),
+    ("oraclecloud.com/hcmui/candidateexperience", "oracle", True),
+    # The career site itself, not a link to one: no token, the page's URL is the board.
+    ("rmkcdn.successfactors.com", "successfactors", True),
     # robots.txt disallows the /api/ its pages load from; see docs/sources.md.
     ("app.dover.com", "dover", False),
-    # Common in India, no adapter yet - these are the Phase 2 backlog.
+    # Common in India. Keka's robots.txt reads as disallow-all under the strict
+    # first-match parsing http.py uses; Darwinbox withholds its app from bots.
     ("keka.com", "keka", False),
     ("darwinbox.in", "darwinbox", False),
     ("darwinbox.com", "darwinbox", False),
-    ("zohorecruit.com", "zoho_recruit", False),
+    # No TLD, so the .in, .eu and .com.au data centres match too.
+    ("zohorecruit", "zoho_recruit", True),
     ("freshteam.com", "freshteam", False),
 ]
 
@@ -104,6 +109,20 @@ _TOKEN_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"([\w-]+)\.workable\.com"),
     ),
     "dover": (re.compile(r"app\.dover\.com/(?:jobs|apply)/([\w-]+)"),),
+    # These adapters are addressed by board URL rather than a slug.
+    "workday": (
+        re.compile(
+            r"(https?://[\w-]+\.wd\d+\.myworkdayjobs\.com(?:/[a-z]{2}-[A-Z]{2})?/(?!wday/)[\w-]+)"
+        ),
+    ),
+    "oracle": (
+        re.compile(
+            r"(https?://[\w.-]+\.oraclecloud\.com/hcmUI/CandidateExperience/[\w-]+/sites/[\w-]+)"
+        ),
+    ),
+    "zoho_recruit": (
+        re.compile(r"(https?://[\w-]+\.zohorecruit\.(?:com\.au|com\.cn|com|in|eu|jp|ca|sa))"),
+    ),
 }
 
 # Never a board token: either an ATS vendor's own subdomain or a page on their
