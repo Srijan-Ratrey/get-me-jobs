@@ -1,0 +1,143 @@
+{
+ "items": [
+  {
+   "Id": "26015720",
+   "Title": "Senior Manager - Data Science",
+   "Category": "Data Mgmt and Analytics",
+   "RequisitionType": "Professional (Band 40 and Below)",
+   "JobGrade": null,
+   "RequisitionId": 300002337559712,
+   "ExternalPostedStartDate": "2026-11-13T05:51:37+00:00",
+   "JobLevel": null,
+   "JobSchedule": "Full time",
+   "JobShift": "Day",
+   "StudyLevel": "Bachelor's Degree",
+   "InternationalTravelRequired": null,
+   "ExternalContactName": null,
+   "ExternalContactEmail": null,
+   "ContractType": null,
+   "ExternalPostedEndDate": "2026-11-23T05:00:00+00:00",
+   "JobFamilyId": 300000573321731,
+   "GeographyId": 300000032718926,
+   "GeographyNodeId": 100020808352758,
+   "ExternalDescriptionStr": "<p style=\"margin-bottom: 0in;\">Global Commercial Services (GCS) is the global leader in providing payments solutions for Small, Medium, and Large Enterprises. We are in the business of helping our clients get business done! Accelerating sales and driving profitable charge volume growth are critical for the success of the organization. The Sales Enablement team is at the forefront of driving these priorities.&nbsp;</p><p style=\"margin-bottom: 0in;\">&nbsp;</p><p style=\"margin-bottom: 0in;\">The Senior Manager will play a critical role in shaping and executing data-driven strategies to enhance Sales effectiveness, strengthen portfolio performance and accelerate growth across GCS. Partnering closely with GCS senior leadership and cross-functional teams across Marketing, Finance, Product, Technology, and Capabilities, this individual will apply advanced data science and analytics to solve complex business challenges and influence strategic decisions.</p><p style=\"margin: 12pt 0in;\"><span>Key areas of focus include identifying growth opportunities, understanding Sales and client behaviors, optimizing incentive effectiveness, and discerning emerging performance risks. The Senior Manager will lead the development and application of advanced statistical and machine learning models to support these priorities and build scalable analytical solutions. The role will also drive innovation through the development of GenAI-powered solutions, leveraging large language models (LLMs), direct API integrations, and unstructured data to expand analytical capabilities and improve business decision-making. This is a fast-paced environment requiring strong relationship skills, expertise in applied data science, technical leadership, and a commitment to excellence.</span></p>",
+   "CorporateDescriptionStr": "<p style=\"margin:0px; padding-bottom:10px !important\">At American Express, our culture is built on a 175-year history of innovation,&nbsp;<a href=\"https://www.americanexpress.com/en-us/company/who-we-are/\" target=\"_blank\" rel=\"nofollow\">shared values&nbsp;</a>and Leadership Behaviors, and an unwavering commitment to back our customers, communities, and colleagues. From delivering differentiated products to providing world-class customer service, we operate with a strong risk mindset, ensuring we continue to uphold our brand promise of trust, security, and service.</p>\n<p style=\"margin:0px; padding-bottom:10px !important\">As part of Team Amex, you’ll experience our powerful backing with comprehensive support for your holistic well-being and many opportunities to learn new skills, develop as a leader, and grow your career. Here, your voice and ideas matter, your work makes an impact, and together, you will help us define the future of American Express.</p>",
+   "OrganizationDescriptionStr": "<p>We back you with benefits that support your holistic well-being so you can be and deliver your best. This means caring for you and your loved ones' physical, financial, and mental health, as well as providing the flexibility you need to thrive personally and professionally:</p>\n<p></p>\n<ul>\n <li>Competitive base salaries</li>\n <li>Bonus incentives</li>\n <li>Support for financial-well-being and retirement</li>\n <li>Comprehensive medical, dental, vision, life insurance, and disability benefits (depending on location)</li>\n <li>Flexible working model with hybrid, onsite or virtual arrangements depending on role and business need</li>\n <li>Generous paid parental leave policies (depending on your location)</li>\n <li>Free access to global on-site wellness centers staffed with nurses and doctors (depending on location)</li>\n <li>Free and confidential counseling support through our Healthy Minds program</li>\n <li>Career development and training opportunities</li>\n</ul>\n<div>\n <p>American Express is an equal opportunity employer and makes employment decisions without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, veteran status, disability status, age, or any other status protected by law.</p>\n <p></p>\n <p>Offer of employment with American Express is conditioned upon the successful completion of a background verification check, subject to applicable laws and regulations.</p>\n</div>",
+   "ShortDescriptionStr": "",
+   "ContentLocale": "en",
+   "PrimaryLocation": "Bengaluru, KA, India",
+   "PrimaryLocationCountry": "IN",
+   "ObjectVerNumberProfile": "4",
+   "ApplyWhenNotPostedFlag": false,
+   "ExternalQualificationsStr": "<ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\">5+ years of relevant work experience in data science, machine learning, and advanced analytics.&nbsp;</li><li style=\"margin-bottom: 0in;\">Bachelor’s degree required, preferably in a quantitative field such as Economics, Finance, Computer Science, Mathematics, Statistics, or Engineering</li><li style=\"margin-bottom: 0in;\">Experience developing and deploying statistical, machine learning, and deep learning models to solve business problems, using tools such as scikit-learn, PyTorch, or TensorFlow.</li><li style=\"margin-bottom: 0in;\">Experience developing GenAI solutions, including LLM API integration, retrieval-augmented generation (RAG), and model evaluation.</li><li style=\"margin-bottom: 0in;\">Strong analytical and conceptual thinking skills, with the ability to translate complex business problems into quantitative approaches and practical solutions&nbsp;<span> &nbsp;&nbsp;</span>&nbsp;</li><li style=\"margin-bottom: 0in;\">Proficiency in Python and SQL, with experience processing and analyzing large-scale structured and unstructured datasets using distributed computing frameworks (e.g. Spark).</li><li style=\"margin-bottom: 0in;\">Ability to synthesize complex analytical findings, develop effective data visualizations, and influence decisions across senior leadership and cross-functional stakeholders.&nbsp;</li><li style=\"margin-bottom: 0in;\">Ability to work independently and collaboratively across teams, demonstrating strong problem-solving skills, intellectual curiosity, and adaptability.</li></ul><p><span><strong>Preferred Qualifications:</strong></span></p><ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\">Master’s degree or PhD in a quantitative field (Computer Science, Statistics, Econometrics, Mathematics, Physics, Operation Research, Engineering, etc.)&nbsp;</li><li style=\"margin-bottom: 0in;\">Stakeholder management at the executive level&nbsp;</li><li style=\"margin-bottom: 0in;\">People leadership experience</li></ul>",
+   "InternalQualificationsStr": "<ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\">5+ years of relevant work experience in data science, machine learning, and advanced analytics.&nbsp;</li><li style=\"margin-bottom: 0in;\">Bachelor’s degree required, preferably in a quantitative field such as Economics, Finance, Computer Science, Mathematics, Statistics, or Engineering</li><li style=\"margin-bottom: 0in;\">Experience developing and deploying statistical, machine learning, and deep learning models to solve business problems, using tools such as scikit-learn, PyTorch, or TensorFlow.</li><li style=\"margin-bottom: 0in;\">Experience developing GenAI solutions, including LLM API integration, retrieval-augmented generation (RAG), and model evaluation.</li><li style=\"margin-bottom: 0in;\">Strong analytical and conceptual thinking skills, with the ability to translate complex business problems into quantitative approaches and practical solutions&nbsp;<span> &nbsp;&nbsp;</span>&nbsp;</li><li style=\"margin-bottom: 0in;\">Proficiency in Python and SQL, with experience processing and analyzing large-scale structured and unstructured datasets using distributed computing frameworks (e.g. Spark).</li><li style=\"margin-bottom: 0in;\">Ability to synthesize complex analytical findings, develop effective data visualizations, and influence decisions across senior leadership and cross-functional stakeholders.&nbsp;</li><li style=\"margin-bottom: 0in;\">Ability to work independently and collaboratively across teams, demonstrating strong problem-solving skills, intellectual curiosity, and adaptability.</li></ul><p><span><strong>Preferred Qualifications:</strong></span></p><ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\">Master’s degree or PhD in a quantitative field (Computer Science, Statistics, Econometrics, Mathematics, Physics, Operation Research, Engineering, etc.)&nbsp;</li><li style=\"margin-bottom: 0in;\">Stakeholder management at the executive level&nbsp;</li><li style=\"margin-bottom: 0in;\">People leadership experience</li></ul>",
+   "InternalResponsibilitiesStr": "<ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\"><strong>Lead Data Science Projects:</strong> Design, develop, and deploy predictive and explanatory analytical solutions using machine learning, NLP, and generative AI to address critical business problems, strengthen forecasting, refine incentive plan designs, and identify gaming behaviors</li><li style=\"margin-bottom: 0in;\"><strong>Drive Analytics: </strong>Deliver high-impact analytics to inform strategy by developing actionable insights into Sales and client behavior. Introduce new approaches to transform complex behavioral data and influence decision-making across the organization</li><li style=\"margin-bottom: 0in;\"><strong>GenAI Analytics Use Case Development: </strong>Lead key workstreams in the design, development, and operationalization of a GenAI-enabled analytics solution that synthesizes internal performance data and external competitive signals into actionable insights, with defined success metrics and ongoing monitoring</li><li style=\"margin-bottom: 0in;\"><strong>Develop Modeling Capabilities: </strong>Build and evaluate models using modern ML frameworks (e.g., TensorFlow, PyTorch), focusing on scalability, performance, and interpretability</li><li style=\"margin-bottom: 0in;\"><strong>People Leadership: </strong>Lead a team of high-performing data scientists</li><li style=\"margin-bottom: 0in;\">Collaborate Across Teams: Establish and maintain close relationships with key cross-functional stakeholders to understand business strategies, develop goals, and address opportunities</li><li style=\"margin-bottom: 0in;\"><strong>Develop Scalable Solutions: </strong>Architect and deploy robust, efficient, and scalable data pipelines and modeling solutions using modern cloud and distributed compute patterns</li><li style=\"margin-bottom: 0in;\"><strong>Lead Innovation Through External Perspective: </strong>Stay current on advancements in machine learning, deep learning, and generative AI; evaluate emerging approaches; and translate theoretical advances into practical, scalable solutions that improve business outcomes. Challenge the status quo and demonstrate strong curiosity</li><li style=\"margin-bottom: 0in;\"><strong>Define Performance Indicators:</strong> Lead analytics and measurement of key performance indicators. Own stakeholder and executive-level communications on initiative progress, including automated monthly measurement tied to specific strategic initiatives</li><li style=\"margin-bottom: 0in;\"><strong>Communicate Insights Effectively: </strong>Present findings, recommendations, and results to technical and non-technical audiences, including executive leadership, through clear reports, visualizations, and presentations, to enable data-driven decision-making</li></ul><p class=\"MsoNormal\" style=\"margin: 0px 0px 12px;\"><span><strong>The shift timing for this position would be 1 PM to 10 PM IST</strong></span></p>",
+   "ExternalResponsibilitiesStr": "<ul style=\"list-style-type: disc;\"><li style=\"margin-bottom: 0in;\"><strong>Lead Data Science Projects:</strong> Design, develop, and deploy predictive and explanatory analytical solutions using machine learning, NLP, and generative AI to address critical business problems, strengthen forecasting, refine incentive plan designs, and identify gaming behaviors</li><li style=\"margin-bottom: 0in;\"><strong>Drive Analytics: </strong>Deliver high-impact analytics to inform strategy by developing actionable insights into Sales and client behavior. Introduce new approaches to transform complex behavioral data and influence decision-making across the organization</li><li style=\"margin-bottom: 0in;\"><strong>GenAI Analytics Use Case Development: </strong>Lead key workstreams in the design, development, and operationalization of a GenAI-enabled analytics solution that synthesizes internal performance data and external competitive signals into actionable insights, with defined success metrics and ongoing monitoring</li><li style=\"margin-bottom: 0in;\"><strong>Develop Modeling Capabilities: </strong>Build and evaluate models using modern ML frameworks (e.g., TensorFlow, PyTorch), focusing on scalability, performance, and interpretability</li><li style=\"margin-bottom: 0in;\"><strong>People Leadership: </strong>Lead a team of high-performing data scientists</li><li style=\"margin-bottom: 0in;\">Collaborate Across Teams: Establish and maintain close relationships with key cross-functional stakeholders to understand business strategies, develop goals, and address opportunities</li><li style=\"margin-bottom: 0in;\"><strong>Develop Scalable Solutions: </strong>Architect and deploy robust, efficient, and scalable data pipelines and modeling solutions using modern cloud and distributed compute patterns</li><li style=\"margin-bottom: 0in;\"><strong>Lead Innovation Through External Perspective: </strong>Stay current on advancements in machine learning, deep learning, and generative AI; evaluate emerging approaches; and translate theoretical advances into practical, scalable solutions that improve business outcomes. Challenge the status quo and demonstrate strong curiosity</li><li style=\"margin-bottom: 0in;\"><strong>Define Performance Indicators:</strong> Lead analytics and measurement of key performance indicators. Own stakeholder and executive-level communications on initiative progress, including automated monthly measurement tied to specific strategic initiatives</li><li style=\"margin-bottom: 0in;\"><strong>Communicate Insights Effectively: </strong>Present findings, recommendations, and results to technical and non-technical audiences, including executive leadership, through clear reports, visualizations, and presentations, to enable data-driven decision-making</li></ul><p class=\"MsoNormal\" style=\"margin: 0px 0px 12px;\"><span><strong>The shift timing for this position would be 1 PM to 10 PM IST</strong></span></p>",
+   "JobFunctionCode": "DSA",
+   "HotJobFlag": false,
+   "TrendingFlag": true,
+   "BeFirstToApplyFlag": false,
+   "WorkplaceTypeCode": "ORA_HYBRID",
+   "WorkplaceType": "Hybrid",
+   "OtherRequisitionTitle": null,
+   "NumberOfOpenings": null,
+   "HiringManager": null,
+   "Organization": null,
+   "BusinessUnitId": 300000079629936,
+   "LegalEmployerId": 300000007507893,
+   "OrganizationId": 300000079629936,
+   "WorkerType": null,
+   "JobType": null,
+   "WorkMonths": null,
+   "WorkYears": null,
+   "WorkHours": null,
+   "WorkDays": null,
+   "LegalEmployer": null,
+   "BusinessUnit": null,
+   "Department": null,
+   "DomesticTravelRequired": null,
+   "JobFunction": "Data Science",
+   "secondaryLocations": [
+    {
+     "RequisitionLocationId": 300002340223466,
+     "GeographyNodeId": 100020808352667,
+     "GeographyId": 300000032710650,
+     "Name": "Gurugram, HR, India",
+     "CountryCode": "IN",
+     "Latitude": "28.47716",
+     "Longitude": "77.06847"
+    }
+   ],
+   "media": [],
+   "workLocation": [
+    {
+     "LocationId": null,
+     "LocationName": null,
+     "AddressLine1": null,
+     "AddressLine2": null,
+     "AddressLine3": null,
+     "AddressLine4": null,
+     "Building": null,
+     "TownOrCity": null,
+     "PostalCode": null,
+     "Country": null,
+     "Region1": null,
+     "Region2": null,
+     "Region3": null,
+     "Longitude": "",
+     "Latitude": ""
+    }
+   ],
+   "otherWorkLocations": [
+    {
+     "RequisitionWorkLocationId": null,
+     "LocationId": null,
+     "LocationName": null,
+     "AddressLine1": null,
+     "AddressLine2": null,
+     "AddressLine3": null,
+     "AddressLine4": null,
+     "Building": null,
+     "TownOrCity": null,
+     "PostalCode": null,
+     "Country": null,
+     "Region1": null,
+     "Region2": null,
+     "Region3": null,
+     "Latitude": "",
+     "Longitude": ""
+    }
+   ],
+   "requisitionFlexFields": [
+    {
+     "Prompt": "Career Area",
+     "Value": "Analytics & Risk Management",
+     "ControlType": "SingleChoiceList",
+     "SequenceNumber": 9
+    }
+   ],
+   "primaryLocationCoordinates": [
+    {
+     "GeographyNodeId": 100020808352758,
+     "GeographyId": 300000032718926,
+     "Latitude": "12.98257",
+     "Longitude": "77.7619",
+     "CountryCode": "IN"
+    }
+   ],
+   "skills": []
+  }
+ ],
+ "count": 1,
+ "hasMore": false,
+ "limit": 499,
+ "offset": 0,
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://egug.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitionDetails",
+   "name": "recruitingCEJobRequisitionDetails",
+   "kind": "collection"
+  }
+ ]
+}

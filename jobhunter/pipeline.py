@@ -22,9 +22,9 @@ import httpx
 from . import db
 from .config import Profile, Target
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
-from .matching.scorer import score_job
+from .matching.scorer import RuleAudit, audit_rules, score_job
 from .models import Company, Job, Run
-from .sources.registry import fetch_target, resolve
+from .sources.registry import ADDRESSED_BY_URL, fetch_target, resolve
 
 log = logging.getLogger(__name__)
 
@@ -210,7 +210,8 @@ async def run_resolve(
                 ats=detected.ats,
                 detail=f"uses {detected.ats}, no adapter (matched {detected.marker!r})",
             )
-        if not detected.token:
+        token = detected.token or (target.careers_url if detected.ats in ADDRESSED_BY_URL else None)
+        if not token:
             # Recognised the ATS but could not extract a board token, so there is
             # nothing to write. Reported rather than guessed at.
             return ResolveOutcome(
@@ -220,7 +221,7 @@ async def run_resolve(
                 detail=f"{detected.ats} detected but no board token in the HTML",
             )
         return ResolveOutcome(
-            target, "resolved", ats=detected.ats, token=detected.token, detail=detected.marker
+            target, "resolved", ats=detected.ats, token=token, detail=detected.marker
         )
 
     async with PoliteClient() as client:
@@ -359,16 +360,30 @@ async def run_scan(
     *,
     dry_run: bool = False,
     sweep_unseen: bool = False,
+    profile: Profile | None = None,
     on_progress: Progress = _noop,
 ) -> ScanResult:
     """Fetch every target and persist what came back.
 
     ``sweep_unseen`` closes jobs missing from several consecutive scans; pass it
     only when ``targets`` is the full list (see ``db.close_unseen_jobs``).
+
+    ``profile`` supplies search defaults for every target that does not set its
+    own: ``locations`` and ``exclude_titles`` (its exclude_keywords). Workday,
+    Oracle and SuccessFactors spend a request per posting on descriptions, so
+    they skip the ones the scorer would zero on location or title alone;
+    adapters that read a board in one request ignore both.
     """
     result = ScanResult()
+    defaults = (
+        {"locations": profile.locations, "exclude_titles": profile.exclude_keywords}
+        if profile
+        else {}
+    )
 
     async def scan_one(client: PoliteClient, target: Target) -> None:
+        if missing := {k: v for k, v in defaults.items() if v and k not in target.search}:
+            target = target.model_copy(update={"search": {**target.search, **missing}})
         try:
             raws = await fetch_target(client, target)
         except Exception as exc:  # one bad adapter must not end the run
@@ -597,3 +612,15 @@ def run_score(profile: Profile, *, dry_run: bool = False) -> dict:
             buckets[_BANDS[bisect.bisect_right(_BAND_FLOORS, score.total)]] += 1
 
     return {"scored": scored, "disqualified": disqualified, "buckets": buckets}
+
+
+def run_filter_audit(profile: Profile, *, examples: int = 3) -> list[RuleAudit]:
+    """Price every hard rule against the open jobs. Read-only."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import joinedload
+
+    with db.session_scope() as session:
+        jobs = session.scalars(
+            select(Job).options(joinedload(Job.company)).where(Job.closed_at.is_(None))
+        ).all()
+        return audit_rules(jobs, profile, examples=examples)

@@ -104,7 +104,7 @@ class Target(BaseModel):
 
     name: str
     domain: str | None = None
-    ats: str | None = None  # greenhouse | lever | ashby | workable | smartrecruiters
+    ats: str | None = None  # an adapter name; see sources/registry.py
     ats_token: str | None = None
     careers_url: str | None = None
     contact_pages: list[str] = Field(default_factory=list)
@@ -180,6 +180,16 @@ class Profile(BaseModel):
     # check. See matching/scorer.py for why the *smallest* stated requirement in
     # a description is the one that counts.
     max_years_experience: int | None = None
+
+    # Languages you can work in. A posting that requires one you do not list
+    # ("fluent German required", "native Kannada") is a hard zero. Empty leaves
+    # the check off, since nobody should lose postings to a field they never set.
+    languages: list[str] = Field(default_factory=list)
+
+    # Security clearances (US TS/SCI, UK SC/DV, and the like) are tied to
+    # citizenship. Unless you could hold one, a posting that requires one is a
+    # hard zero.
+    eligible_for_clearance: bool = False
 
 
 def load_targets(path: str | Path) -> list[Target]:
