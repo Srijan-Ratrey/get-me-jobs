@@ -382,7 +382,9 @@ async def run_scan(
     )
 
     async def scan_one(client: PoliteClient, target: Target) -> None:
-        if missing := {k: v for k, v in defaults.items() if v and k not in target.search}:
+        catalogue = getattr(resolve(target), "is_catalogue", False)
+        missing = {k: v for k, v in defaults.items() if v and k not in target.search}
+        if missing and not catalogue:
             target = target.model_copy(update={"search": {**target.search, **missing}})
         try:
             raws = await fetch_target(client, target)

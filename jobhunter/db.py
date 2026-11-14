@@ -177,7 +177,7 @@ def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int
             Job.company_id == company.id,
             Job.closed_at.is_(None),
             Job.content_hash.notin_(seen_hashes or {""}),
-            Job.source.notlike("freehire:%"),
+            Job.source.notlike("freehire%"),
         )
     ).all()
     for job in stale:

@@ -144,7 +144,10 @@ def _extract_token(ats: str, html: str) -> str | None:
     for pattern in _TOKEN_PATTERNS.get(ats, ()):
         for match in pattern.finditer(html):
             candidate = next((group for group in match.groups() if group), None)
-            if candidate and candidate.lower() not in _NOT_TOKENS:
+            # A URL token is judged by its first host label: the footer's
+            # https://www.zohorecruit.com is the vendor, not a tenant.
+            label = candidate.split("://")[-1].split(".")[0] if candidate else ""
+            if candidate and label.lower() not in _NOT_TOKENS:
                 return candidate
     return None
 

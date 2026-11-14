@@ -45,6 +45,10 @@ SEVERAL_PLACES = re.compile(r"^\d+ Locations?$")
 POSTED_DAYS_AGO = re.compile(r"Posted (\d+) Days? Ago")
 
 PAGE_SIZE = 20  # the endpoint rejects anything larger
+# ponytail: the cap always spends itself on the first N postings in list order,
+# so on a big board the same N are re-described each scan (cache TTL aside) and
+# the rest never are. Adapters cannot see the DB; the upgrade is to pass the
+# URLs already described in as a search default and skip them.
 DEFAULT_MAX_DETAILS = 50
 
 
@@ -101,8 +105,10 @@ class WorkdaySource:
             if details < max_details and not title_excluded(posting["title"], skip_titles):
                 details += 1
                 info = await _detail(client, board, posting["externalPath"], target.name)
-            if wanted and several and not _wanted_detail(info, wanted):
-                # Unconfirmed: "4 Locations" may well be four cities abroad.
+            if wanted and several and info and not _wanted_detail(info, wanted):
+                # The detail names the places, and none is wanted. Without a
+                # detail it stays: dropping an unconfirmed posting would make
+                # stale-closing report a live job filled.
                 continue
             jobs.append(_to_raw(board, posting, info))
 
@@ -143,7 +149,7 @@ async def _detail(client: PoliteClient, board: Board, path: str, who: str) -> di
     """A posting's full record, or None: one bad posting must not cost the board."""
     try:
         data = await client.get_json(f"{board.api}{path}")
-    except (httpx.HTTPError, SourceUnavailable) as exc:
+    except (httpx.HTTPError, SourceUnavailable, RobotsDisallowed) as exc:
         log.info("%s: workday detail %s failed: %s", who, path, exc)
         return None
     return data.get("jobPostingInfo") if isinstance(data, dict) else None
@@ -178,8 +184,12 @@ def _to_raw(board: Board, posting: dict, info: dict | None) -> RawJob:
         source="workday",
         # The path is the one identifier every listing row carries.
         external_id=posting["externalPath"],
-        title=info.get("title") or posting["title"],
-        location=_places(info) if info else posting.get("locationsText"),
+        # Title and location feed content_hash, so both come from the listing,
+        # which every scan reads, never from a detail that one scan fetches and
+        # the next skips: that would turn one posting into a closed row and a
+        # new one. "2 Locations" is uninformative but stable.
+        title=posting["title"],
+        location=posting.get("locationsText"),
         description=html_to_text(info.get("jobDescription")),
         url=info.get("externalUrl") or f"{board.url}{posting['externalPath']}",
         posted_at=parse_iso(info.get("startDate")) or _posted_on(posting.get("postedOn")),

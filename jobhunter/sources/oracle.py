@@ -132,7 +132,7 @@ async def _detail(client: PoliteClient, board: Board, req_id: str, who: str) -> 
         data = await client.get_json(
             f"{API.format(host=board.host)}/recruitingCEJobRequisitionDetails?{query}"
         )
-    except (httpx.HTTPError, SourceUnavailable) as exc:
+    except (httpx.HTTPError, SourceUnavailable, RobotsDisallowed) as exc:
         log.info("%s: oracle detail %s failed: %s", who, req_id, exc)
         return None
     items = data.get("items") if isinstance(data, dict) else None

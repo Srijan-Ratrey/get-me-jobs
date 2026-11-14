@@ -136,9 +136,13 @@ def test_a_board_does_not_close_what_freehire_found_elsewhere(session):
         session, acme, raw("ML Engineer", source="freehire:naukri", url="https://naukri/1")
     )
 
+    bare, _ = db.upsert_job(  # a FreeHire row with no upstream source
+        session, acme, raw("NLP Engineer", source="freehire", url="https://freehire/2")
+    )
+
     assert db.close_stale_jobs(session, acme, set()) == 1
     assert direct.closed_at is not None
-    assert elsewhere.closed_at is None
+    assert elsewhere.closed_at is None and bare.closed_at is None
 
 
 # --------------------------------------------------------------------------- #

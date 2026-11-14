@@ -382,6 +382,12 @@ def test_fingerprint_detects_ats(html, ats, token, supported):
     assert detected.supported is supported
 
 
+def test_a_vendor_footer_is_not_a_zoho_tenant():
+    """The guard that keeps "www" out of slug tokens applies to URL tokens too."""
+    html = '<a href="https://www.zohorecruit.com">Powered by Zoho Recruit</a>'
+    assert careers_page.fingerprint(html).token is None
+
+
 def test_fingerprint_returns_none_for_plain_page():
     assert careers_page.fingerprint("<html><body><p>We have no jobs</p></body></html>") is None
 

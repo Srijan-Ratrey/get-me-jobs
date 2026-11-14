@@ -112,14 +112,33 @@ _LANGUAGES = frozenset(
     vietnamese indonesian bahasa czech hungarian romanian greek ukrainian hindi kannada
     tamil telugu marathi bengali malayalam gujarati punjabi urdu odia""".split()
 )
-_LANGUAGE_NAME = re.compile(r"\b(" + "|".join(sorted(_LANGUAGES)) + r")\b", re.IGNORECASE)
+# Case-sensitive: a language name is capitalised, and "polish the docs" is a verb.
+# A name followed by "-speaking" describes a market or audience ("Spanish-speaking
+# markets"), not the reader, so it is not counted.
+_LANGUAGE_NAME = re.compile(
+    r"\b("
+    + "|".join(f"{n.capitalize()}|{n.upper()}" for n in sorted(_LANGUAGES))
+    + r")\b(?!-speaking)"
+)
 # Most of these names are also adjectives ("German automotive clients", "the
-# Japanese market"), so a name only counts with a fluency word right beside it.
-_FLUENCY = re.compile(
-    r"fluen\w*|proficien\w*|\bnative\b|mother\s+tongue|\bspeak\w*|\bspoken\b|\bwritten\b"
-    r"|\bverbal\b|business[- ]level|\b[BC][12]\b|\blanguage\b",
+# Japanese market"), so a name only counts with a fluency word beside it. Strong
+# cues may sit a few words away. Weak ones ("written", "verbal") also describe
+# communication in general, so they must share the name's clause: in "written
+# and verbal communication, experience with the Japanese market" they are a
+# comma away and say nothing about Japanese.
+_STRONG_FLUENCY = re.compile(
+    r"fluen\w*|proficien\w*|\bnative\b|mother\s+tongue|\bspeak\w*|business[- ]level"
+    r"|\b[BC][12]\b",
     re.IGNORECASE,
 )
+# "Polish" is the one name that is also an everyday verb, and sentence-initial
+# capitals defeat the case check: "Polish written specs before review". As a
+# language it is followed by a noun about language, or by nothing at all.
+_POLISH_THE_VERB = re.compile(
+    r"Polish\s+(?!(?:language|speaker|speakers|skills|fluency|proficiency|native|is|are"
+    r"|required|and|or)\b)[a-z]"
+)
+_WEAK_FLUENCY = re.compile(r"\bspoken\b|\bwritten\b|\bverbal\b|\blanguage\b", re.IGNORECASE)
 _FLUENCY_WINDOW = 40
 # "Fluency in French is a plus" is a preference, not a requirement.
 _OPTIONAL = re.compile(
@@ -158,8 +177,13 @@ def required_language(text: str | None, spoken: list[str]) -> str | None:
             continue
         named = set()
         for match in _LANGUAGE_NAME.finditer(sentence):
+            if _POLISH_THE_VERB.match(sentence, match.start()):
+                continue
             near = sentence[max(0, match.start() - _FLUENCY_WINDOW) : match.end() + _FLUENCY_WINDOW]
-            if _FLUENCY.search(near):
+            start = sentence.rfind(",", 0, match.start()) + 1
+            end = sentence.find(",", match.end())
+            clause = sentence[start : end if end != -1 else len(sentence)]
+            if _STRONG_FLUENCY.search(near) or _WEAK_FLUENCY.search(clause):
                 named.add(match.group(1).lower())
         if named and not named & known:
             return sorted(named)[0]
@@ -167,6 +191,13 @@ def required_language(text: str | None, spoken: list[str]) -> str | None:
 
 
 _REQUIRED = re.compile(r"\bmust\b|\brequired\b|\bmandatory\b", re.IGNORECASE)
+# Saying a clearance is unnecessary: "not required", "no security clearance
+# required", a header answered "Clearance: None".
+_NO_CLEARANCE = re.compile(
+    r"not\s+(?:be\s+)?(?:required|needed|necessary)|\bno\s+(?:\w+\s+){0,2}clearance"
+    r"|clearance(?:\s+level)?\s*:\s*(?:none|n/?a|not\s+required)\b",
+    re.IGNORECASE,
+)
 
 
 def requires_clearance(text: str | None) -> bool:
@@ -180,6 +211,7 @@ def requires_clearance(text: str | None) -> bool:
         return False
     return any(
         _CLEARANCE.search(sentence)
+        and not _NO_CLEARANCE.search(sentence)
         and (not _OPTIONAL.search(sentence) or _REQUIRED.search(sentence))
         for sentence in _SENTENCE.split(text)
     )
@@ -271,7 +303,7 @@ _MODALITY_WORDS = frozenset(
 )
 
 
-def _place_aliases(wanted: list[str]) -> set[str]:
+def place_aliases(wanted: list[str]) -> set[str]:
     """Alias-expanded set of the wanted entries that actually name a place."""
     return _expand_aliases([w for w in wanted if w.strip().lower() not in _MODALITY_WORDS])
 
@@ -363,7 +395,7 @@ def matches_location(
     if not wanted:
         return True
     text = (location or "").lower()
-    places = _place_aliases(wanted)
+    places = place_aliases(wanted)
     if _names_place(text, places):
         return True
 
@@ -587,7 +619,7 @@ def score_job(job: Job, profile: Profile, *, gates: bool = True) -> Score:
     # awarded full credit for any posting mentioning "remote" — which is how
     # US-only roles came to outrank reachable Bengaluru ones.
     location = (job.location or "").lower()
-    places = _place_aliases(profile.locations)
+    places = place_aliases(profile.locations)
     if profile.remote_only:
         if job.remote:
             components["location"] = W_LOCATION

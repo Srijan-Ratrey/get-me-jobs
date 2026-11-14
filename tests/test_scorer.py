@@ -679,7 +679,7 @@ def test_a_keyword_matches_across_a_line_break():
         # A choice among languages, none of them spoken.
         (
             "- Fluent in written and spoken English and either German, French, Spanish or Italian",
-            "french",
+            "german",
         ),
         # Softened: a preference, not a requirement.
         ("Outstanding English skills, knowledge of Spanish is a plus (not required)", None),
@@ -688,6 +688,10 @@ def test_a_keyword_matches_across_a_line_break():
         ("Experience selling to German automotive manufacturers is required", None),
         ("You will own our expansion into the Japanese market", None),
         ("Fluent English required", None),
+        # Found in review: an audience, a verb, and a weak cue a comma away.
+        ("Experience selling into Spanish-speaking markets", None),
+        ("Polish written specs before they go to review", None),
+        ("Strong written and verbal communication, experience with the Japanese market", None),
         (None, None),
     ],
 )
@@ -730,6 +734,10 @@ def test_language_gate_is_off_until_languages_are_set():
         # Not the security sense.
         ("documentation, customs clearance, Incoterms application", False),
         ("Understand creepage and clearance definitions for PCB layout", False),
+        # Saying it is unnecessary.
+        ("Security clearance is not required for this role.", False),
+        ("No security clearance required.", False),
+        ("Clearance Level: None", False),
         (None, False),
     ],
 )

@@ -27,8 +27,8 @@ import httpx
 from selectolax.lexbor import LexborHTMLParser
 
 from ..config import Target
-from ..http import PoliteClient, SourceUnavailable
-from ..matching.scorer import title_excluded
+from ..http import PoliteClient, RobotsDisallowed, SourceUnavailable
+from ..matching.scorer import place_aliases, title_excluded
 from ..models import RawJob
 from .base import join_locations, normalize_text
 
@@ -53,21 +53,26 @@ class SuccessFactorsSource:
         max_details = int(target.search.get("max_details", DEFAULT_MAX_DETAILS))
         # "Remote" is a willingness, not a place: as a search it returns remote
         # roles worldwide. The scorer's location gate makes the same distinction.
-        places = [p for p in target.search.get("locations") or [] if p.lower() != "remote"]
-        tiles: dict[str, tuple[str, str]] = {}
+        # Expanded with the scorer's aliases: a site that writes "Bangalore"
+        # returns nothing for "Bengaluru". Short forms ("blr") are not searches.
+        places = sorted(
+            p for p in place_aliases(target.search.get("locations") or []) if len(p) > 3
+        )
+        tiles: dict[str, tuple[str, str, str | None]] = {}
         for place in places or [None]:
-            tiles.update(await _tiles(client, origin, place, target.name))
+            for job_id, (title, path) in (await _tiles(client, origin, place, target.name)).items():
+                tiles.setdefault(job_id, (title, path, place))
 
         skip_titles = list(target.search.get("exclude_titles") or [])
         jobs: list[RawJob] = []
         details = 0
-        for job_id, (title, path) in tiles.items():
+        for job_id, (title, path, place) in tiles.items():
             url = urljoin(origin, path)
             page = None
             if details < max_details and not title_excluded(title, skip_titles):
                 details += 1
                 page = await _page(client, url, target.name)
-            jobs.append(_to_raw(job_id, title, url, page))
+            jobs.append(_to_raw(job_id, title, url, page, place))
         if details >= max_details:
             log.warning(
                 "%s: fetched the %d-description cap; the rest have no description",
@@ -124,7 +129,7 @@ def parse_tiles(html: str) -> dict[str, tuple[str, str]]:
 async def _page(client: PoliteClient, url: str, who: str) -> str | None:
     try:
         return await client.get(url)
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, RobotsDisallowed) as exc:
         log.info("%s: successfactors posting %s failed: %s", who, url, exc)
         return None
 
@@ -139,23 +144,35 @@ def _posted(value: str | None) -> datetime | None:
         return None
 
 
-def _to_raw(job_id: str, title: str, url: str, page: str | None) -> RawJob:
-    location = description = posted = None
+def _to_raw(job_id: str, title: str, url: str, page: str | None, place: str | None) -> RawJob:
+    """Title and location feed content_hash, so they come from what every scan
+    sees: the tile's title, and the place whose search found it. The posting
+    page, fetched on some scans and not others, only adds description and date;
+    its fuller address list is kept in the description's opening line.
+    """
+    description = posted = None
     if page:
         tree = LexborHTMLParser(page)
-        if node := tree.css_first('[itemprop="title"]'):
-            title = normalize_text(node.text()) or title
         places = [n.attributes.get("content") for n in tree.css('[itemprop="streetAddress"]')]
-        location = join_locations(*places)
-        if node := tree.css_first('[itemprop="description"]'):
-            description = normalize_text(node.text(separator="\n"))
+        body = tree.css_first('[itemprop="description"]')
+        description = normalize_text(
+            "\n\n".join(
+                filter(
+                    None,
+                    [
+                        f"Locations: {join_locations(*places)}" if any(places) else None,
+                        body.text(separator="\n") if body else None,
+                    ],
+                )
+            )
+        )
         if node := tree.css_first('[itemprop="datePosted"]'):
             posted = _posted(node.attributes.get("content"))
     return RawJob(
         source="successfactors",
         external_id=job_id,
         title=title,
-        location=location,
+        location=place,
         description=description,
         url=url,
         posted_at=posted,

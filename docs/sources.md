@@ -396,6 +396,12 @@ controls keep that bounded, both under the target's `search:`:
   **Defaults to `profile.yaml`'s `exclude_keywords`**: the scorer zeroes those on title alone, so
   their descriptions are never read. The posting itself is still returned.
 - `max_details` (default 50) — past it, postings are still returned, without a description.
+  Known limit: the budget goes to the first 50 in list order every scan, so on a big board the
+  same postings are re-described and the rest never are. Adapters cannot see which descriptions
+  the database already holds.
+- Title and location always come from the listing (SuccessFactors: the tile's title and the
+  search place that found it), never from the detail. Both feed `content_hash`, and a detail one
+  scan fetches and the next skips would otherwise split one posting into a closed row and a new one.
   Leaving them out would make stale-closing mark live jobs closed.
 
 | ATS | Listing | Detail | Notes |

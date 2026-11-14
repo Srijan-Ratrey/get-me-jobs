@@ -51,8 +51,9 @@ async def test_workday_details_only_wanted_postings(polite_client, allow_robots,
     async with polite_client() as client:
         jobs = await workday.WorkdaySource().fetch(client, _genpact(locations=WANTED))
 
+    # From the listing, never the detail: location feeds content_hash.
     assert [j.location for j in jobs] == [
-        "1401-G-India: Stellar, STPI, Noida | India",
+        "1401-G-India: Stellar, STPI, Noida",
         "1415-GERC: Prestige Technology Park IV, Bangalore",
     ]
     assert not abroad.called  # three postings abroad cost no detail request
@@ -92,7 +93,47 @@ async def test_workday_several_locations_need_the_detail_to_decide(
         everything = await workday.WorkdaySource().fetch(client, target)
 
     assert wanted == []
-    assert [j.location for j in everything] == ["Prague | Brno | Czechia"]
+    assert [j.location for j in everything] == ["2 Locations"]
+
+
+@respx.mock
+async def test_workday_keeps_a_several_locations_posting_it_could_not_check(
+    polite_client, allow_robots, fixture_text
+):
+    """Dropping it would make stale-closing report a live job filled."""
+    origin = "https://pwc.wd3.myworkdayjobs.com"
+    api = f"{origin}/wday/cxs/pwc/Global_Experienced_Careers"
+    allow_robots(origin)
+    respx.post(f"{api}/jobs").respond(200, text=fixture_text("workday_multi_list.json"))
+    respx.get(url__startswith=f"{api}/job/").respond(503)
+    target = Target(
+        name="PwC",
+        ats="workday",
+        ats_token=f"{origin}/Global_Experienced_Careers",
+        search={"locations": WANTED},
+    )
+    async with polite_client() as client:
+        jobs = await workday.WorkdaySource().fetch(client, target)
+    assert [j.location for j in jobs] == ["2 Locations"]
+
+
+@respx.mock
+async def test_workday_title_and_location_do_not_depend_on_the_detail(
+    polite_client, allow_robots, fixture_text
+):
+    """One scan fetches the detail and the next skips it; the hash must not change."""
+    allow_robots(WD_ORIGIN)
+    respx.post(f"{WD_API}/jobs").respond(200, text=fixture_text("workday_list.json"))
+    respx.get(url__startswith=f"{WD_API}/job/").respond(
+        200, text=fixture_text("workday_detail.json")
+    )
+    async with polite_client() as client:
+        described = await workday.WorkdaySource().fetch(client, _genpact(locations=WANTED))
+        bare = await workday.WorkdaySource().fetch(
+            client, _genpact(locations=WANTED, max_details=0)
+        )
+    assert described[0].description and not bare[0].description
+    assert described[0].compute_hash("Genpact") == bare[0].compute_hash("Genpact")
 
 
 @respx.mock
@@ -285,20 +326,46 @@ async def test_successfactors_searches_each_place_and_reads_the_posting(
         jobs = await successfactors.SuccessFactorsSource().fetch(client, target)
 
     searched = {re.search(r"locationsearch=(\w+)", str(c.request.url))[1] for c in tiles.calls}
-    assert searched == {"Bengaluru", "India"}  # never "Remote"
+    # Aliases too, since a site may write "Bangalore"; never "Remote" or "blr".
+    assert searched == {"bangalore", "bengaluru", "india"}
     assert [j.external_id for j in jobs] == ["1400369333", "1367727133", "1122131801"]
 
     job = jobs[0]
     assert job.source == "successfactors"
     assert job.title == "SAP BRIM Technical Consultant"
-    assert job.location == "Pune, IN | Mumbai, IN | Gandhinagar, IN | Bangalore, IN"
+    # The search that found it, which every scan sees; the page's own list of
+    # places goes into the description instead.
+    assert job.location == "bangalore"
+    assert job.description.startswith(
+        "Locations: Pune, IN | Mumbai, IN | Gandhinagar, IN | Bangalore, IN"
+    )
     assert job.url == f"{SF_ORIGIN}/job/Bangalore-SAP-BRIM-Technical-Consultant/1400369333/"
     assert job.posted_at == datetime(2026, 10, 26, 2, 0, tzinfo=timezone.utc)
     assert job.description and len(job.description) > 500
 
     # The posting page failed: title from the tile, nothing invented.
     assert jobs[1].title == "SAP BTP CAP Lead"
-    assert jobs[1].description is None and jobs[1].location is None
+    assert jobs[1].description is None and jobs[1].location == "bangalore"
+
+
+@respx.mock
+async def test_a_posting_robots_disallows_does_not_cost_the_board(polite_client, fixture_text):
+    respx.get(f"{SF_ORIGIN}/robots.txt").respond(
+        200, text="User-agent: *\nDisallow: /job/Bangalore-SAP-BRIM\n"
+    )
+    respx.get(url__startswith=f"{SF_ORIGIN}/tile-search-results/").mock(
+        side_effect=lambda request: respx.MockResponse(
+            200,
+            text=fixture_text("successfactors_tiles.html")
+            if "startrow=0" in str(request.url)
+            else "",
+        )
+    )
+    respx.get(url__regex=rf"{re.escape(SF_ORIGIN)}/job/.*").respond(404)
+    target = Target(name="Capgemini", ats="successfactors", ats_token=SF_ORIGIN)
+    async with polite_client() as client:
+        jobs = await successfactors.SuccessFactorsSource().fetch(client, target)
+    assert len(jobs) == 3 and jobs[0].description is None
 
 
 def test_successfactors_tiles_parse(fixture_text):
