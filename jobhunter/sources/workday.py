@@ -31,7 +31,7 @@ from ..config import Target
 from ..http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from ..matching.scorer import matches_location, title_excluded
 from ..models import RawJob
-from .base import html_to_text, join_locations, parse_iso
+from .base import html_to_text, join_locations, parse_iso, warn_if_capped
 
 log = logging.getLogger(__name__)
 
@@ -112,12 +112,7 @@ class WorkdaySource:
                 continue
             jobs.append(_to_raw(board, posting, info))
 
-        if details >= max_details:
-            log.warning(
-                "%s: fetched the %d-description cap; the rest have no description",
-                target.name,
-                max_details,
-            )
+        warn_if_capped(target.name, details, max_details)
         return jobs
 
 

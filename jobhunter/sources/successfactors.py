@@ -30,7 +30,7 @@ from ..config import Target
 from ..http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from ..matching.scorer import place_aliases, title_excluded
 from ..models import RawJob
-from .base import join_locations, normalize_text
+from .base import join_locations, normalize_text, warn_if_capped
 
 log = logging.getLogger(__name__)
 
@@ -73,12 +73,7 @@ class SuccessFactorsSource:
                 details += 1
                 page = await _page(client, url, target.name)
             jobs.append(_to_raw(job_id, title, url, page, place))
-        if details >= max_details:
-            log.warning(
-                "%s: fetched the %d-description cap; the rest have no description",
-                target.name,
-                max_details,
-            )
+        warn_if_capped(target.name, details, max_details)
         return jobs
 
 

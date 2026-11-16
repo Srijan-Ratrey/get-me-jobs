@@ -16,12 +16,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from urllib.parse import urlparse
 
 import httpx
 from selectolax.lexbor import LexborHTMLParser
 
-from ..config import Target
+from ..config import Target, host_of
 from ..http import PoliteClient, SourceUnavailable
 from ..models import RawJob
 from .base import html_to_text, join_locations, parse_iso
@@ -58,10 +57,8 @@ class ZohoRecruitSource:
 
 
 def _origin(value: str | None) -> str | None:
-    if not value:
-        return None
-    host = urlparse(value if "://" in value else f"https://{value}").netloc
-    return f"https://{host}" if TENANT_HOST.match(host) else None
+    host = host_of(value)
+    return f"https://{host}" if host and TENANT_HOST.match(host) else None
 
 
 def parse_records(html: str) -> list[dict] | None:
