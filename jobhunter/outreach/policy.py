@@ -21,6 +21,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import db
 from ..config import settings
 from ..matching.scorer import matches_location
 from ..models import (
@@ -28,9 +29,7 @@ from ..models import (
     Contact,
     Job,
     Outreach,
-    Suppression,
     company_key,
-    hash_email,
     utcnow,
 )
 
@@ -103,12 +102,6 @@ def remaining_today(s: Session) -> int:
     return max(0, daily_cap() - sent_recently(s))
 
 
-def _is_suppressed(s: Session, email: str) -> bool:
-    """Honour an erasure or opt-out request, whichever table recorded it."""
-    digest = hash_email(email)
-    return s.scalar(select(Suppression.id).where(Suppression.email_hash == digest)) is not None
-
-
 def _last_sent_to_email(s: Session, email: str):
     """When this address was last mailed, across every company row it appears under.
 
@@ -145,7 +138,7 @@ def may_send(s: Session, candidate: Candidate) -> Decision:
 
     if contact.suppressed:
         return Decision(False, f"{contact.email} is suppressed")
-    if _is_suppressed(s, contact.email):
+    if db.is_suppressed(s, contact.email):
         return Decision(False, f"{contact.email} is on the suppression list")
 
     # Re-checked at send time, not only at draft time: a run drafts a batch and
