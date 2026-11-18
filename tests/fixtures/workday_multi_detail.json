@@ -1,0 +1,82 @@
+{
+ "jobPostingInfo": {
+  "id": "e728c71ff523100e1898453115840000",
+  "title": "SOC / SIEM Senior Consultant – Cyber Defence",
+  "jobDescription": "<p><b>Job Description &amp; Summary</b></p><p></p><p></p><h2>About the team </h2><p>For us, a SOC isn&#39;t a ticket or detection &#34;washing machine&#34;. Our work covers monitoring, detection and analysis, incident investigation and remediation, and post-incident improvement. We serve clients in Czech Republic and the wider EMEA region. Our services include SOC-as-a-Service, MDR, incident response, threat hunting and SIEM transformation, built on SIEM, EDR/XDR, SOAR and cloud security technologies.</p><br /><h2>About your manager </h2><p><a target=\"_blank\" href=\"https://www.linkedin.com/in/lubomir-almer/\"><span style=\"color:#0000ff\"><u>Lubomír </u></span></a>has over 10 years of cyber security experience with different projects related to mainly cyber security managed services, building and operating Security Operation Centers (SOC), Threat Hunting &amp; Intelligence and Vulnerability Management. Lubomír is also responsible for team leading, project management, designing of cyber security managed services, creation and development of training plans and is a proven coach to train other team members or client staff. Outside of work, he is involved in teaching, science, and research at the University of Hradec Králové, where he guarantees and teaches the course Surveillance Systems and Forensic Analysis.</p><br /><h2>Job description &amp; summary </h2><p>As a SOC / SIEM Senior Consultant, you will lead the technical delivery of SIEM and SOC engagements and act as a trusted advisor to client security leadership. You will:</p><ul><li>Build SIEM architecture, deployment and migration workstreams (e.g. Microsoft Sentinel, Splunk, QRadar, Google SecOps), including log source strategy, data pipelines and cost-optimized ingestion.</li><li>Review detection engineering: design use cases mapped to MITRE ATT&amp;CK, correlation rules, SOAR playbooks and quality metrics for detections.</li><li>Run SOC maturity, target-state and gap assessments (e.g. SOC-CMM, regulatory alignment) and turn them into roadmaps and business cases.</li><li>Act as the escalation point in complex investigations and incident response.</li><li>Be accountable for workstream quality and deadlines.</li><li>Present findings and recommendations to CISOs and management, and support proposals, scoping and effort estimates.</li><li>Develop our service catalogue, accelerators and methodologies.</li></ul><br /><h2>What matters to us</h2><ul><li>At least 4 years of relevant cybersecurity experience, including at least 2&#43; years hands-on in SOC, MSSP, CSIRT or security engineering roles.</li><li>Proven delivery of at least one end-to-end SIEM implementation, migration or major re-engineering, from design through go-live.</li><li>Basic detection engineering knowledge: KQL, SPL or similar query languages, parsing and normalisation, and Python or PowerShell automation.</li><li>Understanding of Windows, Linux, network and cloud (Azure, AWS or GCP) telemetry, as well as EDR/XDR.</li><li>Communicating directly with clients at manager or CISO level.</li><li>Fluent English, plus Czech or Slovak.</li><li>A consistent, reliable and professional personality, comfortable in international and diverse teams.</li></ul><br /><h2>What will help you stand out</h2><ul><li>Certifications such as SC-200, Splunk Certified Admin/Architect, Google Cloud Security Operations Engineer, GIAC (GCIA, GCIH, GCDA), OSCP, CISSP, or CISM.</li><li>Experience with SOAR, data pipeline platforms such as Cribl, or large-scale log platforms.</li><li>Experience in regulated sectors such as banking or critical infrastructure, or with frameworks such as DORA, NIS2 or SAMA.</li><li>Pre-sales experience: scoping, effort estimation and proposal writing.</li><li>German or another CEE language.</li></ul><br /><h2><b>How this role will advance your career</b></h2><ul><li>Opportunity to build the TDR practice from the ground up – real ownership and impact.</li><li>Development of leadership skills in an environment where you make a difference.</li><li>Direct contact with senior security stakeholders at clients.</li><li>Path to a Senior Manager/Director role upon demonstrating business growth and delivery excellence.</li><li>Ability to shape market positioning and service portfolio in a growing area.</li></ul><h2></h2><h2>Why you’ll enjoy working here</h2><ul><li><span style=\"color:#2d2d2d\"><b>Professional growth </b>that matches your ambitions and pace. Gain in months the kind of experience that can take years to build elsewhere. </span></li><li><span style=\"color:#2d2d2d\"><b>Fair pay</b> with no gaps. We are among the few companies in the Czech Republic certified for <b>Equal Pay.</b> </span></li><li><span style=\"color:#2d2d2d\">A flexible </span><a target=\"_blank\" href=\"https://www.benefit-plus.cz/cz/moje-benefity\"><span style=\"color:#fd5108\"><u>benefits programme</u></span></a><span style=\"color:#2d2d2d\"> </span>with<span style=\"color:#2d2d2d\"><b> 45,000 </b></span><b>points</b><span style=\"color:#2d2d2d\"> </span>to spend on what matters most to you. </li><li><span style=\"color:#2d2d2d\"><b>30 days of paid time of,</b> including three well-being days and two additional days off at the end of the year. </span></li><li><span style=\"color:#2d2d2d\">An opportunity to give back to the community with <b>one paid volunteering day</b> every year. </span></li><li><span style=\"color:#2d2d2d\">The chance to work from one of <b>PwC’s international offices</b> (available from the Senior Associate level). </span></li><li><span style=\"color:#2d2d2d\"><b>We support your learning and development journey</b>: We offer training in business skills (such as presentation and communication skills, assertiveness, and giving feedback) as well as digital skills (including Alteryx, Power BI, and AI). Our technical training will help you understand the full deals transaction lifecycle and how to present our findings to clients in a clear and impactful way. We also cover the cost of professional certifications, such as </span><i>GIAC/SANS, Microsoft, Splunk, Google, OffSec, ISC2)</i><span style=\"color:#2d2d2d\">. </span></li><li><span style=\"color:#2d2d2d\"><b>A buddy programme,</b> regular feedback, and access to a coach who can support your professional development and career path. </span></li><li><span style=\"color:#2d2d2d\">Extensive <b>well-being support</b> and initiatives promoting a healthy lifestyle, from Dr. Digital and Human Dynamic programmes to workplace yoga and running events. </span></li><li><span style=\"color:#2d2d2d\">An ultrabook and an iPhone with unlimited data. </span></li><li><a target=\"_blank\" href=\"https://www.pwc.com/cz/cs/kariera/proc-pwc.html\"><span style=\"color:#fd5108\"><u>Social events</u></span></a><span style=\"color:#2d2d2d\"> and </span><a target=\"_blank\" href=\"https://www.instagram.com/s/aGlnaGxpZ2h0OjE4MDc3NDkwMjgxNDg4NTU1\"><span style=\"color:#fd5108\"><u>Away Days</u></span></a><span style=\"color:#2d2d2d\">.  </span> </li></ul><p><br /><br /><br /></p><p>Check us out on: <a target=\"_blank\" href=\"https://www.pwc.com/cz/en/sluzby/cyberandprivacy.html\"><span style=\"color:#0000ff\"><u>Cyber &amp; Privacy | Czech Republic</u></span></a></p><br /><p>At PwC, we help clients solve today’s and tomorrow’s challenges across audit, consulting, tax, legal, technology, and data. We create an environment where people can learn, grow, and build a career in their own way. We believe the best results come from diverse experiences and perspectives. That’s why we foster an inclusive culture where everyone can be themselves, build on their strengths, and contribute to work that makes a real impact.</p><br /><p>Interested in joining us? We’d love to hear from you and tell you more about this opportunity.</p><br /><p><a target=\"_blank\" href=\"https://jobs-cee.pwc.com/cz/cz/informace-o-zpracovani-osobnich-udaju?protocol&#61;https://efxtech.com&amp;domain&#61;https://efxtech.com&amp;subdomain&#61;https://efxtech.com&amp;host&#61;https://efxtech.com&amp;script_name&#61;https://efxtech.com&amp;server&#61;https://efxtech.com&amp;cdn&#61;https://efxtech.com&amp;js&#61;https://efxtech.com\"><span style=\"color:#0000ff\"><u>Ochrana osobních údajů pro žadatele o zaměstnání </u></span></a>/ <a target=\"_blank\" href=\"https://jobs-cee.pwc.com/ce/en\"><span style=\"color:#0000ff\"><u>Privacy Statement for Recruitment Applicants.</u></span></a></p><br /><p>#LI-EK1</p><p></p><p></p>",
+  "location": "Prague",
+  "additionalLocations": [
+   "Brno"
+  ],
+  "postedOn": "Posted Today",
+  "startDate": "2026-11-13",
+  "timeType": "Full time",
+  "jobReqId": "723664WD",
+  "jobPostingId": "Cybersecurity-Consultant_723664WD-1",
+  "jobPostingSiteId": "Global_Experienced_Careers",
+  "country": {
+   "descriptor": "Czechia",
+   "id": "fc078443155c4ad294201ecf5a61a499"
+  },
+  "canApply": true,
+  "posted": true,
+  "includeResumeParsing": true,
+  "jobRequisitionLocation": {
+   "descriptor": "Praha - Hvezdova 1734/2c",
+   "country": {
+    "descriptor": "Czechia",
+    "id": "fc078443155c4ad294201ecf5a61a499",
+    "alpha2Code": "CZ"
+   }
+  },
+  "externalUrl": "https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers/job/Prague/Cybersecurity-Consultant_723664WD-1",
+  "questionnaireId": "1a1f72bd762301294d260cc7c34c4466",
+  "secondaryQuestionnaireId": "9ed34a130dc8100ebb1f2d97fcee0000"
+ },
+ "hiringOrganization": {
+  "name": "Pricewaterhousecoopers Česká Republika, s.r.o.",
+  "url": ""
+ },
+ "similarJobs": [
+  {
+   "title": "Cyber Security - Client Interactions Senior Associate",
+   "externalPath": "/job/Prague/Client-Interactions-Senior-Associate_763949WD-1",
+   "timeType": "Full time",
+   "locationsText": "Prague",
+   "postedOn": "Posted 3 Days Ago",
+   "startDate": "2026-11-10"
+  },
+  {
+   "title": "Senior Consultant - Technology Consulting - Financial Sector",
+   "externalPath": "/job/Prague/Senior-Consultant---Technology-Consulting---Financial-Sector_772148WD",
+   "timeType": "Full time",
+   "locationsText": "Prague",
+   "postedOn": "Posted 10 Days Ago",
+   "startDate": "2026-11-03"
+  },
+  {
+   "title": "Senior Consultant - Technology Consulting",
+   "externalPath": "/job/Prague/Senior-Consultant---Technology-Consulting_772695WD",
+   "timeType": "Full time",
+   "locationsText": "Prague",
+   "postedOn": "Posted 8 Days Ago",
+   "startDate": "2026-11-05"
+  },
+  {
+   "title": "Data & AI Governance Consultant – German Projects",
+   "externalPath": "/job/Prague/Data---AI-Governance-Consultant---German-Projects_722030WD-2",
+   "timeType": "Full time",
+   "locationsText": "3 Locations",
+   "postedOn": "Posted 30+ Days Ago",
+   "startDate": "2026-09-22"
+  },
+  {
+   "title": "Senior Consultant - Management Consulting",
+   "externalPath": "/job/Prague/Senior-Consultant---Management-Consulting_771897WD",
+   "timeType": "Full time",
+   "locationsText": "Prague",
+   "postedOn": "Posted 11 Days Ago",
+   "startDate": "2026-11-02"
+  }
+ ],
+ "userAuthenticated": false
+}

@@ -1,0 +1,697 @@
+{
+ "items": [
+  {
+   "SearchId": 1,
+   "Keyword": null,
+   "CorrectedKeyword": null,
+   "UseExactKeywordFlag": false,
+   "SuggestedKeyword": null,
+   "ExecuteSpellCheckFlag": true,
+   "Location": null,
+   "LocationId": null,
+   "Radius": 0,
+   "RadiusUnit": "MI",
+   "SelectedTitlesFacet": null,
+   "SelectedCategoriesFacet": null,
+   "SelectedPostingDatesFacet": null,
+   "SelectedLocationsFacet": null,
+   "LastSelectedFacet": null,
+   "Facets": "TITLES;LOCATIONS;LOCATION_LEVEL1;LOCATION_LEVEL2;LOCATION_LEVEL3;CATEGORIES;POSTING_DATES;WORK_LOCATIONS;FLEX_FIELDS;ORGANIZATIONS;WORKPLACE_TYPES",
+   "Offset": 0,
+   "Limit": 25,
+   "SortBy": "POSTING_DATES_DESC",
+   "TotalJobsCount": 304,
+   "Latitude": null,
+   "Longitude": null,
+   "SiteNumber": "jobsearch",
+   "JobFamilyId": null,
+   "PostingStartDate": null,
+   "PostingEndDate": null,
+   "SelectedWorkLocationsFacet": null,
+   "RequisitionId": null,
+   "CandidateNumber": null,
+   "WorkLocationZipCode": null,
+   "WorkLocationCountryCode": null,
+   "SelectedFlexFieldsFacets": null,
+   "OrganizationId": null,
+   "SelectedOrganizationsFacet": null,
+   "UserTargetFacetName": null,
+   "UserTargetFacetInputTerm": null,
+   "HotJobFlag": null,
+   "WorkplaceType": null,
+   "SelectedWorkplaceTypesFacet": null,
+   "BotQRShortCode": null,
+   "requisitionList": [
+    {
+     "Id": "26015709",
+     "Title": "Lead Development Specialist",
+     "PostedDate": "2026-11-13",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "PH",
+     "GeographyId": 300001054327060,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": "ORA_HYBRID",
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000079629536,
+     "LegalEmployerId": 300000007508231,
+     "OrganizationId": 300000307821062,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "",
+     "PrimaryLocation": "Taguig City, Manila, Philippines",
+     "Distance": 1794528000000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": true,
+     "Relevancy": 9,
+     "WorkplaceType": "Hybrid",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [],
+     "workLocation": [
+      {
+       "LocationId": null,
+       "LocationName": null,
+       "AddressLine1": null,
+       "AddressLine2": null,
+       "AddressLine3": null,
+       "AddressLine4": null,
+       "Building": null,
+       "TownOrCity": null,
+       "PostalCode": null,
+       "Country": null,
+       "Region1": null,
+       "Region2": null,
+       "Region3": null,
+       "Latitude": null,
+       "Longitude": null
+      }
+     ]
+    },
+    {
+     "Id": "26015720",
+     "Title": "Senior Manager - Data Science",
+     "PostedDate": "2026-11-13",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "IN",
+     "GeographyId": 300000032718926,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": "ORA_HYBRID",
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000079629936,
+     "LegalEmployerId": 300000007507893,
+     "OrganizationId": 300000079629936,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "",
+     "PrimaryLocation": "Bengaluru, KA, India",
+     "Distance": 1794528000000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "Hybrid",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [
+      {
+       "RequisitionLocationId": 300002340223466,
+       "GeographyNodeId": 100020808352667,
+       "GeographyId": 300000032710650,
+       "Name": "Gurugram, HR, India",
+       "CountryCode": "IN",
+       "Latitude": 28.47716,
+       "Longitude": 77.06847
+      }
+     ],
+     "workLocation": [
+      {
+       "LocationId": null,
+       "LocationName": null,
+       "AddressLine1": null,
+       "AddressLine2": null,
+       "AddressLine3": null,
+       "AddressLine4": null,
+       "Building": null,
+       "TownOrCity": null,
+       "PostalCode": null,
+       "Country": null,
+       "Region1": null,
+       "Region2": null,
+       "Region3": null,
+       "Latitude": null,
+       "Longitude": null
+      }
+     ]
+    },
+    {
+     "Id": "26015867",
+     "Title": "Analyst - Compliance",
+     "PostedDate": "2026-11-13",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "IN",
+     "GeographyId": 300000032710650,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": "ORA_HYBRID",
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000079629456,
+     "LegalEmployerId": 300000007507893,
+     "OrganizationId": 300000079629456,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "",
+     "PrimaryLocation": "Gurugram, HR, India",
+     "Distance": 1794528000000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "Hybrid",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [],
+     "workLocation": [
+      {
+       "LocationId": null,
+       "LocationName": null,
+       "AddressLine1": null,
+       "AddressLine2": null,
+       "AddressLine3": null,
+       "AddressLine4": null,
+       "Building": null,
+       "TownOrCity": null,
+       "PostalCode": null,
+       "Country": null,
+       "Region1": null,
+       "Region2": null,
+       "Region3": null,
+       "Latitude": null,
+       "Longitude": null
+      }
+     ]
+    },
+    {
+     "Id": "26008899",
+     "Title": "Manager-Risk Management",
+     "PostedDate": "2026-11-12",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "US",
+     "GeographyId": 300000007686239,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000079629856,
+     "LegalEmployerId": 300000079652445,
+     "OrganizationId": 300000079629856,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "",
+     "PrimaryLocation": "New York, NY, United States",
+     "Distance": 1794441600000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [],
+     "workLocation": [
+      {
+       "LocationId": null,
+       "LocationName": null,
+       "AddressLine1": null,
+       "AddressLine2": null,
+       "AddressLine3": null,
+       "AddressLine4": null,
+       "Building": null,
+       "TownOrCity": null,
+       "PostalCode": null,
+       "Country": null,
+       "Region1": null,
+       "Region2": null,
+       "Region3": null,
+       "Latitude": null,
+       "Longitude": null
+      }
+     ]
+    },
+    {
+     "Id": "26012796",
+     "Title": "Campus Undergraduate Full-Time Engineer - 2027 Software Engineer I, Enterprise Technology Services- New York, NY",
+     "PostedDate": "2026-11-12",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "US",
+     "GeographyId": 300000007686239,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": "ORA_HYBRID",
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000079628496,
+     "LegalEmployerId": 300000079647088,
+     "OrganizationId": 300000079628496,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "",
+     "PrimaryLocation": "New York, NY, United States",
+     "Distance": 1794441600000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "Hybrid",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [],
+     "workLocation": [
+      {
+       "LocationId": null,
+       "LocationName": null,
+       "AddressLine1": null,
+       "AddressLine2": null,
+       "AddressLine3": null,
+       "AddressLine4": null,
+       "Building": null,
+       "TownOrCity": null,
+       "PostalCode": null,
+       "Country": null,
+       "Region1": null,
+       "Region2": null,
+       "Region3": null,
+       "Latitude": null,
+       "Longitude": null
+      }
+     ]
+    }
+   ],
+   "categoriesFacet": [
+    {
+     "Id": 300000081299474,
+     "Name": "Technology",
+     "TotalCount": 77
+    },
+    {
+     "Id": 300000081299501,
+     "Name": "Operations/Customer Service",
+     "TotalCount": 45
+    },
+    {
+     "Id": 300000081299486,
+     "Name": "Risk",
+     "TotalCount": 33
+    },
+    {
+     "Id": 300000380178024,
+     "Name": "Product",
+     "TotalCount": 18
+    },
+    {
+     "Id": 300000081296038,
+     "Name": "Marketing",
+     "TotalCount": 16
+    },
+    {
+     "Id": 300000081299414,
+     "Name": "Administration/Management Info",
+     "TotalCount": 15
+    },
+    {
+     "Id": 300000081299411,
+     "Name": "Finance",
+     "TotalCount": 14
+    },
+    {
+     "Id": 300000573321731,
+     "Name": "Data Mgmt and Analytics",
+     "TotalCount": 14
+    },
+    {
+     "Id": 300000081299417,
+     "Name": "Travel Services",
+     "TotalCount": 13
+    },
+    {
+     "Id": 300000081296044,
+     "Name": "Compliance, Control & Legal",
+     "TotalCount": 11
+    }
+   ],
+   "locationsFacet": [
+    {
+     "Id": 300000000229164,
+     "Name": "United States",
+     "TotalCount": 143
+    },
+    {
+     "Id": 300000007649033,
+     "Name": "NY, United States",
+     "TotalCount": 86
+    },
+    {
+     "Id": 300000007686239,
+     "Name": "New York, NY, United States",
+     "TotalCount": 85
+    },
+    {
+     "Id": 300000007649003,
+     "Name": "AZ, United States",
+     "TotalCount": 67
+    },
+    {
+     "Id": 300000007667464,
+     "Name": "Phoenix, AZ, United States",
+     "TotalCount": 67
+    },
+    {
+     "Id": 300000000228786,
+     "Name": "India",
+     "TotalCount": 58
+    },
+    {
+     "Id": 300000032698665,
+     "Name": "HR, India",
+     "TotalCount": 41
+    },
+    {
+     "Id": 300000032710650,
+     "Name": "Gurugram, HR, India",
+     "TotalCount": 41
+    },
+    {
+     "Id": 300000000229002,
+     "Name": "Philippines",
+     "TotalCount": 24
+    },
+    {
+     "Id": 300001054327057,
+     "Name": "Manila, Philippines",
+     "TotalCount": 24
+    }
+   ],
+   "postingDatesFacet": [
+    {
+     "Id": 7,
+     "Name": "Less than 7 days",
+     "TotalCount": 136
+    },
+    {
+     "Id": 30,
+     "Name": "Less than 30 days",
+     "TotalCount": 274
+    },
+    {
+     "Id": 31,
+     "Name": "Greater than 30 days",
+     "TotalCount": 30
+    }
+   ],
+   "titlesFacet": [
+    {
+     "Id": "ENA",
+     "Name": "Engineering & Architecture",
+     "TotalCount": 51
+    },
+    {
+     "Id": "UNC",
+     "Name": "Unclass",
+     "TotalCount": 50
+    },
+    {
+     "Id": "RSK",
+     "Name": "Risk Management",
+     "TotalCount": 27
+    },
+    {
+     "Id": "CC",
+     "Name": "Customer Care",
+     "TotalCount": 18
+    },
+    {
+     "Id": "PRD",
+     "Name": "Product",
+     "TotalCount": 18
+    },
+    {
+     "Id": "OPS",
+     "Name": "Operations",
+     "TotalCount": 16
+    },
+    {
+     "Id": "FIN",
+     "Name": "Finance and Accounting",
+     "TotalCount": 10
+    },
+    {
+     "Id": "CYS",
+     "Name": "Cybersecurity",
+     "TotalCount": 9
+    },
+    {
+     "Id": "DSA",
+     "Name": "Data Science",
+     "TotalCount": 9
+    },
+    {
+     "Id": "SLS",
+     "Name": "Sales",
+     "TotalCount": 9
+    }
+   ],
+   "workLocationsFacet": [
+    {
+     "Id": 300000080896907,
+     "Name": "New York-Amex Tower WFC-35 Hr",
+     "TotalCount": 86
+    },
+    {
+     "Id": 300000080574221,
+     "Name": "AEDR Desert Ridge OB4 - Canyon",
+     "TotalCount": 37
+    },
+    {
+     "Id": 300000080557014,
+     "Name": "BGC Corporate Center 2",
+     "TotalCount": 24
+    },
+    {
+     "Id": 300000080897003,
+     "Name": "AEDR Desert Ridge OB1-Camelback",
+     "TotalCount": 22
+    },
+    {
+     "Id": 300000080557217,
+     "Name": "Amex India Campus, 74 A",
+     "TotalCount": 21
+    },
+    {
+     "Id": 300000080903013,
+     "Name": "Cyber City-Bldg 5",
+     "TotalCount": 20
+    },
+    {
+     "Id": 300000080892692,
+     "Name": "Sunrise Campus",
+     "TotalCount": 18
+    },
+    {
+     "Id": 300000321170153,
+     "Name": "Rome North, Bagmane Capital",
+     "TotalCount": 17
+    },
+    {
+     "Id": 300000080896919,
+     "Name": "AEDR Desert Ridge CSB - Sierra",
+     "TotalCount": 13
+    },
+    {
+     "Id": 300000080896901,
+     "Name": "AEDR Desert Ridge OB2-McDowell",
+     "TotalCount": 11
+    }
+   ],
+   "flexFieldsFacet": [
+    {
+     "Name": "AttributeChar6",
+     "Label": "Career Area"
+    }
+   ],
+   "organizationsFacet": [
+    {
+     "Id": 300000079628496,
+     "Name": "A0004 - Enterprise Tech Services",
+     "TotalCount": 78
+    },
+    {
+     "Id": 300000079628576,
+     "Name": "A0005 - Global Servicing",
+     "TotalCount": 46
+    },
+    {
+     "Id": 300000079629456,
+     "Name": "A0016 - Global Risk & Compliance",
+     "TotalCount": 16
+    },
+    {
+     "Id": 300000079629936,
+     "Name": "A0022 - Global Commercial Services",
+     "TotalCount": 16
+    },
+    {
+     "Id": 300000079629856,
+     "Name": "A0021 - Credit and Fraud Risk",
+     "TotalCount": 14
+    },
+    {
+     "Id": 300000079630096,
+     "Name": "A0024 - US Consumer Services",
+     "TotalCount": 13
+    },
+    {
+     "Id": 300000079630976,
+     "Name": "A0035 - Amex Digital Labs",
+     "TotalCount": 12
+    },
+    {
+     "Id": 300000079628816,
+     "Name": "A0008 - Finance",
+     "TotalCount": 11
+    },
+    {
+     "Id": 300000307821062,
+     "Name": "A756936 - Tele Acquisition & Enablement",
+     "TotalCount": 10
+    },
+    {
+     "Id": 300000079629536,
+     "Name": "A0017 - Global Merchant & Network Svcs",
+     "TotalCount": 9
+    }
+   ],
+   "workplaceTypesFacet": [
+    {
+     "Id": "ORA_HYBRID",
+     "Name": "Hybrid",
+     "TotalCount": 275
+    },
+    {
+     "Id": "ORA_ON_SITE",
+     "Name": "On-site",
+     "TotalCount": 19
+    },
+    {
+     "Id": "ORA_REMOTE",
+     "Name": "Remote",
+     "TotalCount": 10
+    }
+   ]
+  }
+ ],
+ "count": 1,
+ "hasMore": false,
+ "limit": 200,
+ "offset": 0,
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://egug.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions",
+   "name": "recruitingCEJobRequisitions",
+   "kind": "collection"
+  },
+  {
+   "rel": "action",
+   "href": "https://egug.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionsLocationCoordinates",
+   "name": "getRequisitionsLocationCoordinates",
+   "kind": "other"
+  },
+  {
+   "rel": "action",
+   "href": "https://egug.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionDetailsForMap",
+   "name": "getRequisitionDetailsForMap",
+   "kind": "other"
+  }
+ ]
+}

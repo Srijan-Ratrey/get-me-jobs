@@ -44,6 +44,8 @@ jobhunter/
   sources/
     base.py           JobSource protocol + HTML/date helpers
     greenhouse.py lever.py ashby.py workable.py
+    workday.py oracle.py successfactors.py zoho_recruit.py   addressed by board URL
+    freehire.py       One search across ~300 ATSs
     careers_page.py   Generic crawler + ATS fingerprint detection
     registry.py       Target -> adapter dispatch, fingerprint handoff
   contacts/
@@ -116,6 +118,7 @@ uv run jobhunter resolve --from list.csv   # discover each company's ATS from it
 uv run jobhunter harvest --limit 300 --dry-run  # probe published ATS token lists for India hiring
 uv run jobhunter scan            # fetch jobs from all targets
 uv run jobhunter score           # rescore jobs against profile.yaml
+uv run jobhunter audit           # what each hard rule zeroed, and what it cost
 uv run jobhunter contacts        # resolve contacts for companies with open jobs
 uv run jobhunter list --min-score 55 --since last-scan --why
 uv run jobhunter export out.xlsx --posted-within 30d

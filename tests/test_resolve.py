@@ -225,16 +225,16 @@ FILLER = "We are hiring across the company. " * 30
 async def test_run_resolve_sorts_into_four_buckets(tmp_path, allow_robots):
     from jobhunter.config import Target
 
-    for host in ("gh", "workday", "spa", "gone"):
+    for host in ("gh", "keka", "spa", "gone"):
         allow_robots(f"https://{host}.com")
 
     respx.get("https://gh.com/careers").respond(
         200,
         text=f'<html><body><p>{FILLER}</p><a href="https://boards.greenhouse.io/acme">Roles</a></body></html>',
     )
-    respx.get("https://workday.com/careers").respond(
+    respx.get("https://keka.com/careers").respond(
         200,
-        text=f'<html><body><p>{FILLER}</p><a href="https://acme.myworkdayjobs.com/x">Roles</a></body></html>',
+        text=f'<html><body><p>{FILLER}</p><a href="https://acme.keka.com/careers">Roles</a></body></html>',
     )
     respx.get("https://spa.com/careers").respond(
         200,
@@ -244,7 +244,7 @@ async def test_run_resolve_sorts_into_four_buckets(tmp_path, allow_robots):
 
     targets = [
         Target(name="GH", careers_url="https://gh.com/careers", domain="gh.com"),
-        Target(name="Workday", careers_url="https://workday.com/careers", domain="workday.com"),
+        Target(name="Keka", careers_url="https://keka.com/careers", domain="keka.com"),
         Target(name="Spa", careers_url="https://spa.com/careers", domain="spa.com"),
         Target(name="Gone", careers_url="https://gone.com/careers", domain="gone.com"),
     ]
@@ -256,8 +256,8 @@ async def test_run_resolve_sorts_into_four_buckets(tmp_path, allow_robots):
     assert [o.target.name for o in result.resolved] == ["GH"]
     assert result.resolved[0].ats == "greenhouse"
     assert result.resolved[0].token == "acme"
-    assert [o.target.name for o in result.unsupported] == ["Workday"]
-    assert result.unsupported[0].ats == "workday"
+    assert [o.target.name for o in result.unsupported] == ["Keka"]
+    assert result.unsupported[0].ats == "keka"
     assert [o.target.name for o in result.no_fingerprint] == ["Spa"]
     assert [o.target.name for o in result.unreachable] == ["Gone"]
 

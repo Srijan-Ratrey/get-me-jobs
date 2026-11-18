@@ -97,6 +97,12 @@ def parse_epoch_ms(value: int | float | None) -> datetime | None:
         return None
 
 
+def warn_if_capped(who: str, used: int, cap: int) -> None:
+    """The adapters that spend a request per description stop at a cap."""
+    if used >= cap:
+        log.warning("%s: fetched the %d-description cap; the rest have no description", who, cap)
+
+
 def join_locations(*values: str | None) -> str | None:
     """Join distinct location strings, preserving order."""
     return " | ".join(dict.fromkeys(v.strip() for v in values if v and v.strip())) or None

@@ -19,7 +19,11 @@ from .careers_page import CareersPageSource, fingerprint
 from .freehire import FreeHireSource
 from .greenhouse import GreenhouseSource
 from .lever import LeverSource
+from .oracle import OracleSource
+from .successfactors import SuccessFactorsSource
 from .workable import WorkableSource
+from .workday import WorkdaySource
+from .zoho_recruit import ZohoRecruitSource
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +32,16 @@ ADAPTERS: list[JobSource] = [
     LeverSource(),
     AshbySource(),
     WorkableSource(),
+    WorkdaySource(),
+    OracleSource(),
+    SuccessFactorsSource(),
+    ZohoRecruitSource(),
     FreeHireSource(),
 ]
+
+# Adapters that read a board from its URL, so a fingerprint with no token can
+# still hand off: the careers page they were found on is the board.
+ADDRESSED_BY_URL = frozenset({"successfactors"})
 
 BY_NAME: dict[str, JobSource] = {a.name: a for a in ADAPTERS}
 
@@ -69,7 +81,7 @@ async def fetch_target(client: PoliteClient, target: Target) -> list[RawJob]:
         raise SourceUnavailable(f"{target.name}: careers page fetch failed: {exc}") from exc
 
     if detected := fingerprint(html) or fingerprint(target.careers_url):
-        if detected.supported and detected.token:
+        if detected.supported and (detected.token or detected.ats in ADDRESSED_BY_URL):
             # Always better than scraping: hand off to the real API.
             log.info(
                 "%s: fingerprinted %s (token=%s), handing off",

@@ -211,6 +211,16 @@ profile:
   # "2+ years" in one place and "8+ years" in another is judged on the 2.
   max_years_experience: 2
 
+  # Languages you can work in. A posting that requires one you do not list
+  # ("fluent German required", "native Kannada") is a hard zero; "French is a
+  # plus" is not. English never needs listing. Leave it out to switch the check off.
+  languages:
+    - English
+
+  # Security clearances (US TS/SCI, UK SC/DV) are tied to citizenship, so a
+  # posting that requires one is a hard zero unless you could hold one.
+  eligible_for_clearance: false
+
   # "Bengaluru" and "Bangalore" are aliased by the scorer — ATS boards use both
   # spellings, sometimes within a single response, so listing one is enough.
   locations:

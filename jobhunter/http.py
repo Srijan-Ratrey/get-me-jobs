@@ -154,7 +154,7 @@ class PoliteClient:
 
     # ---------------------------- rate limit ----------------------------- #
 
-    async def _send(self, url: str, **kwargs) -> httpx.Response:
+    async def _send(self, url: str, method: str = "GET", **kwargs) -> httpx.Response:
         """Issue one request, rate-limited per host and globally capped.
 
         Order matters: the per-host wait happens outside the semaphore so that a
@@ -166,7 +166,7 @@ class PoliteClient:
         bucket = self._buckets.setdefault(host, _HostBucket(self._min_interval))
         await bucket.acquire()
         async with self._sem:
-            return await self._client.get(url, **kwargs)
+            return await self._client.request(method, url, **kwargs)
 
     # ----------------------------- robots -------------------------------- #
 
@@ -206,7 +206,15 @@ class PoliteClient:
         parser.parse(resp.text.splitlines())
         return parser
 
-    async def _allowed(self, url: str) -> bool:
+    async def allowed(self, url: str) -> bool:
+        """Would robots.txt let us fetch this URL?
+
+        Public because an API endpoint is not always the path a site owner writes
+        rules for. Workday serves every board from /wday/cxs/, which no tenant's
+        robots.txt mentions, while the same file disallows individual boards by
+        their public path (Citi's `/2/`, PwC's `/CRM_Experienced_Careers_Site/`).
+        Checking only the URL actually requested would read those boards anyway.
+        """
         if not self._respect_robots:
             return True
         parsed = urlparse(url)
@@ -244,22 +252,46 @@ class PoliteClient:
 
     async def get(self, url: str, *, use_cache: bool = True, **kwargs) -> str:
         """GET a URL as text. Raises RobotsDisallowed or httpx.HTTPError."""
-        if use_cache and (cached := self._cache_read(url)) is not None:
+        return await self._request("GET", url, cache_key=url if use_cache else None, **kwargs)
+
+    async def post_json(self, url: str, payload: dict):
+        """POST a JSON body and parse the JSON reply.
+
+        For search endpoints that only answer POST (Workday's CXS). It is still a
+        read, so it gets the same robots check, rate limit, retry and cache as a
+        GET; the cache key includes the body, since one URL serves every page.
+        """
+        body = json.dumps(payload, sort_keys=True)
+        text = await self._request(
+            "POST",
+            url,
+            cache_key=f"{url}\n{body}",
+            content=body,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+        )
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise SourceUnavailable(f"{url} did not return JSON: {exc}") from exc
+
+    async def _request(self, method: str, url: str, *, cache_key: str | None, **kwargs) -> str:
+        if cache_key and (cached := self._cache_read(cache_key)) is not None:
             log.debug("cache hit %s", url)
             return cached
 
-        if not await self._allowed(url):
+        if not await self.allowed(url):
             raise RobotsDisallowed(url)
 
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
-                resp = await self._send(url, **kwargs)
+                resp = await self._send(url, method, **kwargs)
             except httpx.HTTPError as exc:
                 last_exc = exc
             else:
                 if resp.status_code == 200:
-                    self._cache_write(url, resp.text)
+                    if cache_key:
+                        self._cache_write(cache_key, resp.text)
                     return resp.text
                 if resp.status_code in RETRYABLE_STATUS:
                     last_exc = httpx.HTTPStatusError(

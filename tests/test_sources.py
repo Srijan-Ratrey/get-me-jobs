@@ -250,13 +250,13 @@ def test_registry_resolves_by_ats(ats, expected):
 
 
 def test_registry_returns_none_for_unknown_ats():
-    assert resolve(Target(name="X", ats="workday", ats_token="t")) is None
+    assert resolve(Target(name="X", ats="keka", ats_token="t")) is None
 
 
 async def test_fetch_target_unknown_ats_raises_source_unavailable(polite_client):
     async with polite_client() as client:
         with pytest.raises(SourceUnavailable, match="no adapter"):
-            await fetch_target(client, Target(name="X", ats="workday"))
+            await fetch_target(client, Target(name="X", ats="keka"))
 
 
 @respx.mock
@@ -354,7 +354,20 @@ async def test_workable_falls_back_to_v3_on_404(polite_client, allow_robots):
         ('<a href="https://jobs.lever.co/meesho/abc">', "lever", "meesho", True),
         ('<a href="https://jobs.ashbyhq.com/sarvam/1">', "ashby", "sarvam", True),
         ('<a href="https://apply.workable.com/acme/">', "workable", "acme", True),
-        ('<a href="https://acme.myworkdayjobs.com/careers">', "workday", None, False),
+        # No wdN instance in the host, so no board URL to hand off.
+        ('<a href="https://acme.myworkdayjobs.com/careers">', "workday", None, True),
+        (
+            '<a href="https://genpact.wd108.myworkdayjobs.com/en-US/External_Careers">',
+            "workday",
+            "https://genpact.wd108.myworkdayjobs.com/en-US/External_Careers",
+            True,
+        ),
+        (
+            '<a href="https://acme.zohorecruit.in/jobs/Careers">',
+            "zoho_recruit",
+            "https://acme.zohorecruit.in",
+            True,
+        ),
         ('<a href="https://acme.darwinbox.in/ms/candidate">', "darwinbox", None, False),
         ('<a href="https://acme.keka.com/careers">', "keka", None, False),
         ('<a href="https://jobs.smartrecruiters.com/Acme">', "smartrecruiters", None, False),
@@ -367,6 +380,12 @@ def test_fingerprint_detects_ats(html, ats, token, supported):
     assert detected.ats == ats
     assert detected.token == token
     assert detected.supported is supported
+
+
+def test_a_vendor_footer_is_not_a_zoho_tenant():
+    """The guard that keeps "www" out of slug tokens applies to URL tokens too."""
+    html = '<a href="https://www.zohorecruit.com">Powered by Zoho Recruit</a>'
+    assert careers_page.fingerprint(html).token is None
 
 
 def test_fingerprint_returns_none_for_plain_page():
@@ -472,10 +491,10 @@ async def test_registry_reports_unsupported_fingerprint(polite_client, allow_rob
         200,
         text="<html><body><p>"
         + "We are hiring. " * 60
-        + '</p><a href="https://acme.myworkdayjobs.com/x">Apply</a></body></html>',
+        + '</p><a href="https://acme.keka.com/careers">Apply</a></body></html>',
     )
     async with polite_client() as client:
-        with pytest.raises(SourceUnavailable, match="workday"):
+        with pytest.raises(SourceUnavailable, match="keka"):
             await fetch_target(client, Target(name="Acme", careers_url="https://acme.com/careers"))
 
 

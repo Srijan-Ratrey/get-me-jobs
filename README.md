@@ -129,7 +129,9 @@ Worth setting expectations honestly, because the shape of the output surprises p
   A guessed address presented as a real one is worse than none, because bounces damage the sending
   reputation you are spending.
 - **Most postings score zero, and that is the point.** A junior profile hard-zeroes anything whose
-  title says Senior/Staff/Lead or whose description demands more years than your cap.
+  title says Senior/Staff/Lead, whose description demands more years than your cap, a language you
+  do not speak, or a security clearance. `jobhunter audit` shows what each of those rules threw
+  away and which of it would otherwise have made your shortlist.
 
 ## Configuration
 
@@ -142,7 +144,9 @@ targeting, so they stay on your machine rather than in the repository.
 - **`profile.yaml`** — what you are looking for. Keep `must_have_keywords` short: they are treated
   as all-required, so a long list lowers the ceiling on every job. `exclude_keywords` match the
   **title only** and are a hard zero. `max_years_experience` reads the *smallest* figure a posting
-  mentions, so an ad listing several bands is judged on the most junior one.
+  mentions, so an ad listing several bands is judged on the most junior one. `languages` lists the
+  languages you can work in (a posting requiring any other is a hard zero) and
+  `eligible_for_clearance` lets security-clearance roles through.
 - **`.env`** — politeness, SMTP and cache settings, all prefixed `JOBHUNTER_`.
 
 ## How it works
@@ -151,7 +155,10 @@ targeting, so they stay on your machine rather than in the repository.
 companies.yaml ──> source adapters ──> normalise + dedup ──> SQLite
                    greenhouse lever      canonical title,      │
                    ashby workable        content hash          │
-                   careers_page                                │
+                   workday oracle                              │
+                   successfactors                              │
+                   zoho_recruit                                │
+                   freehire careers_page                       │
                                           ┌────────────────────┴───────┐
                                           v                            v
                                     scorer (profile)            contact finder
