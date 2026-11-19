@@ -24,7 +24,7 @@ from .config import Profile, Target
 from .http import PoliteClient, RobotsDisallowed, SourceUnavailable
 from .matching.scorer import RuleAudit, audit_rules, score_job
 from .models import Company, Job, Run
-from .sources.registry import ADDRESSED_BY_URL, fetch_target, resolve
+from .sources.registry import ADDRESSED_BY_URL, DESCRIBED_ON_DEMAND, fetch_target, resolve
 
 log = logging.getLogger(__name__)
 
@@ -373,8 +373,13 @@ async def run_scan(
     Oracle and SuccessFactors spend a request per posting on descriptions, so
     they skip the ones the scorer would zero on location or title alone;
     adapters that read a board in one request ignore both.
+
+    The same three also get ``described``: the ids of postings that already
+    have a description stored, so their per-board budget goes to new ones.
     """
     result = ScanResult()
+    with db.session_scope() as session:
+        described = db.described_postings(session, DESCRIBED_ON_DEMAND)
     defaults = (
         {"locations": profile.locations, "exclude_titles": profile.exclude_keywords}
         if profile
@@ -384,6 +389,10 @@ async def run_scan(
     async def scan_one(client: PoliteClient, target: Target) -> None:
         catalogue = getattr(resolve(target), "is_catalogue", False)
         missing = {k: v for k, v in defaults.items() if v and k not in target.search}
+        if (ids := described.get(target.name)) and (
+            target.ats or ""
+        ).lower() in DESCRIBED_ON_DEMAND:
+            missing["described"] = ids
         if missing and not catalogue:
             target = target.model_copy(update={"search": {**target.search, **missing}})
         try:

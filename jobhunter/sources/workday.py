@@ -45,10 +45,6 @@ SEVERAL_PLACES = re.compile(r"^\d+ Locations?$")
 POSTED_DAYS_AGO = re.compile(r"Posted (\d+) Days? Ago")
 
 PAGE_SIZE = 20  # the endpoint rejects anything larger
-# ponytail: the cap always spends itself on the first N postings in list order,
-# so on a big board the same N are re-described each scan (cache TTL aside) and
-# the rest never are. Adapters cannot see the DB; the upgrade is to pass the
-# URLs already described in as a search default and skip them.
 DEFAULT_MAX_DETAILS = 50
 
 
@@ -92,6 +88,7 @@ class WorkdaySource:
 
         wanted = list(target.search.get("locations") or [])
         skip_titles = list(target.search.get("exclude_titles") or [])
+        described = target.search.get("described") or set()
         max_details = int(target.search.get("max_details", DEFAULT_MAX_DETAILS))
 
         jobs: list[RawJob] = []
@@ -102,7 +99,11 @@ class WorkdaySource:
             if wanted and not several and not matches_location(listed, False, wanted):
                 continue
             info = None
-            if details < max_details and not title_excluded(posting["title"], skip_titles):
+            if (
+                details < max_details
+                and posting["externalPath"] not in described
+                and not title_excluded(posting["title"], skip_titles)
+            ):
                 details += 1
                 info = await _detail(client, board, posting["externalPath"], target.name)
             if wanted and several and info and not _wanted_detail(info, wanted):

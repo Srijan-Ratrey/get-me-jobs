@@ -82,6 +82,7 @@ class OracleSource:
 
         wanted = list(target.search.get("locations") or [])
         skip_titles = list(target.search.get("exclude_titles") or [])
+        described = target.search.get("described") or set()
         max_details = int(target.search.get("max_details", DEFAULT_MAX_DETAILS))
 
         jobs: list[RawJob] = []
@@ -90,7 +91,11 @@ class OracleSource:
             if wanted and not matches_location(_places(req), _remote(req), wanted):
                 continue
             info = None
-            if details < max_details and not title_excluded(req["Title"], skip_titles):
+            if (
+                details < max_details
+                and req["Id"] not in described
+                and not title_excluded(req["Title"], skip_titles)
+            ):
                 details += 1
                 info = await _detail(client, board, req["Id"], target.name)
             jobs.append(_to_raw(board, req, info))

@@ -64,12 +64,17 @@ class SuccessFactorsSource:
                 tiles.setdefault(job_id, (title, path, place))
 
         skip_titles = list(target.search.get("exclude_titles") or [])
+        described = target.search.get("described") or set()
         jobs: list[RawJob] = []
         details = 0
         for job_id, (title, path, place) in tiles.items():
             url = urljoin(origin, path)
             page = None
-            if details < max_details and not title_excluded(title, skip_titles):
+            if (
+                details < max_details
+                and job_id not in described
+                and not title_excluded(title, skip_titles)
+            ):
                 details += 1
                 page = await _page(client, url, target.name)
             jobs.append(_to_raw(job_id, title, url, page, place))

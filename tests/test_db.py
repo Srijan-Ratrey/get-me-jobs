@@ -382,3 +382,42 @@ def test_run_starts_before_the_jobs_it_records(session):
     assert cutoff <= job.first_seen, (
         "the run must start before the jobs it reports, or --since last-scan hides them"
     )
+
+
+def test_described_postings_lists_only_open_described_rows_of_the_given_sources(session):
+    acme = db.upsert_company(session, Target(name="Acme"))
+    db.upsert_job(
+        session,
+        acme,
+        raw("ML Engineer", source="workday", external_id="/job/a", description="Text"),
+    )
+    db.upsert_job(
+        session,
+        acme,
+        raw("Data Scientist", source="workday", external_id="/job/b", url="https://x/2"),
+    )
+    closed, _ = db.upsert_job(
+        session,
+        acme,
+        raw(
+            "NLP Engineer",
+            source="workday",
+            external_id="/job/c",
+            url="https://x/3",
+            description="T",
+        ),
+    )
+    closed.closed_at = closed.first_seen
+    db.upsert_job(
+        session,
+        acme,
+        raw(
+            "AI Engineer",
+            source="freehire:workday",
+            external_id="fh",
+            url="https://x/4",
+            description="T",
+        ),
+    )
+
+    assert db.described_postings(session, {"workday"}) == {"Acme": {"/job/a"}}
