@@ -140,7 +140,8 @@ copies are gitignored — they describe what you are looking for and which emplo
 targeting, so they stay on your machine rather than in the repository.
 
 - **`companies.yaml`** — the employers to watch. Either an `ats` + `ats_token`, or just a
-  `careers_url` for `resolve` to work out.
+  `careers_url` for `resolve` to work out. `paused: true` keeps an entry but skips it in `scan`,
+  for a board that costs scan time and yields little.
 - **`profile.yaml`** — what you are looking for. Keep `must_have_keywords` short: they are treated
   as all-required, so a long list lowers the ceiling on every job. `exclude_keywords` match the
   **title only** and are a hard zero. `max_years_experience` reads the *smallest* figure a posting
