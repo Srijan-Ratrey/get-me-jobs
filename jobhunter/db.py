@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -183,6 +183,32 @@ def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int
     for job in stale:
         job.closed_at = utcnow()
     return len(stale)
+
+
+def described_postings(s: Session, sources: Iterable[str]) -> dict[str, set[str]]:
+    """Company name -> external ids of its open postings that already have a
+    description, for the adapters that fetch descriptions one request at a time.
+
+    Those adapters cap descriptions per board, and without this the cap was
+    spent re-downloading the same first postings every scan while the rest
+    never got one. upsert_job keeps a stored description when a later fetch
+    brings none, so skipping these loses nothing.
+    """
+    rows = s.execute(
+        select(Company.name, Job.external_id)
+        .join(Company, Company.id == Job.company_id)
+        .where(
+            Job.closed_at.is_(None),
+            Job.source.in_(list(sources)),
+            Job.external_id.is_not(None),
+            Job.description.is_not(None),
+            Job.description != "",
+        )
+    ).all()
+    out: dict[str, set[str]] = {}
+    for name, external_id in rows:
+        out.setdefault(name, set()).add(external_id)
+    return out
 
 
 def close_unseen_jobs(s: Session, runs_back: int = 2) -> int:

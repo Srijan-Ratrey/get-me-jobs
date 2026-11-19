@@ -177,6 +177,24 @@ async def test_workday_skips_descriptions_for_titles_the_profile_excludes(
 
 
 @respx.mock
+async def test_workday_spends_no_request_on_a_description_already_stored(
+    polite_client, allow_robots, fixture_text
+):
+    """The budget goes to postings with no description yet."""
+    allow_robots(WD_ORIGIN)
+    respx.post(f"{WD_API}/jobs").respond(200, text=fixture_text("workday_list.json"))
+    noida = respx.get(f"{WD_API}{WD_NOIDA}").respond(200, text=fixture_text("workday_detail.json"))
+    others = respx.get(url__startswith=f"{WD_API}/job/").respond(200, json={})
+
+    target = _genpact(locations=WANTED, described={WD_NOIDA})
+    async with polite_client() as client:
+        jobs = await workday.WorkdaySource().fetch(client, target)
+
+    assert len(jobs) == 2  # still returned, so it is not closed as stale
+    assert not noida.called and others.call_count == 1
+
+
+@respx.mock
 async def test_workday_respects_robots_on_the_board_path(polite_client):
     """robots.txt names boards, never /wday/cxs/; Citi disallows its `/2/` board."""
     respx.get("https://citi.wd5.myworkdayjobs.com/robots.txt").respond(

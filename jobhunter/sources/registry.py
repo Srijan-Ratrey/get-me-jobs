@@ -39,6 +39,10 @@ ADAPTERS: list[JobSource] = [
     FreeHireSource(),
 ]
 
+# Adapters that spend one request per posting on its description. The scan tells
+# them which postings already have one (search["described"]) so they skip those.
+DESCRIBED_ON_DEMAND = frozenset({"workday", "oracle", "successfactors"})
+
 # Adapters that read a board from its URL, so a fingerprint with no token can
 # still hand off: the careers page they were found on is the board.
 ADDRESSED_BY_URL = frozenset({"successfactors"})
