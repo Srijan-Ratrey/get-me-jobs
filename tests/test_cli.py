@@ -112,3 +112,16 @@ def test_commands_that_need_config_fail_clearly_without_it(in_empty_dir):
         result = runner.invoke(app, command)
         assert result.exit_code == 1
         assert "init" in result.output
+
+
+def test_scan_skips_paused_targets(in_empty_dir):
+    (in_empty_dir / "companies.yaml").write_text(
+        "companies:\n"
+        "  - name: GE Vernova\n"
+        "    ats: workday\n"
+        "    ats_token: https://gevernova.wd5.myworkdayjobs.com/Careers\n"
+        "    paused: true\n"
+    )
+    result = runner.invoke(app, ["scan", "--dry-run"])
+    assert result.exit_code == 1
+    assert "1 paused" in result.output

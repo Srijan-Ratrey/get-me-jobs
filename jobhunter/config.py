@@ -114,6 +114,11 @@ class Target(BaseModel):
     # ordinary company entry.
     search: dict = Field(default_factory=dict)
 
+    # Kept in the file but skipped by `scan`: a board that costs scan time and
+    # yields little. Its open jobs close through the unseen-jobs sweep, since
+    # nothing vouches for them any more; unpausing reopens whatever is still up.
+    paused: bool = False
+
 
 class Applicant(BaseModel):
     """Who is applying. Drives the outreach drafter's signature and attachment.

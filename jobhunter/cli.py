@@ -403,9 +403,15 @@ def scan(
     if sources:
         wanted = {s.strip().lower() for s in sources.split(",") if s.strip()}
         targets = [t for t in targets if (t.ats or "").lower() in wanted]
+    paused = sum(t.paused for t in targets)
+    targets = [t for t in targets if not t.paused]
     if not targets:
-        console.print("[yellow]No companies configured.[/]")
+        console.print(
+            "[yellow]No companies to scan[/]" + (f" ({paused} paused)." if paused else ".")
+        )
         raise typer.Exit(1)
+    if paused:
+        console.print(f"[dim]Skipping {paused} paused targets (paused: true in {companies}).[/]")
 
     db.init_db()
     console.print(
