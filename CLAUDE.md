@@ -3,15 +3,15 @@
 A pipeline that discovers job postings from ATS boards and company careers pages, resolves a
 verified hiring contact for each opening, scores fit against a profile, and drafts outreach.
 
-**You are building this from scratch.** Work through `TASKS.md` in order. Read the linked spec
-before starting each phase — the specs contain endpoint shapes and algorithms you should not
-have to guess at.
+**The core pipeline is built and in daily use.** `TASKS.md` is the backlog: Phase 1 is done,
+and what is left of Phases 2–4 is unchecked there. Before changing a part, read its spec — the
+specs contain endpoint shapes and algorithms you should not have to guess at.
 
 ## Docs map
 
 | File | What's in it |
 |---|---|
-| `TASKS.md` | The build backlog. Phased, with acceptance criteria. **Start here.** |
+| `TASKS.md` | The backlog. Phased, with acceptance criteria; open items are unchecked. |
 | `PLAN.md` | Architecture, component map, data model, failure modes |
 | `docs/architecture.md` | Layer map derived from the code, and where each hard rule is enforced |
 | `docs/sources.md` | Exact ATS endpoints, response shapes, field mappings |
