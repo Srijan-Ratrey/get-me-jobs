@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import heapq
 import logging
+import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -80,8 +81,36 @@ LOCATION_ALIASES: list[frozenset[str]] = [
 # more often than "0-3 years", and matching only the ASCII hyphen makes the regex
 # skip the lower bound and capture the upper one instead — which turns an
 # explicitly fresher-friendly "0–3 years" into a 3-year requirement.
+# The lookbehind keeps "6.5+ years" from reading as the 5 after the point. The
+# decimal is rounded up: "2.5+ years" exceeds a 2-year cap, and a list number
+# run into a range ("1.4–7 years", item 1 asking 4–7) cannot read as under 2.
 _YEARS = re.compile(
-    r"(\d{1,2})\s*(?:\+|\s*(?:[-–—]|to)\s*\d{1,2})?\s*(?:\+\s*)?(?:years?|yrs?|yoe)\b",
+    r"(?<![\d.])(\d{1,2}(?:\.\d)?)\s*(?:\+|\s*(?:[-–—]|to)\s*\d{1,2}(?:\.\d)?)?\s*(?:\+\s*)?"
+    r"(?:years?|yrs?|yoe)\b",
+    re.IGNORECASE,
+)
+# A figure for the whole career, as opposed to one skill within it. "4–6 years of
+# professional software engineering experience, including at least 2 years
+# specifically focused on applied AI" is a 4-year role; reading its 2 as the
+# floor passed Brillio, Colruyt ("8+ years of software engineering experience. 2
+# years of hands-on experience in developing agentic applications") and Zensar
+# ("Overall IT Exp: 6.5+years ... Data Science Exp: 2+ Yrs") under a 2-year cap.
+_OVERALL_YEARS = re.compile(
+    r"\b(?:overall|total|professional|industry|work|relevant|it)\s+(?:\w+\s+){0,2}?(?:experience|exp)\b"
+    r"|\bsoftware\s+(?:engineering|development)\s+experience\b",
+    re.IGNORECASE,
+)
+# Years offered instead of a degree: "a STEM discipline or 5+ years of professional
+# experience". The profile's applicant has the degree, so the figure is not theirs.
+_INSTEAD_OF_DEGREE = re.compile(
+    r"\b(?:degree|bachelor'?s?|b\.?\s?tech|b\.?e\.?|b\.?sc|discipline|stem|equivalent)\b[^.;]{0,100}\bor\s*$",
+    re.IGNORECASE,
+)
+# A field label on the line above its value.
+_FIELD_LABEL = re.compile(r"([^\n]*:)[ \t]*\n\s*$")
+# A figure carved out of a larger one: "including at least 2 years", "of which 1".
+_SUB_YEARS = re.compile(
+    r"\b(?:including|incl\.?|of\s+which|out\s+of\s+which|specifically|within\s+(?:that|this|which))\b",
     re.IGNORECASE,
 )
 # Degrees that gate a lower experience band. Spelled out rather than matching
@@ -468,20 +497,59 @@ def min_years_required(description: str | None) -> int | None:
     if not description:
         return None
 
-    ungated: list[int] = []
-    gated: list[int] = []
+    ungated: list[tuple[int, bool, bool]] = []
+    gated: list[tuple[int, bool, bool]] = []
     for match in _YEARS.finditer(description):
-        years = int(match.group(1))
+        years = math.ceil(float(match.group(1)))
         # 0 is not a constraint ("0-2 years" reads as open to freshers).
         if not 0 < years <= MAX_PLAUSIBLE_YEARS:
             continue
         if _AGE_NOT_EXPERIENCE.match(description[match.end() :]):
             continue
-        bucket = gated if _POSTGRAD.search(_clause_before(description, match.start())) else ungated
-        bucket.append(years)
+        before = _clause_before(description, match.start())
+        if not before.strip() and (
+            label := _FIELD_LABEL.search(description[: match.start()][-120:])
+        ):
+            # "Overall IT Exp:" on one line and "6.5+years" on the next.
+            before = label.group(1)
+        if _INSTEAD_OF_DEGREE.search(before):
+            continue
+        after = re.split(r"[.;•\n]", description[match.end() : match.end() + 80], maxsplit=1)[0]
+        # Only the figure's own phrase: "experience, including at least 2 years"
+        # must not borrow the main clause's "professional ... experience".
+        sub = bool(_SUB_YEARS.search(before[-40:]))
+        own = before.rsplit(",", 1)[-1][-60:]
+        overall = not sub and bool(_OVERALL_YEARS.search(own + " " + after))
+        bucket = gated if _POSTGRAD.search(before) else ungated
+        bucket.append((years, overall, sub))
 
     pool = ungated or gated
-    return min(pool) if pool else None
+    if not pool:
+        return None
+    # A stated career total is the requirement; a skill carved out of it is not.
+    if overall_figures := [y for y, overall, _ in pool if overall]:
+        return min(overall_figures)
+    return min([y for y, _, sub in pool if not sub] or [y for y, _, _ in pool])
+
+
+# The level a description states outright, when the title does not. Barclays
+# titles a role "Gen AI Engineer" and puts "Assistant Vice President
+# Expectations" in the body; banks and LinkedIn-style postings carry fields such
+# as "Corporate Title: AVP" or "Seniority level: Mid-Senior level". Checked
+# against the profile's exclude_keywords, so no new vocabulary: "Analyst" or
+# "Fresher / Entry level" pass, "Senior Associate" does not.
+_STATED_LEVEL = re.compile(
+    r"\b((?:assistant\s+|senior\s+)?vice\s+president|managing\s+director|director)\s+expectations\b"
+    r"|\b(?:corporate\s+title|job\s+level|career\s+level|position\s+level|job\s+grade|seniority\s+level)"
+    r"\s*[:\-–]\s*([a-z][a-z /&-]{1,30})",
+    re.IGNORECASE,
+)
+
+
+def stated_level(description: str | None) -> str | None:
+    """The role's level as the description declares it, lower-cased, or None."""
+    match = _STATED_LEVEL.search(description or "")
+    return (match.group(1) or match.group(2)).strip().lower() if match else None
 
 
 def _zero(reason: str, disqualified: str) -> Score:
@@ -530,6 +598,11 @@ def _disqualifier(job: Job, profile: Profile) -> Score | None:
 
     if not profile.eligible_for_clearance and requires_clearance(description):
         return _zero("requires a security clearance", "clearance")
+
+    if (level := stated_level(description)) and (
+        keyword := title_excluded(level, profile.exclude_keywords)
+    ):
+        return _zero(f"description states the level {level!r}", f"stated_level:{keyword}")
     return None
 
 

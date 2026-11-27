@@ -24,6 +24,7 @@ from jobhunter.matching.scorer import (
     required_language,
     requires_clearance,
     score_job,
+    stated_level,
 )
 from jobhunter.models import Job
 
@@ -777,3 +778,74 @@ def test_audit_charges_each_zero_to_the_rule_that_decided_it():
     assert senior.zeroed == 2 and senior.would_pass == 1
     assert senior.examples[0][1:] == ("Senior Data Scientist", "Acme")
     assert audits["years_required:6"].would_pass == 1
+
+
+# --------------------------------------------------------------------------- #
+# An overall requirement is not lowered by a skill carved out of it.
+# Sentences are verbatim from open postings that passed a 2-year cap.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (
+            "Experience Range: 4–6 years of professional software engineering experience, "
+            "including at least 2 years specifically focused on applied AI in production systems",
+            4,
+        ),
+        (
+            "Profile Description: 8+ years of software engineering experience. 2 years of hands-on "
+            "experience in developing agentic applications",
+            8,
+        ),
+        ("Overall IT Exp: 6.5+years MLE, GenAI, Data Science Exp: 2+ Yrs", 7),
+        # The same posting as stored: each label on the line above its value.
+        ("Overall IT Exp:\n6.5+years\nMLE, GenAI, Data Science Exp:\n2+ Yrs", 7),
+        (
+            "Requirements 4–7 years of experience in AI/ML engineering, including at least 2 years "
+            "of hands-on LLM deployment",
+            4,
+        ),
+        # Unchanged where nothing is carved out.
+        ("2+ years of relevant experience, including 1 year in NLP", 2),
+        ("0 to 2 years of relevant experience, including internships", None),
+        ("1.5+ years of professional software development experience", 2),
+        # Years offered instead of a degree are not the requirement for a graduate.
+        (
+            "Bachelor's degree in technology, mathematics or a STEM discipline or 5+ years of "
+            "professional experience in software engineering. 2+ years with Python",
+            2,
+        ),
+    ],
+)
+def test_a_skill_figure_does_not_lower_the_overall_requirement(text, expected):
+    assert min_years_required(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (
+            "... code reviews. Assistant Vice President Expectations To advise and influence",
+            "assistant vice president",
+        ),
+        ("Seniority level: Mid-Senior level", "mid-senior level"),
+        ("Corporate Title: AVP", "avp"),
+        ("Seniority level: Entry level", "entry level"),
+        ("Analyst Expectations To meet the needs of stakeholders", None),
+        ("We value people at every level.", None),
+    ],
+)
+def test_stated_level(text, expected):
+    assert stated_level(text) == expected
+
+
+def test_a_level_stated_in_the_description_is_a_hard_zero_when_the_profile_excludes_it():
+    profile = JUNIOR.model_copy(update={"exclude_keywords": ["senior", "vice president", "avp"]})
+    barclays = make_job(
+        title="Gen AI Engineer", description="Python. Assistant Vice President Expectations."
+    )
+    assert score_job(barclays, profile).disqualified == "stated_level:vice president"
+    entry = make_job(title="Data Scientist", description="Python. Seniority level: Entry level")
+    assert score_job(entry, profile).disqualified is None
