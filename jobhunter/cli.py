@@ -734,6 +734,12 @@ def export(
     location: list[str] = typer.Option(
         None, "--location", help="Only jobs here, or remote. Repeatable."
     ),
+    reachable: bool = typer.Option(
+        False, "--reachable", help="Only jobs in profile.yaml's locations (the scorer's gate)."
+    ),
+    collapse: bool = typer.Option(
+        False, "--collapse", help="One row per company and role, with a count and the other places."
+    ),
     to_sheets: bool = typer.Option(
         False, "--to-sheets", help="Also upload the file to Google Drive as a Sheet."
     ),
@@ -742,13 +748,21 @@ def export(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report the row count, write nothing."),
 ) -> None:
-    """Export one row per job with its best contact."""
+    """Export one row per job with its best contact.
+
+    For a shortlist: --min-score 50 --reachable --collapse.
+    """
     db.init_db()
+    places = list(location or [])
+    if reachable:
+        _require(PROFILE_YAML, "--reachable reads its locations")
+        places += load_profile(PROFILE_YAML).locations
     try:
         filters = {
             "since": pipeline.resolve_since(since),
             "posted_within": pipeline.resolve_since(posted_within),
-            "location": list(location) if location else None,
+            "location": places or None,
+            "collapse": collapse,
         }
     except ValueError as exc:
         console.print(f"[red]{exc}[/]")

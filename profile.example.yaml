@@ -180,6 +180,25 @@ profile:
     - architect
     - distinguished
     - fellow
+    # Corporate bands and level tags, added 2026-11-27 after "AGM - Big Data
+    # Scientist" scored 96. Checked with `jobhunter audit` first: of 50+ roles
+    # these zero, "expert" also catches "Data Analyst (SQL Expert)" and one other
+    # where it names a skill, a cost judged worth the 14 senior roles it removes.
+    - agm
+    - dgm
+    - gm
+    - avp
+    - svp
+    - evp
+    - expert
+    - experts
+    - sme
+    - sde 2
+    - sde 3
+    - sde2
+    - sde3
+    - l4
+    - l5
     - ii
     - iii
     - iv

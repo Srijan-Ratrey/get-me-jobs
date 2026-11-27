@@ -13,13 +13,17 @@ from sqlalchemy import select
 
 from . import db
 from .matching.scorer import matches_location
-from .models import Company, Contact, Job
+from .models import Company, Contact, Job, company_key
 from .outreach.policy import best_contact
 
 log = logging.getLogger(__name__)
 
 COLUMNS = [
     "score",
+    # Scored on its title alone: the description is missing or a stub, so the
+    # years-of-experience rule had nothing to read. Shown next to the score so
+    # it is read with it. See STUB_DESCRIPTION_CHARS.
+    "unverified",
     "company",
     "title",
     "seniority",
@@ -37,7 +41,17 @@ COLUMNS = [
     "discovery_method",
     "why",
     "source",
+    # With --collapse: how many postings this row stands for, and where the others are.
+    "postings",
+    "other_locations",
 ]
+
+
+# Measured 2026-11-27 on the 5,014 jobs scoring 50+: the median description is
+# 905 characters and 86% state no years requirement at all, so neither "short"
+# (under 1,500: 84% of rows) nor "no years stated" makes a useful flag. Under
+# 300 characters there is nothing to check: 436 rows, 9%.
+STUB_DESCRIPTION_CHARS = 300
 
 
 def _why(job: Job) -> str:
@@ -54,8 +68,14 @@ def collect_rows(
     since=None,
     posted_within=None,
     location: list[str] | None = None,
+    collapse: bool = False,
 ) -> list[dict]:
     """Build export rows. Kept separate from writing so it is testable.
+
+    ``collapse`` folds one company's postings of the same role into one row,
+    the best-scoring, with a count and the other locations: Bjak lists "Applied
+    AI Engineer" once per country, 23 times, and agencies on Shine repost one
+    title with a different list of cities each time.
 
     ``since`` filters on when *we* first saw a posting; ``posted_within`` on when
     the company published it. Both are useful and they are not the same question:
@@ -102,6 +122,7 @@ def collect_rows(
             rows.append(
                 {
                     "score": job.fit_score,
+                    "unverified": len((job.description or "").strip()) < STUB_DESCRIPTION_CHARS,
                     "company": company.name,
                     "title": job.title,
                     "seniority": job.seniority,
@@ -119,12 +140,38 @@ def collect_rows(
                     "discovery_method": contact.discovery_method if contact else None,
                     "why": _why(job),
                     "source": job.source,
+                    "postings": 1,
+                    "other_locations": None,
+                    "_role": (company_key(company.name), job.canonical_title or job.title.lower()),
                 }
             )
-            # After the location filter, so --limit N with --location still gives N.
-            if limit and len(rows) >= limit:
-                break
-    return rows
+    if collapse:
+        rows = _collapse(rows)
+    # Verified before unverified at the same score: the same number means less
+    # when the experience check never ran.
+    rows.sort(key=lambda r: (-(r["score"] or 0), r["unverified"]))
+    for row in rows:
+        del row["_role"]
+    # After filtering and collapsing, so --limit N still gives N.
+    return rows[:limit] if limit else rows
+
+
+def _collapse(rows: list[dict]) -> list[dict]:
+    """One row per (company, role); rows arrive best score first, so the first is kept."""
+    kept: dict[tuple, dict] = {}
+    for row in rows:
+        first = kept.setdefault(row["_role"], row)
+        if first is not row:
+            first["postings"] += 1
+            if row["location"] and row["location"] != first["location"]:
+                others = (
+                    (first["other_locations"] or "").split(" | ")
+                    if first["other_locations"]
+                    else []
+                )
+                if row["location"] not in others:
+                    first["other_locations"] = " | ".join([*others, row["location"]])
+    return list(kept.values())
 
 
 def _naive_utc(value):
@@ -141,6 +188,7 @@ def export(
     since=None,
     posted_within=None,
     location: list[str] | None = None,
+    collapse: bool = False,
 ) -> int:
     """Write CSV or XLSX depending on the suffix. Returns the row count."""
     target = Path(path)
@@ -153,6 +201,7 @@ def export(
         since=since,
         posted_within=posted_within,
         location=location,
+        collapse=collapse,
     )
     # Naive UTC throughout: Excel refuses timezone-aware datetimes, and the CSV
     # keeps the same "2026-10-15 05:53:48" text it always had.

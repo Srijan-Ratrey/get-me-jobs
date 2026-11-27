@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .config import Target, settings
 from .models import (
+    Application,
     Base,
     Company,
     Contact,
@@ -62,8 +63,10 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
 # uniqueness that stops a person being mailed twice about one job would hold on
 # a fresh database and silently not hold on the existing one. SQLite takes
 # CREATE UNIQUE INDEX without rewriting the table, so it can be added in place.
-_ADDED_INDEXES: tuple[tuple[str, str, str], ...] = (
-    ("outreach", "uq_outreach_job_contact", "(job_id, contact_id)"),
+# (table, index name, columns, unique)
+_ADDED_INDEXES: tuple[tuple[str, str, str, bool], ...] = (
+    ("outreach", "uq_outreach_job_contact", "(job_id, contact_id)", True),
+    ("jobs", "ix_jobs_url", "(url)", False),
 )
 
 
@@ -88,14 +91,15 @@ def _add_missing_indexes(engine) -> None:
     outreach exists and the caller needs to look, not that the upgrade failed.
     """
     inspector = inspect(engine)
-    for table, name, definition in _ADDED_INDEXES:
+    for table, name, definition, unique in _ADDED_INDEXES:
         if table not in inspector.get_table_names():
             continue
         if name in {i["name"] for i in inspector.get_indexes(table)}:
             continue
         log.info("adding index %s on %s to an existing database", name, table)
         with engine.begin() as conn:
-            conn.execute(text(f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {table} {definition}"))
+            kind = "UNIQUE INDEX" if unique else "INDEX"
+            conn.execute(text(f"CREATE {kind} IF NOT EXISTS {name} ON {table} {definition}"))
 
 
 @contextmanager
@@ -132,6 +136,22 @@ def upsert_job(s: Session, company: Company, raw: RawJob) -> tuple[Job, bool]:
     """Insert or refresh a job. Returns (job, is_new)."""
     content_hash = raw.compute_hash(company.name)
     job = s.scalar(select(Job).where(Job.content_hash == content_hash))
+    if job is None:
+        # The hash includes location, and two sources write one place two ways:
+        # Zoho's "Bangalore North | Karnataka | India" is FreeHire's "Bangalore
+        # North, India". Same company, URL and title is one posting. Not the URL
+        # alone: a careers page listing several roles gives them all its own URL.
+        # Exact URL match: some sites keep the job id in the query string.
+        job = s.scalar(
+            select(Job)
+            .where(
+                Job.company_id == company.id,
+                Job.url == raw.url,
+                Job.canonical_title == raw.canonical_title(),
+            )
+            .order_by(Job.id)
+            .limit(1)
+        )
     if job is not None:
         job.last_seen = utcnow()
         job.closed_at = None  # reappeared -> reopen
@@ -157,6 +177,50 @@ def upsert_job(s: Session, company: Company, raw: RawJob) -> tuple[Job, bool]:
     s.add(job)
     s.flush()
     return job, True
+
+
+def merge_duplicate_urls(s: Session) -> int:
+    """Collapse one company's rows that share a URL and title. Returns how many went.
+
+    For rows stored before upsert_job matched on URL. The survivor is the row
+    an application points at, else a direct-board row over a FreeHire one, else
+    one with a description, else the oldest. It keeps the earliest first_seen,
+    the latest last_seen, any description, and is open if any copy was.
+    """
+    referenced = set(s.scalars(select(Application.job_id)))
+    groups = s.execute(
+        select(Job.company_id, Job.url, Job.canonical_title)
+        .group_by(Job.company_id, Job.url, Job.canonical_title)
+        .having(func.count() > 1)
+    ).all()
+    removed = 0
+    for company_id, url, title in groups:
+        rows = s.scalars(
+            select(Job).where(
+                Job.company_id == company_id, Job.url == url, Job.canonical_title == title
+            )
+        ).all()
+        keep = min(
+            rows,
+            key=lambda j: (
+                j.id not in referenced,
+                (j.source or "").startswith("freehire"),
+                not j.description,
+                j.id,
+            ),
+        )
+        for other in rows:
+            if other is keep or other.id in referenced:
+                continue
+            keep.first_seen = min(keep.first_seen, other.first_seen)
+            keep.last_seen = max(keep.last_seen, other.last_seen)
+            keep.description = keep.description or other.description
+            if other.closed_at is None:
+                keep.closed_at = None
+            s.delete(other)
+            removed += 1
+    s.flush()
+    return removed
 
 
 def close_stale_jobs(s: Session, company: Company, seen_hashes: set[str]) -> int:

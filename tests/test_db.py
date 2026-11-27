@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timezone
 
 import pytest
+from sqlalchemy import select
 
 from jobhunter import db
 from jobhunter.config import Target
@@ -382,3 +383,106 @@ def test_run_starts_before_the_jobs_it_records(session):
     assert cutoff <= job.first_seen, (
         "the run must start before the jobs it reports, or --since last-scan hides them"
     )
+
+
+def test_the_same_url_from_two_sources_is_one_job_even_when_locations_differ(session):
+    """Zoho and FreeHire spell one place two ways; the hash includes location."""
+    acme = db.upsert_company(session, Target(name="Acme"))
+    url = "https://acme.zohorecruit.com/jobs/Careers/1"
+    first, new1 = db.upsert_job(
+        session,
+        acme,
+        raw(
+            "Junior AI Engineer",
+            "Bangalore North | Karnataka | India",
+            url=url,
+            source="zoho_recruit",
+        ),
+    )
+    second, new2 = db.upsert_job(
+        session,
+        acme,
+        raw("Junior AI Engineer", "Bangalore North, India", url=url, source="freehire:zohorecruit"),
+    )
+    assert new1 and not new2 and second.id == first.id
+
+
+def test_merge_duplicate_urls_keeps_the_best_row_and_its_history(session):
+    from datetime import timedelta
+
+    from jobhunter.models import Application
+
+    acme = db.upsert_company(session, Target(name="Acme"))
+    url = "https://acme/jobs/1"
+    feed = Job(
+        company_id=acme.id,
+        source="freehire:naukri",
+        title="ML Engineer",
+        canonical_title="ml engineer",
+        location="Bengaluru, India",
+        url=url,
+        content_hash="a",
+        description="Full text",
+    )
+    board = Job(
+        company_id=acme.id,
+        source="greenhouse",
+        title="ML Engineer",
+        canonical_title="ml engineer",
+        location="Bengaluru",
+        url=url,
+        content_hash="b",
+    )
+    other = Job(
+        company_id=acme.id,
+        source="greenhouse",
+        title="Data Scientist",
+        canonical_title="data scientist",
+        location="Bengaluru",
+        url="https://acme/jobs/2",
+        content_hash="c",
+    )
+    session.add_all([feed, board, other])
+    session.flush()
+    feed.first_seen = board.first_seen - timedelta(days=5)
+    applied = Job(
+        company_id=acme.id,
+        source="freehire:shine",
+        title="Analyst",
+        canonical_title="analyst",
+        location="Pune",
+        url="https://acme/jobs/3",
+        content_hash="d",
+    )
+    twin = Job(
+        company_id=acme.id,
+        source="lever",
+        title="Analyst",
+        canonical_title="analyst",
+        location="Pune, IN",
+        url="https://acme/jobs/3",
+        content_hash="e",
+    )
+    session.add_all([applied, twin])
+    session.flush()
+    session.add(Application(job_id=applied.id, status="submitted"))
+    session.flush()
+
+    assert db.merge_duplicate_urls(session) == 2
+    survivors = {j.url: j for j in session.scalars(select(Job))}
+    kept = survivors[url]
+    assert kept.source == "greenhouse"  # the board's row, not the feed's
+    assert kept.description == "Full text"  # but the feed's description
+    assert kept.first_seen == feed.first_seen
+    assert survivors["https://acme/jobs/3"].id == applied.id  # an application pins its row
+    assert "https://acme/jobs/2" in survivors
+    assert db.merge_duplicate_urls(session) == 0
+
+
+def test_one_careers_page_url_for_several_roles_does_not_merge_them(session):
+    """A careers page listing roles inline gives every posting the page's URL."""
+    acme = db.upsert_company(session, Target(name="Acme"))
+    page = "https://acme.com/careers"
+    a, _ = db.upsert_job(session, acme, raw("Data Scientist", url=page, source="careers_page"))
+    b, new = db.upsert_job(session, acme, raw("ML Engineer", url=page, source="careers_page"))
+    assert new and a.id != b.id
