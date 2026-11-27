@@ -182,7 +182,8 @@ class Job(Base):
     location: Mapped[str | None] = mapped_column(String(255))
     remote: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[str | None] = mapped_column(Text)
-    url: Mapped[str] = mapped_column(String(1000))
+    # Indexed: upsert_job looks a posting up by URL when its hash misses.
+    url: Mapped[str] = mapped_column(String(1000), index=True)
     posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
 
